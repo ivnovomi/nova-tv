@@ -60,6 +60,14 @@ export const updates = {
   start() {
     if (!inTauri || started) return;
     started = true;
+    // "Más tarde" pressed in the start-up window: not announced again this time.
+    try {
+      const later = localStorage.getItem("nova.update.later");
+      if (later) {
+        localStorage.removeItem("nova.update.later");
+        set({ later });
+      }
+    } catch {}
     api.updatesStatus().then((status) => set({ status }), () => {});
     void listen<UpdateStatus>("update-status", ({ payload }) => set({ status: payload }));
     void listen<{ downloaded: number; total: number | null }>("update-progress", ({ payload }) => {

@@ -134,7 +134,9 @@ pub fn spawn_checker(app: AppHandle) {
         std::thread::sleep(FIRST_CHECK);
         loop {
             let off = app.state::<AppState>().config.snapshot().updates.auto_check_off;
-            if !off {
+            // The start-up window may have just looked: don't ask again so soon.
+            let recent = app.state::<Updates>().checked_at.lock().ok().and_then(|c| *c).is_some_and(|t| now_secs().saturating_sub(t) < 600);
+            if !off && !recent {
                 tauri::async_runtime::block_on(check(&app));
             }
             std::thread::sleep(EVERY);

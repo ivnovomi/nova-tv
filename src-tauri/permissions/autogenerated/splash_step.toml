@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-splash-step"
+description = "Enables the splash_step command without any pre-configured scope."
+commands.allow = ["splash_step"]
+
+[[permission]]
+identifier = "deny-splash-step"
+description = "Denies the splash_step command without any pre-configured scope."
+commands.deny = ["splash_step"]

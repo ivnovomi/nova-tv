@@ -12,7 +12,23 @@
   "app": {
     "windows": [
       {
+        "label": "splash",
+        "title": "NOVA TV",
+        "url": "splash.html",
+        "width": 560,
+        "height": 420,
+        "resizable": false,
+        "maximizable": false,
+        "decorations": false,
+        "shadow": true,
+        "center": true,
+        "focus": true,
+        "backgroundColor": "#05070f",
+        "useHttpsScheme": true
+      },
+      {
         "label": "main",
+        "create": false,
         "title": "NOVA TV",
         "width": 1600,
         "height": 900,

@@ -13,6 +13,8 @@ fn main() {
             "parental_catalog",
             "sources_status",
             "sources_probe",
+            "splash_step",
+            "splash_done",
             "power_info",
             "power_action",
             "power_timer",

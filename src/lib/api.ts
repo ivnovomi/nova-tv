@@ -103,6 +103,10 @@ export const api = {
   twitchLive: () => call<TwitchLive[]>("twitch_live"),
   twitchPlay: (login: string, name: string) => call<void>("twitch_play", { login, name }),
 
+  /** Start-up window: one step ("profiles" | "channels" | "library"), then open NOVA. */
+  splashStep: (step: string) => call<string>("splash_step", { step }),
+  splashDone: () => call<void>("splash_done"),
+
   powerInfo: () => call<PowerInfo>("power_info"),
   powerAction: (action: PowerAction) => call<void>("power_action", { action }),
   /** Sleep timer in minutes (1–240), or null to cancel. */

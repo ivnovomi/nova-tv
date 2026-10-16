@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-splash-done"
+description = "Enables the splash_done command without any pre-configured scope."
+commands.allow = ["splash_done"]
+
+[[permission]]
+identifier = "deny-splash-done"
+description = "Denies the splash_done command without any pre-configured scope."
+commands.deny = ["splash_done"]

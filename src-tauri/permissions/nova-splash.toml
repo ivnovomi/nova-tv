@@ -1,0 +1,11 @@
+[[set]]
+identifier = "nova-splash"
+description = "The start-up window: look for and install updates, run the start-up steps, open NOVA."
+permissions = [
+  "allow-updates-status",
+  "allow-updates-check",
+  "allow-updates-skip",
+  "allow-updates-install",
+  "allow-splash-step",
+  "allow-splash-done",
+]

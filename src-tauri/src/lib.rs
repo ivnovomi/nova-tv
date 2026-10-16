@@ -15,6 +15,7 @@ mod remote;
 mod search;
 mod session;
 mod sources;
+mod splash;
 mod twitch;
 mod updates;
 
@@ -118,6 +119,8 @@ pub fn run() {
             history::play_youtube,
             sources::sources_status,
             sources::sources_probe,
+            splash::splash_step,
+            splash::splash_done,
             power::power_info,
             power::power_action,
             power::power_timer,
