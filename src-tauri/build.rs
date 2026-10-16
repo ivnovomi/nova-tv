@@ -11,6 +11,8 @@ fn main() {
             "remove_shortcut",
             "launch_shortcut",
             "parental_catalog",
+            "sources_status",
+            "sources_probe",
             "twitch_live",
             "twitch_play",
             "profiles_get",

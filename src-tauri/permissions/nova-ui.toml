@@ -9,6 +9,8 @@ permissions = [
   "allow-remove-shortcut",
   "allow-launch-shortcut",
   "allow-parental-catalog",
+  "allow-sources-status",
+  "allow-sources-probe",
   "allow-twitch-live",
   "allow-twitch-play",
   "allow-profiles-get",

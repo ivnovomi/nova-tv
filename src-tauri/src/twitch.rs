@@ -230,6 +230,11 @@ pub fn guide() -> HashMap<String, Vec<Program>> {
         .collect()
 }
 
+/// "Estado de las fuentes": does Twitch's public API answer right now?
+pub fn probe() -> Result<(), String> {
+    request("query{streams(first:1){edges{node{id}}}}").map(|_| ())
+}
+
 /// Signal check for a Twitch channel: is the stream still live?
 pub fn is_live(agent: &ureq::Agent, login: &str) -> Option<bool> {
     if !valid_login(login) {

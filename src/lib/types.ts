@@ -10,6 +10,29 @@ export type Target =
   | { type: "packaged"; aumid: string }
   | { type: "uri"; uri: string };
 
+/** Ajustes → Estado de las fuentes: what NOVA knows about one source. */
+export interface SourceStatus {
+  key: string;
+  name: string;
+  role: string;
+  enabled: boolean;
+  channels: number | null;
+  ok: number;
+  dead: number;
+  blocked: number;
+  updatedAt: number | null;
+  error: string | null;
+}
+
+/** A live check of one server. */
+export interface SourceProbe {
+  key: string;
+  name: string;
+  ok: boolean;
+  ms: number;
+  detail: string;
+}
+
 /** A Twitch live stream suitable for everyone (no content labels). */
 export interface TwitchLive {
   login: string;

@@ -10,6 +10,8 @@ import type {
   ProfileInput,
   ProfilesInfo,
   TwitchLive,
+  SourceProbe,
+  SourceStatus,
   GameMeta,
   FeedItem,
   NowPlaying,
@@ -93,6 +95,8 @@ export const api = {
   livetvHealth: () => call<{ map: Record<string, HealthEntry>; progress: HealthProgress }>("livetv_health"),
   livetvReport: (id: string, ok: boolean, blocked: boolean, stream: number) => call<void>("livetv_report", { id, ok, blocked, stream }),
   playYoutube: (videoId: string, position?: number) => call<void>("play_youtube", { videoId, position }),
+  sourcesStatus: () => call<SourceStatus[]>("sources_status"),
+  sourcesProbe: () => call<SourceProbe[]>("sources_probe"),
   twitchLive: () => call<TwitchLive[]>("twitch_live"),
   twitchPlay: (login: string, name: string) => call<void>("twitch_play", { login, name }),
 

@@ -12,6 +12,7 @@ mod profiles;
 mod remote;
 mod search;
 mod session;
+mod sources;
 mod twitch;
 
 use commands::{applications, media, system};
@@ -108,6 +109,8 @@ pub fn run() {
             history::history_clear,
             history::youtube_feed,
             history::play_youtube,
+            sources::sources_status,
+            sources::sources_probe,
             twitch::twitch_live,
             twitch::twitch_play,
             history::player_report,

@@ -199,6 +199,11 @@ pub fn channels(tv: &LiveTv) -> (Vec<Channel>, Option<String>) {
     }
 }
 
+/// "Estado de las fuentes": can a fresh session be started right now? Returns the region.
+pub fn probe() -> Result<String, String> {
+    session(true).map(|s| s.region)
+}
+
 // ───────────────────────── Guide ─────────────────────────
 
 /// Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).

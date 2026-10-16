@@ -1,7 +1,8 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as autostartEnabled } from "@tauri-apps/plugin-autostart";
-import { Info, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
+import { Activity, Info, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
+import { SourcesStatus } from "./SourcesStatus";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
 import { KidsLock, ProfilesSettings, UnlockedBanner } from "./ProfilesSettings";
 import { ambient, useAmbient, useClearAmbient } from "../app/ambient";
@@ -23,7 +24,7 @@ export function startsOnTv() {
   return readPref(START_TV_PREF, true);
 }
 
-type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "privacy" | "system" | "about";
+type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "sources" | "privacy" | "system" | "about";
 
 const SECTIONS: { id: SectionId; label: string; icon: ComponentType<LucideProps> }[] = [
   { id: "profiles", label: "Perfiles y control parental", icon: Users },
@@ -31,6 +32,7 @@ const SECTIONS: { id: SectionId; label: string; icon: ComponentType<LucideProps>
   { id: "startup", label: "Inicio y energía", icon: Power },
   { id: "remote", label: "Mando del móvil", icon: Smartphone },
   { id: "tv", label: "TV en directo", icon: RadioTower },
+  { id: "sources", label: "Estado de las fuentes", icon: Activity },
   { id: "privacy", label: "Privacidad y datos", icon: Shield },
   { id: "system", label: "Este equipo", icon: Monitor },
   { id: "about", label: "Acerca de NOVA", icon: Info },
@@ -396,6 +398,11 @@ export function SettingsScreen() {
             </Section>
           )}
           {section === "tv" && <TvSettings key="t" />}
+          {section === "sources" && (
+            <Section key="src" title="Estado de las fuentes" description="De dónde vienen los canales, la guía y los datos, y si funcionan ahora mismo.">
+              <SourcesStatus />
+            </Section>
+          )}
           {section === "privacy" && <Privacy key="p" />}
           {section === "system" && (
             <Section key="y" title="Este equipo" description="Datos reales de Windows, volumen y accesos a su configuración.">

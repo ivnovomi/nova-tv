@@ -12,14 +12,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-const TDT_CHANNELS: &str = "https://www.tdtchannels.com/lists/tv.json";
-const TDT_EPG: &str = "https://www.tdtchannels.com/epg/TV.json";
+pub(crate) const TDT_CHANNELS: &str = "https://www.tdtchannels.com/lists/tv.json";
+pub(crate) const TDT_EPG: &str = "https://www.tdtchannels.com/epg/TV.json";
 const CHANNELS_TTL: u64 = 12 * 3600;
 const EPG_TTL: u64 = 3 * 3600;
 const CUSTOM_FIRST_NUMBER: u32 = 1001;
 const WORLD_FIRST_NUMBER: u32 = 5001;
 const WORLD_TTL: u64 = 24 * 3600;
-const IPTV_ORG: &str = "https://iptv-org.github.io/api";
+pub(crate) const IPTV_ORG: &str = "https://iptv-org.github.io/api";
 
 /// Where a channel comes from.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -116,11 +116,32 @@ pub struct LiveTv {
     epg: Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>,
     /// Last full channel list, for the phone remote.
     all: Mutex<Option<Vec<Channel>>>,
+    /// Last error of each source ("tdt", "world", "pluto", "twitch", "epg"), for Ajustes → Estado de las fuentes.
+    pub(crate) errors: Mutex<HashMap<&'static str, String>>,
 }
 
 impl LiveTv {
     pub fn new(dir: &Path) -> Self {
-        Self { dir: dir.join("livetv"), epg: Mutex::new(None), all: Mutex::new(None) }
+        Self { dir: dir.join("livetv"), epg: Mutex::new(None), all: Mutex::new(None), errors: Mutex::new(HashMap::new()) }
+    }
+
+    /// When a cached list was last downloaded (Unix seconds), from the file itself.
+    pub(crate) fn cached_at(&self, name: &str) -> Option<u64> {
+        let modified = fs::metadata(self.dir.join(name)).ok()?.modified().ok()?;
+        modified.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
+    }
+
+    fn note_error(&self, source: &'static str, error: &Option<String>) {
+        if let Ok(mut e) = self.errors.lock() {
+            match error {
+                Some(msg) => e.insert(source, msg.clone()),
+                None => e.remove(source),
+            };
+        }
+    }
+
+    pub(crate) fn channels_now(&self) -> Vec<Channel> {
+        self.all.lock().ok().and_then(|a| a.clone()).unwrap_or_default()
     }
 
     pub(crate) fn read<T: for<'de> Deserialize<'de>>(&self, name: &str) -> Option<Cached<T>> {
@@ -598,6 +619,10 @@ fn collect(app: &AppHandle) -> Collected {
     channels.extend(twitch);
     channels.extend(world);
     stable_numbers(&tv, &mut channels);
+    tv.note_error("tdt", &tdt_error);
+    tv.note_error("world", &world_error);
+    tv.note_error("pluto", &fast_error);
+    tv.note_error("twitch", &twitch_error);
     if let Ok(mut all) = tv.all.lock() {
         *all = Some(channels.clone());
     }
@@ -706,6 +731,7 @@ pub async fn livetv_epg(app: AppHandle) -> Result<HashMap<String, Vec<Program>>,
         let fresh = get_text(TDT_EPG)
             .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).map_err(|e| e.to_string()))
             .map(|json| parse_epg(&json));
+        tv.note_error("epg", &fresh.as_ref().err().cloned());
         let mut epg = match fresh {
             Ok(epg) => {
                 tv.write("epg.json", &epg);
