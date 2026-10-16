@@ -83,6 +83,7 @@ Está pensado para el sofá: se maneja entero con un mando de consola, el teclad
 | 🔎 **Búsqueda global** | Canales, apps, juegos, vídeos y archivos del PC en un solo sitio. |
 | 🎵 **Ahora suena** | Lo que se reproduce en Windows (Spotify, el navegador…), con controles. |
 | ✨ **Arranque de tele** | Animación y sonido de inicio sintetizado, mientras sintoniza de verdad. |
+| ⬇️ **Se actualiza sola** | Avisa de cada versión nueva con sus novedades y se instala cuando tú lo pides, firmada y comprobada. |
 
 ## Descarga
 
@@ -137,11 +138,25 @@ npm install
 npm run tauri dev
 ```
 
-Instalador (NSIS), que se genera en `src-tauri/target/release/bundle/nsis/`:
+Ejecutable sin instalador (lo que usa el acceso directo de desarrollo, `scripts/launch-nova.ps1`):
 
 ```bash
-npm run tauri build
+npm run tauri build -- --no-bundle
 ```
+
+### Publicar una versión
+
+NOVA busca versiones nuevas en los Releases de [`ivnovomi/nova-tv-releases`](https://github.com/ivnovomi/nova-tv-releases) (un `latest.json` y el instalador NSIS firmado) y las ofrece en su propia ventana de actualización. Solo instala una si su firma coincide con la clave pública de `tauri.conf.json`.
+
+1. Sube la versión en `package.json`, `src-tauri/Cargo.toml` y `src-tauri/tauri.conf.json`.
+2. Escribe las novedades en Markdown: son las que se ven en la ventana de NOVA.
+3. Compila, firma y publica:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Notes notas.md
+```
+
+La clave privada de firma está en `~/.tauri/nova-tv.key`, fuera del repositorio. Guarda una copia: sin ella no se pueden publicar actualizaciones para las copias ya instaladas.
 
 Tests de Rust (los que necesitan internet están marcados como `ignored`):
 

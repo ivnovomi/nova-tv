@@ -18,6 +18,8 @@ import { FULLSCREEN_PREF, SettingsScreen, startsOnTv } from "./features/Settings
 import { BootSplash } from "./components/BootSplash";
 import { ProfilePicker } from "./components/ProfilePicker";
 import { profiles, useProfiles } from "./app/profiles";
+import { updates } from "./app/updates";
+import { UpdateNotice, UpdateWindows } from "./features/Updates";
 import { useRemoteBridge } from "./app/useRemoteBridge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { liveTv, useLiveTv } from "./features/livetv/store";
@@ -374,6 +376,8 @@ function Shell() {
     return () => void off.then((f) => f());
   }, [reload, loadHistory, loadFeed, show]);
 
+  useEffect(() => updates.start(), []);
+
   const pickerDone = () => {
     const boot = picking === "boot";
     setPicking(null);
@@ -499,6 +503,10 @@ function Shell() {
           />
         )}
       </AnimatePresence>
+
+      {/* Announced only in NOVA's own menus, never over the TV, a game or the start-up. */}
+      <UpdateNotice hidden={booting || !!picking || tvOn || gaming} />
+      {!booting && !picking && !tvOn && !gaming && <UpdateWindows />}
 
       <AnimatePresence>
         {dialog?.type === "add-exe" && (

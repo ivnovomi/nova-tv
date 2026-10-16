@@ -33,6 +33,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -40,5 +41,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM4MTEzQTE2MDVGRkZDOEQKUldTTi9QOEZGam9ST0hBZFAzNlZZVFpBWTJ2MytnWklJb0FHbm1HcitlK1d4TXBtd0orRGo3MkUK",
+      "endpoints": ["https://github.com/ivnovomi/nova-tv-releases/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
   }
 }

@@ -138,6 +138,20 @@ pub struct Config {
     pub active_profile: Option<String>,
     #[serde(default)]
     pub parental: ParentalConfig,
+    #[serde(default)]
+    pub updates: UpdatesConfig,
+}
+
+/// Ajustes → Actualizaciones. NOVA looks for new versions by itself unless
+/// turned off, but never installs one without being asked.
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatesConfig {
+    #[serde(default)]
+    pub auto_check_off: bool,
+    /// "Omitir esta versión": not announced again (a newer one will be).
+    #[serde(default)]
+    pub skipped: Option<String>,
 }
 
 /// Someone who watches NOVA: their favourites, last channel and, for children,

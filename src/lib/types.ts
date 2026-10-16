@@ -301,6 +301,26 @@ export interface FeedItem {
   thumbnail: string;
 }
 
+export interface UpdateInfo {
+  version: string;
+  /** Release notes (Markdown). */
+  notes: string | null;
+  /** ISO 8601. */
+  date: string | null;
+}
+
+export interface UpdateStatus {
+  current: string;
+  available: UpdateInfo | null;
+  /** Unix seconds of the last check that got an answer. */
+  checkedAt: number | null;
+  error: string | null;
+  checking: boolean;
+  installing: boolean;
+  autoCheck: boolean;
+  skipped: string | null;
+}
+
 export interface PadInfo {
   id: number;
   name: string;

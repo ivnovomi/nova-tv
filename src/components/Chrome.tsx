@@ -6,6 +6,7 @@ import { formatDate, formatTime, useClock } from "../hooks/useClock";
 import { useNowPlaying } from "../hooks/useLiveData";
 import { useActiveProfile } from "../app/profiles";
 import { Avatar } from "./ProfilePicker";
+import { UpdateChip } from "../features/Updates";
 
 export function Wordmark() {
   return (
@@ -109,6 +110,7 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
       </nav>
       <div className="ml-auto flex items-center gap-4">
         <NowPlayingChip />
+        <UpdateChip />
         <button
           data-nav
           data-nav-tab="search"

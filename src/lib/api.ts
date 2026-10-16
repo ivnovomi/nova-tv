@@ -27,6 +27,7 @@ import type {
   ShortcutKind,
   SystemInfo,
   SystemStats,
+  UpdateStatus,
   VolumeState,
 } from "./types";
 
@@ -99,6 +100,13 @@ export const api = {
   sourcesProbe: () => call<SourceProbe[]>("sources_probe"),
   twitchLive: () => call<TwitchLive[]>("twitch_live"),
   twitchPlay: (login: string, name: string) => call<void>("twitch_play", { login, name }),
+
+  updatesStatus: () => call<UpdateStatus>("updates_status"),
+  updatesCheck: () => call<UpdateStatus>("updates_check"),
+  updatesSetAuto: (enabled: boolean) => call<UpdateStatus>("updates_set_auto", { enabled }),
+  updatesSkip: (version: string | null) => call<UpdateStatus>("updates_skip", { version }),
+  /** Downloads, verifies and runs the installer (NOVA closes and reopens updated). */
+  updatesInstall: () => call<void>("updates_install"),
 
   profilesGet: () => call<ProfilesInfo>("profiles_get"),
   profileSave: (input: ProfileInput) => call<ProfilesInfo>("profile_save", { input }),

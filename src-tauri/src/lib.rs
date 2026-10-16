@@ -14,6 +14,7 @@ mod search;
 mod session;
 mod sources;
 mod twitch;
+mod updates;
 
 use commands::{applications, media, system};
 use std::sync::Mutex;
@@ -28,6 +29,8 @@ pub struct AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Driven only from Rust (updates.rs): the interface has no updater permissions.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // Registers nothing by itself: the user turns it on in Ajustes.
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--autostart"])))
         .plugin(
@@ -71,6 +74,8 @@ pub fn run() {
             nowplaying::spawn_watcher(app.handle().clone());
             history::spawn_flusher(app.handle().clone());
             remote::start(app.handle());
+            app.manage(updates::Updates::default());
+            updates::spawn_checker(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -111,6 +116,11 @@ pub fn run() {
             history::play_youtube,
             sources::sources_status,
             sources::sources_probe,
+            updates::updates_status,
+            updates::updates_check,
+            updates::updates_set_auto,
+            updates::updates_skip,
+            updates::updates_install,
             twitch::twitch_live,
             twitch::twitch_play,
             history::player_report,
