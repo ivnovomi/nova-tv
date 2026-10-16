@@ -2477,7 +2477,7 @@ dependencies = [
 
 [[package]]
 name = "nova-tv"
-version = "0.2.0"
+version = "0.2.1-test.1"
 dependencies = [
  "getrandom 0.4.3",
  "gilrs",
