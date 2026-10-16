@@ -344,7 +344,9 @@ function Shell() {
       if (localStorage.getItem(FULLSCREEN_PREF) === "on") void getCurrentWindow().setFullscreen(true).catch(() => {});
     } catch {}
   }, []);
-  const { open: tvOn } = useLiveTv();
+  const { open: tvOn, pip: tvPip } = useLiveTv();
+  // Full-screen TV hides NOVA's windows; the mini player in a corner doesn't.
+  const tvFull = tvOn && !tvPip;
   const [booting, setBooting] = useState(true);
   useRemoteBridge({ library, screen, launch, playVideo });
 
@@ -521,8 +523,8 @@ function Shell() {
       <PowerLayer />
 
       {/* Announced only in NOVA's own menus, never over the TV, a game or the start-up. */}
-      <UpdateNotice hidden={booting || !!picking || tvOn || gaming} />
-      {!booting && !picking && !tvOn && !gaming && <UpdateWindows />}
+      <UpdateNotice hidden={booting || !!picking || tvFull || gaming} raised={tvOn && tvPip} />
+      {!booting && !picking && !tvFull && !gaming && <UpdateWindows />}
 
       <AnimatePresence>
         {dialog?.type === "add-exe" && (

@@ -382,7 +382,7 @@ export function UpdateChip() {
  * A new version was found: a card slides in for a few seconds (it doesn't take
  * the focus, so it never interrupts). The chip in the top bar stays.
  */
-export function UpdateNotice({ hidden }: { hidden: boolean }) {
+export function UpdateNotice({ hidden, raised = false }: { hidden: boolean; /** Above the TV mini player. */ raised?: boolean }) {
   const s = useUpdates();
   const update = offered(s);
   const canInstall = useCanInstall();
@@ -407,7 +407,7 @@ export function UpdateNotice({ hidden }: { hidden: boolean }) {
         <motion.div
           key="notice"
           role="status"
-          className="pointer-events-none fixed bottom-24 right-[var(--gutter)] z-50 flex w-[32rem] items-center gap-5 overflow-hidden rounded-[var(--radius-card)] border border-line-strong bg-[linear-gradient(150deg,rgb(24_34_77/0.95),rgb(11_17_36/0.97))] p-5 shadow-[0_2rem_5rem_-1rem_rgb(0_0_0/0.8)] backdrop-blur"
+          className={`pointer-events-none fixed ${raised ? "bottom-[20.5rem]" : "bottom-24"} right-[var(--gutter)] z-50 flex w-[32rem] items-center gap-5 overflow-hidden rounded-[var(--radius-card)] border border-line-strong bg-[linear-gradient(150deg,rgb(24_34_77/0.95),rgb(11_17_36/0.97))] p-5 shadow-[0_2rem_5rem_-1rem_rgb(0_0_0/0.8)] backdrop-blur`}
           initial={{ opacity: 0, x: 60 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 60, transition: { duration: 0.25 } }}
