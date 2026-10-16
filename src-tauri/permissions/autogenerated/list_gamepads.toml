@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-gamepads"
+description = "Enables the list_gamepads command without any pre-configured scope."
+commands.allow = ["list_gamepads"]
+
+[[permission]]
+identifier = "deny-list-gamepads"
+description = "Denies the list_gamepads command without any pre-configured scope."
+commands.deny = ["list_gamepads"]

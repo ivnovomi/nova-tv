@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Nuevo · Pluto TV</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  h1 { position: absolute; top: 175px; left: 80px; right: 60px; font-size: 82px; }
+  .tiles { position: absolute; top: 430px; left: 60px; right: 60px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .tiles .art { height: 236px; }
+  .tiles .num { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; background: rgb(0 0 0 / 0.45); font-weight: 700; font-size: 18px; color: #fff; backdrop-filter: blur(8px); }
+  .tiles .num i { width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+  .list { position: absolute; top: 1000px; left: 80px; right: 80px; }
+</style>
+</head>
+<body>
+<div class="canvas post">
+  <div class="orb k" style="width:760px;height:760px;right:-320px;top:-300px;opacity:.38"></div>
+  <div class="orb v" style="width:760px;height:760px;left:-360px;top:-200px;opacity:.5"></div>
+  <div class="orb c" style="width:640px;height:640px;right:-300px;top:900px;opacity:.32"></div>
+  <div class="grain"></div>
+
+  <div class="series-head">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <span class="badge-new"><i></i>NUEVO</span>
+  </div>
+
+  <h1 class="display">Más de 100 canales<br /><span class="grad-text">gratis de Pluto TV.</span></h1>
+
+  <div class="tiles">
+    <div class="art a1"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Dibujos</span></div>
+    <div class="art a5"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Anime</span></div>
+    <div class="art a3"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Cine</span></div>
+    <div class="art a2"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Series</span></div>
+    <div class="art a6"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Reality</span></div>
+    <div class="art a4"><span class="sub num"><i></i>EN DIRECTO</span><span class="label">Crimen y misterio</span></div>
+  </div>
+
+  <ul class="bullets list">
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Gratis</b>, con anuncios, como la tele de siempre.</span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>Con <b>guía de programación</b> incluida.</span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>En la TV de NOVA, <b>del 3001 en adelante.</b></span></li>
+  </ul>
+
+  <p class="legal">Imagen ilustrativa. Canales disponibles según tu región. Pluto TV es una marca de sus respectivos propietarios; NOVA TV no está afiliada.</p>
+</div>
+</body>
+</html>

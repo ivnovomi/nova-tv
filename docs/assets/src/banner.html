@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · README banner</title>
+<link rel="stylesheet" href="../../../marketing/brand.css" />
+<style>
+  .banner { width: 1280px; height: 480px; border-radius: 0; }
+  .left { position: absolute; left: 72px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; }
+  .left .wordmark { height: 40px; }
+  .left .wordmark .tv { font-size: 15px; margin-top: -3px; }
+  h1 { margin-top: 26px; font-size: 54px; }
+  .left p { margin-top: 16px; font-size: 18px; line-height: 1.5; color: var(--ink2); max-width: 480px; }
+  .chips { display: flex; gap: 10px; margin-top: 24px; }
+  .chips span { height: 34px; padding: 0 14px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.12); font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .chips i { width: 8px; height: 8px; border-radius: 50%; background: var(--grad); box-shadow: 0 0 10px var(--cyan); }
+  .stage { position: absolute; left: 680px; top: 58px; width: 650px; transform: perspective(1800px) rotateY(-12deg) rotateX(3deg); transform-origin: left center; }
+  .stage .tvset { font-size: 9.6px; padding: 10px; border-radius: 26px; }
+  .stage .screen { border-radius: 17px; }
+  .fade { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 82%, rgb(3 5 12 / 0.55)); pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="canvas banner">
+  <div class="orb v" style="width:700px;height:700px;left:-260px;top:-360px;opacity:.55"></div>
+  <div class="orb c" style="width:560px;height:560px;left:820px;top:-260px;opacity:.38"></div>
+  <div class="orb k" style="width:480px;height:480px;left:1000px;top:260px;opacity:.25"></div>
+  <div class="grain"></div>
+
+  <div class="left">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <h1 class="display">Tu PC, como una<br /><span class="grad-text">Smart TV.</span></h1>
+    <p>TV en directo con guía, tus apps de streaming, tus juegos en modo consola y el mando en el móvil. Para Windows.</p>
+    <div class="chips"><span><i></i>+8.000 canales</span><span><i></i>Mando en el móvil</span><span><i></i>Modo Juego</span><span><i></i>Perfiles</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="tvset">
+      <div class="screen">
+        <div class="scene"></div>
+        <div class="guide">
+          <div class="hero">
+            <div class="meta"><span class="logo">DOC</span><b style="color:#fff">5</b> Documentales <span class="badge-live" style="font-size:.72em;padding:.2em .6em">● EN DIRECTO</span></div>
+            <h3>Auroras del norte</h3>
+            <div class="time">21:00 – 22:30 · Documental <span class="bar"><i></i></span></div>
+          </div>
+          <div class="panel">
+            <div class="tabs"><span>Para ti</span><span class="on">España</span><span>Pluto TV</span><span>Twitch</span><span>Noticias</span><span>Mundo</span></div>
+            <div class="ruler"><b>Hoy · 21:42</b><span>21:30</span><span>22:00</span><span>22:30</span><span>23:00</span><span>23:30</span></div>
+            <div class="rows">
+              <div class="row"><div class="ch"><em>1</em><span class="logo">N24</span>Noticias 24h</div><div class="lane"><div class="prog now" style="left:0;width:39%;--p:62%"><b>Informativo noche</b><small>21:00 – 22:15</small></div><div class="prog" style="left:39.5%;width:60%"><b>Debate de actualidad</b><small>22:15 – 00:00</small></div></div></div>
+              <div class="row sel"><div class="ch" style="color:#fff"><em>5</em><span class="logo">DOC</span>Documentales</div><div class="lane"><div class="prog focus" style="left:0;width:44%"><b>Auroras del norte</b><small>21:00 – 22:30</small></div><div class="prog" style="left:44.5%;width:55%"><b>Océanos profundos</b><small>22:30 – 00:00</small></div></div></div>
+              <div class="row"><div class="ch"><em>7</em><span class="logo">DEP</span>Deportes TV</div><div class="lane"><div class="prog now" style="left:0;width:30%;--p:80%"><b>Fútbol: directo</b><small>20:45 – 22:40</small></div><div class="prog" style="left:30.5%;width:69%"><b>Resumen de la jornada</b><small>22:40 – 00:00</small></div></div></div>
+              <div class="row"><div class="ch"><em>9</em><span class="logo">KID</span>Dibujos</div><div class="lane"><div class="prog now" style="left:0;width:24%;--p:70%"><b>Aventuras en el mar</b><small>21:15 – 22:00</small></div><div class="prog" style="left:24.5%;width:75%"><b>Los exploradores</b><small>22:00 – 22:30</small></div></div></div>
+              <span class="nowline"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fade"></div>
+</div>
+</body>
+</html>

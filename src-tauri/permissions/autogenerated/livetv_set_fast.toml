@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-set-fast"
+description = "Enables the livetv_set_fast command without any pre-configured scope."
+commands.allow = ["livetv_set_fast"]
+
+[[permission]]
+identifier = "deny-livetv-set-fast"
+description = "Denies the livetv_set_fast command without any pre-configured scope."
+commands.deny = ["livetv_set_fast"]

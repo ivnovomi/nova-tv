@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-forget-media"
+description = "Enables the forget_media command without any pre-configured scope."
+commands.allow = ["forget_media"]
+
+[[permission]]
+identifier = "deny-forget-media"
+description = "Denies the forget_media command without any pre-configured scope."
+commands.deny = ["forget_media"]

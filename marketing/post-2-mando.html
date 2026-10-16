@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Post 2 · Mando del móvil</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  .left { position: absolute; top: 120px; left: 80px; width: 500px; }
+  .left .wordmark { height: 42px; }
+  .left .wordmark .tv { font-size: 16px; margin-top: -3px; }
+  .left .eyebrow { display: block; margin-top: 70px; font-size: 21px; }
+  h1 { margin-top: 22px; font-size: 86px; }
+  ul { list-style: none; margin-top: 54px; display: flex; flex-direction: column; gap: 26px; }
+  li { display: flex; gap: 20px; align-items: flex-start; font-size: 28px; line-height: 1.32; color: var(--ink2); }
+  li b { color: var(--ink); font-weight: 700; }
+  li i { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; margin-top: -2px; }
+  li i svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .phone { position: absolute; top: 250px; right: 30px; transform: rotate(6deg) scale(0.92); transform-origin: top right; }
+  .foot { position: absolute; bottom: 64px; left: 80px; font-size: 26px; color: var(--ink3); }
+</style>
+</head>
+<body>
+<div class="canvas post">
+  <div class="orb v" style="width:760px;height:760px;right:-280px;top:-200px;opacity:.5"></div>
+  <div class="orb c" style="width:700px;height:700px;right:-200px;top:700px;opacity:.38"></div>
+  <div class="orb p" style="width:600px;height:600px;left:-340px;top:400px;opacity:.3"></div>
+  <div class="grain"></div>
+
+  <div class="left">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <span class="eyebrow">Mando del móvil</span>
+    <h1 class="display">El mando,<br /><span class="grad-text">en tu móvil.</span></h1>
+    <ul>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Escaneas el QR y listo.</b> Sin apps, sin cuentas.</span></li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Cambia de canal</b>, abre la guía o busca.</span></li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Escribe desde el móvil</b> y envía vídeos a la tele.</span></li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Funciona en cualquier móvil</b>, iPhone o Android.</span></li>
+    </ul>
+  </div>
+
+  <div class="phone">
+    <div class="scr">
+      <span class="notch"></span>
+      <div class="head">
+        <svg viewBox="0 0 176 40" style="height:16px;width:auto"><g fill="none" stroke-width="5" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g></svg>
+        <span class="status"><i></i>5 · Documentales</span>
+      </div>
+      <div class="dpad">
+        <span style="top:20px;left:50%;transform:translateX(-50%)">⌃</span>
+        <span style="bottom:18px;left:50%;transform:translateX(-50%) rotate(180deg)">⌃</span>
+        <span style="left:26px;top:50%;transform:translateY(-50%) rotate(-90deg)">⌃</span>
+        <span style="right:26px;top:50%;transform:translateY(-50%) rotate(90deg)">⌃</span>
+        <div class="ok">OK</div>
+      </div>
+      <div class="keys"><div>Volver</div><div class="home">Inicio</div><div>Play</div><div>Teclado</div></div>
+      <div class="keys" style="grid-template-columns:1fr 2fr 1fr;margin-top:10px"><div>CH −</div><div>– &nbsp; Volumen &nbsp; +</div><div>CH +</div></div>
+      <div class="tabbar"><span class="on">Mando</span><span>TV</span><span>Apps</span><span>Ahora</span></div>
+    </div>
+  </div>
+
+  <p class="foot">NOVA TV · Para Windows</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-check-now"
+description = "Enables the livetv_check_now command without any pre-configured scope."
+commands.allow = ["livetv_check_now"]
+
+[[permission]]
+identifier = "deny-livetv-check-now"
+description = "Denies the livetv_check_now command without any pre-configured scope."
+commands.deny = ["livetv_check_now"]

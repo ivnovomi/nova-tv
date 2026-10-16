@@ -1,0 +1,11 @@
+/* README feature cards (1200x720): text on the left, the product on the right. */
+.feature { width: 1200px; height: 720px; border-radius: 0; }
+.feature .copy { position: absolute; left: 70px; top: 0; bottom: 0; width: 490px; display: flex; flex-direction: column; justify-content: center; }
+.feature .copy .eyebrow { font-size: 18px; color: var(--cyan); }
+.feature .copy h2 { margin-top: 18px; font-size: 54px; white-space: nowrap; }
+.feature .copy p { margin-top: 20px; font-size: 22px; line-height: 1.5; color: var(--ink2); }
+.feature .copy ul { list-style: none; margin-top: 26px; display: flex; flex-direction: column; gap: 14px; }
+.feature .copy li { display: flex; gap: 14px; align-items: center; font-size: 20px; color: var(--ink); font-weight: 500; }
+.feature .copy li i { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; }
+.feature .copy li i svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.feature .visual { position: absolute; left: 590px; right: -40px; top: 0; bottom: 0; display: grid; place-items: center; }

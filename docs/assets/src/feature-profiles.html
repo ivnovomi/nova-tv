@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Feature · Perfiles</title>
+<link rel="stylesheet" href="../../../marketing/brand.css" />
+<link rel="stylesheet" href="feature.css" />
+<style>
+  .board { width: 540px; padding: 40px 30px 34px; border-radius: 30px; background: linear-gradient(160deg, rgb(28 38 84 / 0.5), rgb(6 8 20 / 0.9)); border: 1.5px solid rgb(148 163 255 / 0.16); box-shadow: 0 40px 100px -40px rgb(0 0 0 / 0.95); text-align: center; }
+  .board .q { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 30px; }
+  .faces { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 30px; }
+  .who .face { width: 100px; height: 100px; font-size: 50px; }
+  .who .face.focus { outline-width: 4px; outline-offset: 5px; }
+  .who b { font-size: 18px; }
+  .who .kids { font-size: 13px; padding: 4px 10px; }
+  .pin { margin-top: 30px; display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-radius: 20px; background: rgb(255 255 255 / 0.05); border: 1px solid rgb(148 163 255 / 0.14); text-align: left; }
+  .pin .icon { width: 56px; height: 56px; border-radius: 18px; }
+  .pin .icon svg { width: 28px; height: 28px; }
+  .pin b { display: block; font-size: 19px; }
+  .pin span { font-size: 15px; color: var(--ink2); }
+  .dots { margin-left: auto; display: flex; gap: 8px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .dots i.off { background: rgb(255 255 255 / 0.2); }
+</style>
+</head>
+<body>
+<div class="canvas feature">
+  <div class="orb v" style="width:620px;height:620px;left:-260px;top:-280px;opacity:.5"></div>
+  <div class="orb k" style="width:560px;height:560px;right:-200px;bottom:-240px;opacity:.3"></div>
+  <div class="grain"></div>
+  <div class="copy">
+    <span class="eyebrow">Perfiles y control parental</span>
+    <h2 class="display">Cada uno<br /><span class="grad-text">con lo suyo.</span></h2>
+    <p>Favoritos, último canal e historial por persona. Y perfiles infantiles con límites que NOVA hace cumplir.</p>
+    <ul>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>Solo canales y apps aptos para niños</li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>PIN parental cifrado, con bloqueo</li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>También se aplica al mando del móvil</li>
+    </ul>
+  </div>
+  <div class="visual">
+    <div class="board">
+      <p class="q">¿Quién está viendo?</p>
+      <div class="faces">
+        <div class="who"><span class="face focus" style="background:radial-gradient(circle at 30% 25%,#6e6cff,#6e6cff99 60%,#6e6cff55)">😎</span><b>Papá</b></div>
+        <div class="who"><span class="face" style="background:radial-gradient(circle at 30% 25%,#ff5c9a,#ff5c9a99 60%,#ff5c9a55)">🦄</span><b>Mamá</b></div>
+        <div class="who"><span class="face" style="background:radial-gradient(circle at 30% 25%,#ffb547,#ffb54799 60%,#ffb54755)">🦊</span><b>Lucía</b><span class="kids">Infantil</span></div>
+        <div class="who"><span class="face" style="background:radial-gradient(circle at 30% 25%,#3ddc97,#3ddc9799 60%,#3ddc9755)">🐼</span><b>Marco</b><span class="kids">Infantil</span></div>
+      </div>
+      <div class="pin">
+        <span class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+        <div><b>PIN parental</b><span>Para salir de un perfil infantil</span></div>
+        <div class="dots"><i></i><i></i><i class="off"></i><i class="off"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

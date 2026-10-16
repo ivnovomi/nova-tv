@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Nuevo · Twitch en la TV</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  h1 { position: absolute; top: 175px; left: 80px; right: 60px; font-size: 82px; }
+  .stage { position: absolute; top: 420px; left: 50px; right: 50px; }
+  .stage .tvset { font-size: 14.6px; }
+  .scene.twitch { background:
+    radial-gradient(55% 55% at 72% 22%, rgb(145 70 255 / 0.85), transparent 70%),
+    radial-gradient(45% 45% at 88% 55%, rgb(63 213 242 / 0.5), transparent 70%),
+    linear-gradient(180deg, #160b33 0%, #1b0f45 45%, #0a0718 100%); }
+  .list { position: absolute; top: 1050px; left: 80px; right: 80px; }
+  .guide .ch em { width: 2.7em; }
+</style>
+</head>
+<body>
+<div class="canvas post">
+  <div class="orb p" style="width:820px;height:820px;left:-360px;top:-320px;opacity:.6"></div>
+  <div class="orb c" style="width:600px;height:600px;right:-300px;top:300px;opacity:.32"></div>
+  <div class="orb v" style="width:600px;height:600px;left:-240px;top:1000px;opacity:.35"></div>
+  <div class="grain"></div>
+
+  <div class="series-head">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <span class="badge-new"><i></i>NUEVO</span>
+  </div>
+
+  <h1 class="display">Twitch, ahora en<br /><span class="grad-text">la TV en directo.</span></h1>
+
+  <div class="stage">
+    <div class="tvset">
+      <div class="screen">
+        <div class="scene twitch"></div>
+        <div class="guide">
+          <div class="hero">
+            <div class="meta"><span class="logo">LP</span><b style="color:#fff">4001</b> LunaPlays · Minecraft <span class="badge-live" style="font-size:.72em;padding:.2em .6em">● EN DIRECTO</span></div>
+            <h3>Construyendo la ciudad más grande</h3>
+            <div class="time">Desde las 19:30 · 12,4 mil espectadores</div>
+          </div>
+          <div class="panel">
+            <div class="tabs"><span>Para ti</span><span>España</span><span>Pluto TV</span><span class="on">Twitch</span><span>Noticias</span><span>Deportes</span><span>Mundo</span></div>
+            <div class="ruler"><b>En directo ahora</b><span>21:30</span><span>22:00</span><span>22:30</span><span>23:00</span><span>23:30</span></div>
+            <div class="rows">
+              <div class="row sel"><div class="ch" style="color:#fff"><em>4001</em><span class="logo">LP</span>LunaPlays</div><div class="lane"><div class="prog focus" style="left:0;width:100%"><b>Construyendo la ciudad más grande · Minecraft</b><small>12,4 mil espectadores</small></div></div></div>
+              <div class="row"><div class="ch"><em>4002</em><span class="logo">PD</span>ElPintorDigital</div><div class="lane"><div class="prog now" style="left:0;width:100%;--p:55%"><b>Dibujando a vuestros personajes · Arte</b><small>3,1 mil espectadores</small></div></div></div>
+              <div class="row"><div class="ch"><em>4003</em><span class="logo">RK</span>RetroKart</div><div class="lane"><div class="prog now" style="left:0;width:100%;--p:40%"><b>Torneo de carreras con la comunidad · Carreras</b><small>2,7 mil espectadores</small></div></div></div>
+              <div class="row"><div class="ch"><em>4004</em><span class="logo">AJ</span>AjedrezConLeo</div><div class="lane"><div class="prog now" style="left:0;width:100%;--p:70%"><b>Partidas rápidas y retos · Ajedrez</b><small>1,9 mil espectadores</small></div></div></div>
+              <div class="row"><div class="ch"><em>4005</em><span class="logo">CV</span>CocinaEnVivo</div><div class="lane"><div class="prog now" style="left:0;width:100%;--p:30%"><b>Cena fácil en 20 minutos · Cocina</b><small>980 espectadores</small></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="bullets list">
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span><b>Directos en español aptos para todos.</b></span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>Como canales de la tele, <b>del 4001 en adelante.</b></span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>Zapping, guía y mando, <b>como cualquier canal.</b></span></li>
+  </ul>
+
+  <p class="legal">Imagen ilustrativa. Twitch es una marca de Twitch Interactive, Inc. NOVA TV no está afiliada a Twitch.</p>
+</div>
+</body>
+</html>

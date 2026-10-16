@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-report"
+description = "Enables the livetv_report command without any pre-configured scope."
+commands.allow = ["livetv_report"]
+
+[[permission]]
+identifier = "deny-livetv-report"
+description = "Denies the livetv_report command without any pre-configured scope."
+commands.deny = ["livetv_report"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-set-favorite"
+description = "Enables the livetv_set_favorite command without any pre-configured scope."
+commands.allow = ["livetv_set_favorite"]
+
+[[permission]]
+identifier = "deny-livetv-set-favorite"
+description = "Denies the livetv_set_favorite command without any pre-configured scope."
+commands.deny = ["livetv_set_favorite"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-remove-playlist"
+description = "Enables the livetv_remove_playlist command without any pre-configured scope."
+commands.allow = ["livetv_remove_playlist"]
+
+[[permission]]
+identifier = "deny-livetv-remove-playlist"
+description = "Denies the livetv_remove_playlist command without any pre-configured scope."
+commands.deny = ["livetv_remove_playlist"]

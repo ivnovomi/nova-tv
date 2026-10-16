@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Feature · Modo Juego</title>
+<link rel="stylesheet" href="../../../marketing/brand.css" />
+<link rel="stylesheet" href="feature.css" />
+<style>
+  .console { width: 560px; padding: 20px; border-radius: 30px; background: linear-gradient(160deg, rgb(28 38 84 / 0.6), rgb(6 8 20 / 0.92)); border: 1.5px solid rgb(148 163 255 / 0.16); box-shadow: 0 40px 100px -40px rgb(0 0 0 / 0.95); }
+  .hero { height: 250px; border-radius: 22px; }
+  .hero .meta { position: absolute; left: 24px; bottom: 20px; }
+  .hero h3 { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 40px; letter-spacing: -0.03em; }
+  .hero .row { display: flex; gap: 10px; margin-top: 10px; }
+  .play { display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 99px; background: #fff; color: #000; font-weight: 800; font-size: 17px; }
+  .chip { display: inline-flex; align-items: center; height: 42px; padding: 0 16px; border-radius: 99px; background: rgb(255 255 255 / 0.14); font-weight: 600; font-size: 15px; }
+  .covers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
+  .covers .art { height: 170px; border-radius: 16px; }
+  .covers .art .label { font-size: 16px; left: 12px; bottom: 10px; }
+  .covers .art.focus { outline: 4px solid #fff; outline-offset: 4px; }
+</style>
+</head>
+<body>
+<div class="canvas feature">
+  <div class="orb k" style="width:600px;height:600px;left:-260px;top:-260px;opacity:.32"></div>
+  <div class="orb v" style="width:620px;height:620px;right:-200px;bottom:-260px;opacity:.5"></div>
+  <div class="grain"></div>
+  <div class="copy">
+    <span class="eyebrow">Modo Juego · NOVA PLAY</span>
+    <h2 class="display">Tus juegos,<br /><span class="grad-text">como en consola.</span></h2>
+    <p>Toda tu biblioteca del PC en una interfaz de consola, pensada para jugar con mando desde el sofá.</p>
+    <ul>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>Detecta juegos de todas tus tiendas</li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>Portadas, tráileres y tiempo jugado</li>
+      <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i>Vuelve solo a NOVA al cerrar el juego</li>
+    </ul>
+  </div>
+  <div class="visual">
+    <div class="console">
+      <div class="art a3 hero"><div class="meta"><h3>Neon Drift</h3><div class="row"><span class="play">▶ Jugar</span><span class="chip">12 h jugadas</span></div></div></div>
+      <div class="covers">
+        <div class="art a3 focus"><span class="label">Neon Drift</span></div>
+        <div class="art a2"><span class="label">Sky Kingdom</span></div>
+        <div class="art a5"><span class="label">Pixel Quest</span></div>
+        <div class="art a4"><span class="label">Dark Harbor</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Canales que no se cortan</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  h1 { position: absolute; top: 175px; left: 80px; right: 60px; font-size: 86px; }
+  .stage { position: absolute; top: 420px; left: 50px; right: 50px; }
+  .stage .tvset { font-size: 14.6px; }
+  .banner { position: absolute; inset: auto 0 0 0; padding: 7% 4% 4%; background: linear-gradient(0deg, rgb(0 0 0 / 0.92), transparent); display: flex; align-items: flex-end; gap: 1.6em; }
+  .banner .n { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 4.2em; line-height: 1; color: rgb(255 255 255 / 0.9); }
+  .banner .logo { width: 4.6em; height: 4.6em; border-radius: 1em; background: #fff; color: #000; display: grid; place-items: center; font-weight: 800; font-size: 1.1em; }
+  .banner .meta { color: var(--ink2); font-size: 1.15em; display: flex; align-items: center; gap: .6em; }
+  .banner h3 { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 2.3em; margin-top: .25em; }
+  .diferido { display: inline-flex; padding: .25em .7em; border-radius: 99px; background: #ff8a3d; color: #000; font-weight: 800; font-size: .9em; letter-spacing: .04em; }
+  .clock { position: absolute; top: 5%; right: 4%; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; font-size: 2em; text-shadow: 0 2px 12px rgb(0 0 0 / 0.8); }
+  .list { position: absolute; top: 1045px; left: 80px; right: 80px; }
+  .list li { font-size: 28px; }
+</style>
+</head>
+<body>
+<div class="canvas post">
+  <div class="orb c" style="width:780px;height:780px;left:-340px;top:-300px;opacity:.45"></div>
+  <div class="orb v" style="width:700px;height:700px;right:-320px;top:200px;opacity:.45"></div>
+  <div class="orb k" style="width:560px;height:560px;left:-220px;top:1050px;opacity:.25"></div>
+  <div class="grain"></div>
+
+  <div class="series-head">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <span class="badge-new"><i></i>NUEVO</span>
+  </div>
+
+  <h1 class="display">Canales que<br /><span class="grad-text">no se cortan.</span></h1>
+
+  <div class="stage">
+    <div class="tvset">
+      <div class="screen">
+        <div class="scene"></div>
+        <span class="clock">21:42</span>
+        <div class="banner">
+          <span class="n">27</span>
+          <span class="logo">VIA</span>
+          <div>
+            <div class="meta"><span class="diferido">● DIFERIDO · 25 s</span> Viajes por el mundo · Documentales</div>
+            <h3>Rutas del norte: Islandia</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="bullets list">
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>NOVA <b>aprende qué canales van lentos.</b></span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>Les da <b>unos segundos de margen</b> para que no se paren.</span></li>
+    <li><i><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></i><span>Y arranca en <b>la mejor calidad</b> que aguanta tu conexión.</span></li>
+  </ul>
+</div>
+</body>
+</html>

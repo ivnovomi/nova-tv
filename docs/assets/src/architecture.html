@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Arquitectura</title>
+<link rel="stylesheet" href="../../../marketing/brand.css" />
+<style>
+  .arch { width: 1600px; height: 900px; }
+  .title { position: absolute; top: 46px; left: 70px; }
+  .title .eyebrow { font-size: 16px; color: var(--cyan); }
+  .title h1 { margin-top: 10px; font-size: 44px; }
+  .box { position: absolute; border-radius: 26px; padding: 24px 26px; background: linear-gradient(180deg, rgb(28 38 84 / 0.5), rgb(10 14 32 / 0.85)); border: 1.5px solid rgb(148 163 255 / 0.18); box-shadow: 0 30px 80px -40px rgb(0 0 0 / 0.95); }
+  .box h2 { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 12px; }
+  .box h2 small { font-family: Inter, sans-serif; font-weight: 600; font-size: 14px; color: var(--ink3); letter-spacing: 0; }
+  .box p { margin-top: 8px; font-size: 16px; line-height: 1.45; color: var(--ink2); }
+  .tag { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 99px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.1); font-size: 14px; font-weight: 600; color: var(--ink); }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .app { position: absolute; left: 470px; top: 170px; width: 660px; height: 490px; border-radius: 34px; border: 2px dashed rgb(160 170 255 / 0.28); }
+  .app > .label { position: absolute; top: -16px; left: 28px; padding: 4px 14px; border-radius: 99px; background: var(--bg); font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 0.12em; color: var(--ink2); }
+  .ui { left: 500px; top: 200px; width: 600px; }
+  .core { left: 500px; top: 420px; width: 600px; }
+  .core { background: linear-gradient(180deg, rgb(110 108 255 / 0.22), rgb(10 14 32 / 0.9)); border-color: rgb(140 150 255 / 0.35); }
+  .bridge { position: absolute; left: 800px; top: 336px; width: 2px; height: 84px; background: var(--grad); }
+  .bridge-label { position: absolute; left: 816px; top: 362px; font-size: 14px; font-weight: 600; color: var(--ink2); }
+  .sources { left: 70px; top: 230px; width: 340px; }
+  .mobile { left: 1190px; top: 230px; width: 340px; }
+  .windows { left: 470px; top: 718px; width: 660px; padding: 18px 26px; }
+  .windows .tags { margin-top: 10px; }
+  .link { position: absolute; height: 2px; background: linear-gradient(90deg, rgb(110 108 255 / 0.2), rgb(63 213 242 / 0.8)); }
+  .link::after { content: ""; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left-color: #3fd5f2; }
+  .link.rev { transform: scaleX(-1); }
+  .link-label { position: absolute; font-size: 13px; font-weight: 600; color: var(--ink3); }
+  .vlink { position: absolute; width: 2px; background: linear-gradient(180deg, rgb(63 213 242 / 0.7), rgb(110 108 255 / 0.2)); }
+  .note { position: absolute; right: 70px; top: 60px; max-width: 420px; text-align: right; font-size: 16px; line-height: 1.5; color: var(--ink2); }
+  .note b { color: var(--ink); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--grad); box-shadow: 0 0 12px var(--cyan); }
+</style>
+</head>
+<body>
+<div class="canvas arch">
+  <div class="orb v" style="width:700px;height:700px;left:-260px;top:-300px;opacity:.38"></div>
+  <div class="orb c" style="width:640px;height:640px;right:-260px;bottom:-300px;opacity:.28"></div>
+  <div class="grain"></div>
+
+  <div class="title">
+    <span class="eyebrow">Cómo funciona</span>
+    <h1 class="display">Arquitectura de NOVA TV</h1>
+  </div>
+  <p class="note"><b>Todo se guarda en tu PC.</b> Sin cuentas ni servidores de NOVA: perfiles, favoritos e historial viven en local.</p>
+
+  <!-- The app -->
+  <div class="app"><span class="label">NOVA TV · WINDOWS</span></div>
+
+  <div class="box ui">
+    <h2><span class="dot"></span>Interfaz <small>React · TypeScript · WebView2</small></h2>
+    <p>Para ti, TV en directo y guía, streaming, Modo Juego, búsqueda y ajustes. Navegación con mando, teclado o ratón.</p>
+  </div>
+  <span class="bridge"></span>
+  <span class="bridge-label">Comandos con permisos acotados</span>
+  <div class="box core">
+    <h2><span class="dot"></span>Núcleo <small>Rust · Tauri 2</small></h2>
+    <div class="tags">
+      <span class="tag">TV en directo y guía</span><span class="tag">Señal de canales</span><span class="tag">Números fijos</span>
+      <span class="tag">Perfiles y control parental</span><span class="tag">Apps y juegos</span><span class="tag">Mando en red local</span>
+      <span class="tag">Historial</span><span class="tag">Metadatos de juegos</span><span class="tag">Sesiones de streaming</span>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="box sources">
+    <h2>Fuentes públicas</h2>
+    <p>Listas y guías abiertas, descargadas y guardadas en caché.</p>
+    <div class="tags">
+      <span class="tag">TDTChannels</span><span class="tag">iptv-org</span><span class="tag">Pluto TV</span>
+      <span class="tag">Twitch</span><span class="tag">YouTube</span><span class="tag">Steam · Microsoft Store</span>
+    </div>
+  </div>
+  <span class="link" style="left:410px;top:420px;width:90px"></span>
+  <span class="link-label" style="left:414px;top:432px">HTTPS</span>
+
+  <!-- Phone -->
+  <div class="box mobile">
+    <h2>Tu móvil</h2>
+    <p>El mando es una web que sirve NOVA en tu red Wi-Fi. Se empareja con un PIN y usa un token por dispositivo.</p>
+    <div class="tags"><span class="tag">Solo red local</span><span class="tag">PIN + token</span><span class="tag">Sin app</span></div>
+  </div>
+  <span class="link rev" style="left:1100px;top:420px;width:90px"></span>
+  <span class="link-label" style="left:1112px;top:432px">Wi-Fi</span>
+
+  <!-- Windows -->
+  <span class="vlink" style="left:800px;top:660px;height:58px"></span>
+  <div class="box windows">
+    <h2>Windows</h2>
+    <div class="tags">
+      <span class="tag">Volumen del sistema</span><span class="tag">Lo que está sonando</span><span class="tag">Juegos instalados</span><span class="tag">Edge para streaming con DRM</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

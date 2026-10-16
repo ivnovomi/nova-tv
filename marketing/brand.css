@@ -1,0 +1,181 @@
+﻿/* NOVA TV — brand system for social media pieces (same tokens as the app). */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=block");
+
+:root {
+  --bg: #03050c;
+  --ink: #f4f6ff;
+  --ink2: #b9c0e0;
+  --ink3: #7c84ab;
+  --violet: #6e6cff;
+  --cyan: #3fd5f2;
+  --purple: #b46bff;
+  --pink: #ff5c9a;
+  --live: #ff3b5c;
+  --grad: linear-gradient(120deg, #7c7aff 0%, #3fd5f2 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); }
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+.canvas { position: relative; overflow: hidden; background: var(--bg); }
+.story { width: 1080px; height: 1920px; }
+.post { width: 1080px; height: 1350px; }
+
+/* Light orbs (the boot animation) */
+.orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.55; pointer-events: none; }
+.orb.v { background: var(--violet); }
+.orb.c { background: var(--cyan); }
+.orb.p { background: var(--purple); }
+.orb.k { background: var(--pink); }
+.grain {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+  background-image: radial-gradient(rgb(255 255 255 / 0.9) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+.display { font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif; font-weight: 800; letter-spacing: -0.035em; line-height: 0.98; }
+.eyebrow { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; font-size: 26px; color: var(--ink2); }
+.grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.muted { color: var(--ink2); }
+
+/* Wordmark */
+.wordmark { display: inline-flex; align-items: flex-start; gap: 14px; }
+.wordmark svg { display: block; height: 100%; width: auto; overflow: visible; }
+.wordmark .tv { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; letter-spacing: 0.22em; color: var(--ink2); }
+
+/* Pills & buttons */
+.pill {
+  display: inline-flex; align-items: center; gap: 14px; height: 76px; padding: 0 32px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.07); border: 1.5px solid rgb(255 255 255 / 0.12); backdrop-filter: blur(20px);
+  font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; font-size: 30px; color: var(--ink);
+}
+.pill .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--grad); box-shadow: 0 0 18px var(--cyan); }
+.cta {
+  display: inline-flex; align-items: center; gap: 18px; height: 112px; padding: 0 56px; border-radius: 999px;
+  background: #fff; color: #05070f; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 40px;
+  box-shadow: 0 30px 80px -20px rgb(110 108 255 / 0.8);
+}
+.cta.grad { background: var(--grad); color: #fff; }
+.badge-live { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--live); color: #fff; font-weight: 800; font-size: 18px; letter-spacing: 0.06em; }
+
+/* Glass card */
+.card {
+  border-radius: 40px; background: linear-gradient(180deg, rgb(28 38 84 / 0.55), rgb(10 14 32 / 0.75));
+  border: 1.5px solid rgb(148 163 255 / 0.16); box-shadow: 0 40px 100px -40px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.icon {
+  width: 92px; height: 92px; border-radius: 28px; display: grid; place-items: center; flex: none;
+  background: linear-gradient(145deg, rgb(124 122 255 / 0.35), rgb(63 213 242 / 0.12)); border: 1.5px solid rgb(160 170 255 / 0.25);
+}
+.icon svg { width: 46px; height: 46px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── TV mockup: the live TV guide, as it looks in NOVA ── */
+.tvset {
+  position: relative; border-radius: 34px; padding: 14px; background: linear-gradient(160deg, #1b2142, #07091a);
+  box-shadow: 0 60px 140px -40px rgb(0 0 0 / 0.95), 0 0 0 2px rgb(255 255 255 / 0.07), 0 0 120px -30px rgb(110 108 255 / 0.6);
+}
+.screen { position: relative; overflow: hidden; border-radius: 22px; aspect-ratio: 16 / 9; background: #05070f; }
+/* An abstract "programme": aurora over mountains, all CSS */
+.scene { position: absolute; inset: 0; background:
+  radial-gradient(60% 50% at 75% 18%, rgb(63 213 242 / 0.85), transparent 70%),
+  radial-gradient(50% 45% at 55% 10%, rgb(180 107 255 / 0.8), transparent 70%),
+  radial-gradient(70% 60% at 90% 40%, rgb(255 92 154 / 0.45), transparent 70%),
+  linear-gradient(180deg, #0b1440 0%, #1a1f5c 45%, #0b0f24 100%); }
+.scene::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58%;
+  background: linear-gradient(180deg, transparent, #070a18 60%),
+  conic-gradient(from 200deg at 30% 100%, #0d1230 0 30deg, transparent 30deg 360deg),
+  conic-gradient(from 160deg at 75% 100%, #0a0e26 0 40deg, transparent 40deg 360deg); }
+.guide { position: absolute; inset: 0; display: flex; flex-direction: column; font-size: 12px; }
+.guide .hero { height: 42%; padding: 0 0 4% 4%; display: flex; flex-direction: column; justify-content: flex-end;
+  background: linear-gradient(90deg, #05070f 0%, rgb(5 7 15 / 0.85) 34%, transparent 70%), linear-gradient(0deg, #05070f, transparent 35%); }
+.guide .meta { display: flex; align-items: center; gap: 0.6em; color: var(--ink2); font-size: 1.05em; }
+.guide .logo { width: 2.4em; height: 2.4em; border-radius: 0.5em; background: #fff; display: grid; place-items: center; color: #000; font-weight: 800; font-size: 0.75em; }
+.guide h3 { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 2.6em; letter-spacing: -0.02em; margin-top: 0.25em; }
+.guide .time { margin-top: 0.4em; display: flex; align-items: center; gap: 0.8em; color: var(--ink2); }
+.guide .bar { width: 9em; height: 0.35em; border-radius: 9px; background: rgb(255 255 255 / 0.2); overflow: hidden; }
+.guide .bar i { display: block; height: 100%; width: 58%; background: #fff; border-radius: 9px; }
+.guide .panel { flex: 1; background: rgb(5 7 15 / 0.96); padding: 0.9em 4% 0; display: flex; flex-direction: column; gap: 0.6em; }
+.guide .tabs { display: flex; gap: 0.5em; }
+.guide .tabs span { padding: 0.45em 1em; border-radius: 99px; color: var(--ink2); font-weight: 700; font-size: 1.05em; }
+.guide .tabs span.on { background: #fff; color: #000; }
+.guide .ruler { display: flex; color: var(--ink3); font-size: 0.85em; }
+.guide .ruler b { width: 25%; color: var(--ink2); font-weight: 700; }
+.guide .ruler span { flex: 1; border-left: 1px solid rgb(255 255 255 / 0.15); padding-left: 0.5em; }
+.guide .rows { position: relative; display: flex; flex-direction: column; }
+.guide .row { display: flex; height: 3.3em; border-bottom: 1px solid rgb(255 255 255 / 0.06); align-items: stretch; }
+.guide .row.sel { background: rgb(255 255 255 / 0.07); border-radius: 0.6em; }
+.guide .ch { width: 25%; display: flex; align-items: center; gap: 0.6em; color: var(--ink2); font-weight: 600; }
+.guide .ch em { font-style: normal; width: 2em; text-align: right; color: var(--ink); font-weight: 700; }
+.guide .lane { position: relative; flex: 1; }
+.guide .prog { position: absolute; top: 0.3em; bottom: 0.3em; border-radius: 0.6em; padding: 0.35em 0.7em; background: rgb(255 255 255 / 0.07); overflow: hidden; white-space: nowrap; }
+.guide .prog b { display: block; font-weight: 700; font-size: 1em; overflow: hidden; text-overflow: ellipsis; }
+.guide .prog small { color: var(--ink3); font-size: 0.8em; }
+.guide .prog.now::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p, 50%); background: linear-gradient(90deg, rgb(110 108 255 / 0.32), rgb(63 213 242 / 0.2)); }
+.guide .prog.now b, .guide .prog.now small { position: relative; }
+.guide .prog.focus { background: #fff; color: #000; }
+.guide .prog.focus small { color: rgb(0 0 0 / 0.55); }
+.guide .nowline { position: absolute; top: -1.2em; bottom: 0; left: calc(25% + 75% * 0.18); width: 2px; background: #ff4d6d; box-shadow: 0 0 10px #ff4d6d; }
+
+/* ── Phone mockup: NOVA's phone remote ── */
+.phone {
+  position: relative; width: 420px; height: 860px; border-radius: 64px; padding: 16px;
+  background: linear-gradient(160deg, #2a3157, #0b0e1f); box-shadow: 0 60px 140px -30px rgb(0 0 0 / 0.95), 0 0 0 2px rgb(255 255 255 / 0.08), 0 0 120px -30px rgb(63 213 242 / 0.5);
+}
+.phone .scr { position: relative; height: 100%; border-radius: 50px; overflow: hidden; background: radial-gradient(60% 40% at 10% 0%, rgb(110 108 255 / 0.35), transparent 70%), radial-gradient(60% 40% at 100% 100%, rgb(154 107 255 / 0.25), transparent 70%), #03050c; padding: 70px 28px 0; display: flex; flex-direction: column; }
+.phone .notch { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; border-radius: 20px; background: #000; }
+.phone .head { display: flex; align-items: center; gap: 10px; }
+.phone .status { flex: 1; height: 38px; border-radius: 99px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(148 163 255 / 0.14); display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 14px; color: var(--ink2); }
+.phone .status i { width: 9px; height: 9px; border-radius: 50%; background: #3ddc97; box-shadow: 0 0 10px #3ddc97; }
+.phone .dpad { position: relative; margin: 46px auto 0; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #1b2550, #0c1230 70%); border: 1px solid rgb(148 163 255 / 0.14); }
+.phone .dpad .ok { position: absolute; inset: 31%; border-radius: 50%; background: linear-gradient(145deg, #7c7aff, #4f49e8); display: grid; place-items: center; font-weight: 800; font-size: 26px; box-shadow: 0 12px 30px -8px rgb(110 108 255 / 0.9); }
+.phone .dpad span { position: absolute; color: var(--ink2); font-size: 30px; }
+.phone .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 34px; }
+.phone .keys div { height: 64px; border-radius: 20px; background: rgb(255 255 255 / 0.05); border: 1px solid rgb(148 163 255 / 0.14); display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.phone .keys div.home { background: linear-gradient(145deg, rgb(110 108 255 / 0.4), rgb(63 213 242 / 0.16)); color: #fff; }
+.phone .tabbar { margin-top: auto; height: 82px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid rgb(148 163 255 / 0.14); margin-inline: -28px; font-size: 13px; color: var(--ink3); font-weight: 600; }
+.phone .tabbar span { display: grid; place-items: center; }
+.phone .tabbar span.on { color: #fff; }
+
+/* ── "Nuevo en NOVA TV" series ── */
+.series-head { position: absolute; top: 80px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+.series-head .wordmark { height: 42px; }
+.series-head .wordmark .tv { font-size: 16px; margin-top: -3px; }
+.badge-new {
+  display: inline-flex; align-items: center; gap: 12px; height: 54px; padding: 0 24px; border-radius: 999px;
+  background: var(--grad); color: #fff; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 22px; letter-spacing: 0.14em;
+  box-shadow: 0 16px 40px -14px rgb(110 108 255 / 0.9);
+}
+.badge-new i { width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.legal { position: absolute; bottom: 40px; left: 80px; right: 80px; font-size: 18px; color: rgb(124 132 171 / 0.8); }
+.bullets { list-style: none; display: flex; flex-direction: column; gap: 18px; }
+.bullets li { display: flex; gap: 18px; align-items: center; font-size: 30px; color: var(--ink2); }
+.bullets li b { color: var(--ink); font-weight: 700; }
+.bullets li i { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; }
+.bullets li i svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Abstract cover art (no third-party images) */
+.art { position: relative; overflow: hidden; border-radius: 28px; border: 1.5px solid rgb(255 255 255 / 0.1); box-shadow: 0 30px 70px -30px rgb(0 0 0 / 0.9); }
+.art::before { content: ""; position: absolute; inset: 0; background: var(--a); }
+.art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgb(0 0 0 / 0.75)); }
+.art > * { position: relative; z-index: 1; }
+.art .label { position: absolute; left: 22px; right: 22px; bottom: 18px; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.01em; }
+.art .sub { position: absolute; left: 22px; top: 18px; }
+.a1 { --a: radial-gradient(80% 70% at 75% 20%, #ffb547, transparent 60%), radial-gradient(70% 60% at 20% 80%, #ff5c9a, transparent 60%), linear-gradient(140deg, #3b1d6e, #120a26); }
+.a2 { --a: radial-gradient(70% 60% at 30% 25%, #3fd5f2, transparent 60%), radial-gradient(80% 70% at 80% 85%, #6e6cff, transparent 60%), linear-gradient(140deg, #0b2a4a, #070b1c); }
+.a3 { --a: radial-gradient(70% 60% at 70% 30%, #ff6b4a, transparent 60%), radial-gradient(60% 50% at 20% 80%, #b46bff, transparent 60%), linear-gradient(140deg, #3a0f1c, #0c0610); }
+.a4 { --a: radial-gradient(70% 60% at 30% 30%, #3ddc97, transparent 60%), radial-gradient(70% 60% at 85% 80%, #3fd5f2, transparent 60%), linear-gradient(140deg, #0b2e25, #06100d); }
+.a5 { --a: radial-gradient(70% 60% at 75% 25%, #b46bff, transparent 60%), radial-gradient(70% 60% at 25% 85%, #6e6cff, transparent 60%), linear-gradient(140deg, #22104a, #0a0618); }
+.a6 { --a: radial-gradient(70% 60% at 30% 20%, #ffd166, transparent 60%), radial-gradient(70% 60% at 80% 80%, #ff6b4a, transparent 60%), linear-gradient(140deg, #3a2208, #120a04); }
+
+/* Profile avatars ("¿Quién está viendo?") */
+.who { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.who .face { width: 190px; height: 190px; border-radius: 50%; display: grid; place-items: center; font-size: 92px; line-height: 1; box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.9); }
+.who .face.focus { outline: 6px solid #fff; outline-offset: 8px; }
+.who b { font-family: "Plus Jakarta Sans", sans-serif; font-size: 30px; font-weight: 700; }
+.who .kids { padding: 6px 16px; border-radius: 99px; background: rgb(255 181 71 / 0.2); color: #ffd48a; font-weight: 700; font-size: 20px; }

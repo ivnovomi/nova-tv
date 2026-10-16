@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-add-playlist"
+description = "Enables the livetv_add_playlist command without any pre-configured scope."
+commands.allow = ["livetv_add_playlist"]
+
+[[permission]]
+identifier = "deny-livetv-add-playlist"
+description = "Denies the livetv_add_playlist command without any pre-configured scope."
+commands.deny = ["livetv_add_playlist"]

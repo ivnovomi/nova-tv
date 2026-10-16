@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-set-last"
+description = "Enables the livetv_set_last command without any pre-configured scope."
+commands.allow = ["livetv_set_last"]
+
+[[permission]]
+identifier = "deny-livetv-set-last"
+description = "Denies the livetv_set_last command without any pre-configured scope."
+commands.deny = ["livetv_set_last"]

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Foto de perfil con nombre</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  /* Variant with the name, for places that show it big (YouTube, Twitch, Discord…). */
+  .avatar { width: 1080px; height: 1080px; }
+  .halo { position: absolute; inset: 170px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, rgb(110 108 255 / 0.32), rgb(63 213 242 / 0.1) 45%, transparent 70%); }
+  .mark { position: absolute; left: 50%; top: 295px; width: 360px; transform: translateX(-50%); filter: drop-shadow(0 0 34px rgb(63 213 242 / 0.5)) drop-shadow(0 0 80px rgb(110 108 255 / 0.45)); }
+  .mark svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .name { position: absolute; left: 0; right: 0; top: 690px; display: flex; justify-content: center; }
+  .name .wordmark { height: 86px; }
+  .name .wordmark .tv { font-size: 30px; margin-top: -4px; }
+</style>
+</head>
+<body>
+<div class="canvas avatar">
+  <div class="orb v" style="width:760px;height:760px;left:-200px;top:-220px;opacity:.6"></div>
+  <div class="orb c" style="width:640px;height:640px;right:-200px;bottom:-200px;opacity:.5"></div>
+  <div class="halo"></div>
+  <div class="mark">
+    <svg viewBox="0 0 100 92" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+      <path d="M8 86 L50 6 L92 86" fill="none" stroke="url(#g)" stroke-width="12" stroke-linecap="square"/>
+    </svg>
+  </div>
+  <div class="name">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="w" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#w)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+  </div>
+  <div class="grain"></div>
+</div>
+</body>
+</html>

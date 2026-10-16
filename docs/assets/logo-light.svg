@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 212 44" width="424" height="88" role="img" aria-label="NOVA TV">
+  <title>NOVA TV</title>
+  <defs>
+    <linearGradient id="nova-a" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#6e6cff"/>
+      <stop offset="1" stop-color="#3fd5f2"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-width="4.6" stroke-linecap="square" transform="translate(2 2)">
+    <path d="M3 37V3l28 34V3" stroke="#f4f6ff"/>
+    <circle cx="66" cy="20" r="17" stroke="#f4f6ff"/>
+    <path d="M96 3l17 34 17-34" stroke="#f4f6ff"/>
+    <path d="M140 37l17-34 17 34" stroke="url(#nova-a)"/>
+  </g>
+  <g fill="none" stroke="#b9c0e0" stroke-width="2.6" stroke-linecap="square" transform="translate(186 2)">
+    <path d="M1 1.5h10M6 1.5v12"/>
+    <path d="M14 1.5l4.5 12 4.5-12"/>
+  </g>
+</svg>

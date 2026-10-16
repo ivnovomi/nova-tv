@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-play-youtube"
+description = "Enables the play_youtube command without any pre-configured scope."
+commands.allow = ["play_youtube"]
+
+[[permission]]
+identifier = "deny-play-youtube"
+description = "Denies the play_youtube command without any pre-configured scope."
+commands.deny = ["play_youtube"]

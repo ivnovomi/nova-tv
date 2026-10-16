@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-rescan-games"
+description = "Enables the rescan_games command without any pre-configured scope."
+commands.allow = ["rescan_games"]
+
+[[permission]]
+identifier = "deny-rescan-games"
+description = "Denies the rescan_games command without any pre-configured scope."
+commands.deny = ["rescan_games"]

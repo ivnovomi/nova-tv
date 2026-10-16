@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/remote-schema.json",
+  "identifier": "player-bridge",
+  "description": "YouTube in NOVA's player window may only report what is playing (watch history). Nothing else.",
+  "windows": ["player-*"],
+  "remote": { "urls": ["https://www.youtube.com/*"] },
+  "permissions": ["allow-player-report"]
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Social preview</title>
+<link rel="stylesheet" href="../../../marketing/brand.css" />
+<style>
+  /* GitHub social preview: 1280x640, content inside a safe 40px margin. */
+  .social { width: 1280px; height: 640px; }
+  .top { position: absolute; top: 70px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .top .wordmark { height: 56px; }
+  .top .wordmark .tv { font-size: 21px; margin-top: -4px; }
+  .top h1 { font-size: 56px; text-align: center; }
+  .stage { position: absolute; top: 300px; left: 50%; width: 860px; transform: translateX(-50%) perspective(2000px) rotateX(16deg); transform-origin: top center; }
+  .stage .tvset { font-size: 12.8px; padding: 12px; }
+  .fade { position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(180deg, transparent, var(--bg)); }
+</style>
+</head>
+<body>
+<div class="canvas social">
+  <div class="orb v" style="width:700px;height:700px;left:-220px;top:-300px;opacity:.55"></div>
+  <div class="orb c" style="width:640px;height:640px;right:-220px;top:-200px;opacity:.38"></div>
+  <div class="orb k" style="width:520px;height:520px;left:380px;top:420px;opacity:.25"></div>
+  <div class="grain"></div>
+
+  <div class="top">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <h1 class="display">Tu PC, como una <span class="grad-text">Smart TV.</span></h1>
+  </div>
+
+  <div class="stage">
+    <div class="tvset">
+      <div class="screen">
+        <div class="scene"></div>
+        <div class="guide">
+          <div class="hero">
+            <div class="meta"><span class="logo">DOC</span><b style="color:#fff">5</b> Documentales <span class="badge-live" style="font-size:.72em;padding:.2em .6em">● EN DIRECTO</span></div>
+            <h3>Auroras del norte</h3>
+            <div class="time">21:00 – 22:30 · Documental <span class="bar"><i></i></span></div>
+          </div>
+          <div class="panel">
+            <div class="tabs"><span>Para ti</span><span class="on">España</span><span>Pluto TV</span><span>Twitch</span><span>Noticias</span><span>Mundo</span></div>
+            <div class="ruler"><b>Hoy · 21:42</b><span>21:30</span><span>22:00</span><span>22:30</span><span>23:00</span><span>23:30</span></div>
+            <div class="rows">
+              <div class="row"><div class="ch"><em>1</em><span class="logo">N24</span>Noticias 24h</div><div class="lane"><div class="prog now" style="left:0;width:39%;--p:62%"><b>Informativo noche</b><small>21:00 – 22:15</small></div><div class="prog" style="left:39.5%;width:60%"><b>Debate de actualidad</b><small>22:15 – 00:00</small></div></div></div>
+              <div class="row sel"><div class="ch" style="color:#fff"><em>5</em><span class="logo">DOC</span>Documentales</div><div class="lane"><div class="prog focus" style="left:0;width:44%"><b>Auroras del norte</b><small>21:00 – 22:30</small></div><div class="prog" style="left:44.5%;width:55%"><b>Océanos profundos</b><small>22:30 – 00:00</small></div></div></div>
+              <span class="nowline"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fade"></div>
+</div>
+</body>
+</html>

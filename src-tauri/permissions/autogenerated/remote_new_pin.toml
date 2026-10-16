@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-new-pin"
+description = "Enables the remote_new_pin command without any pre-configured scope."
+commands.allow = ["remote_new_pin"]
+
+[[permission]]
+identifier = "deny-remote-new-pin"
+description = "Denies the remote_new_pin command without any pre-configured scope."
+commands.deny = ["remote_new_pin"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-playtime"
+description = "Enables the playtime command without any pre-configured scope."
+commands.allow = ["playtime"]
+
+[[permission]]
+identifier = "deny-playtime"
+description = "Denies the playtime command without any pre-configured scope."
+commands.deny = ["playtime"]

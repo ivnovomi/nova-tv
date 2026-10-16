@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-youtube-feed"
+description = "Enables the youtube_feed command without any pre-configured scope."
+commands.allow = ["youtube_feed"]
+
+[[permission]]
+identifier = "deny-youtube-feed"
+description = "Denies the youtube_feed command without any pre-configured scope."
+commands.deny = ["youtube_feed"]

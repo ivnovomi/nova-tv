@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-livetv-set-twitch"
+description = "Enables the livetv_set_twitch command without any pre-configured scope."
+commands.allow = ["livetv_set_twitch"]
+
+[[permission]]
+identifier = "deny-livetv-set-twitch"
+description = "Denies the livetv_set_twitch command without any pre-configured scope."
+commands.deny = ["livetv_set_twitch"]

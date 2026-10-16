@@ -1,0 +1,69 @@
+[package]
+name = "nova-tv"
+version = "0.1.0"
+description = "NOVA TV - Smart TV launcher for Windows"
+authors = ["ivnov"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "nova_tv_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+tauri-plugin-global-shortcut = "2"
+# Opt-in "start with Windows" (off unless the user enables it in Ajustes).
+tauri-plugin-autostart = "2"
+# XInput keeps reading the controller while a streaming window has focus.
+gilrs = { version = "0.11", default-features = false, features = ["xinput"] }
+# Phone remote: tiny LAN HTTP server, pairing QR code, random tokens.
+tiny_http = "0.12"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+getrandom = "0.4"
+local-ip-address = "0.6"
+# Public YouTube data for the history feed (channel pages, RSS). No API keys.
+ureq = "3"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Shell",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Foundation",
+  "Foundation_Collections",
+  "ApplicationModel",
+  "ApplicationModel_Core",
+  "Management_Deployment",
+  "Storage",
+  "Storage_Streams",
+  "Media_Control",
+] }
+# Game library scanners (GOG, Ubisoft Connect install records).
+winreg = "0.56"
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA TV · Historia · Novedades</title>
+<link rel="stylesheet" href="brand.css" />
+<style>
+  .head { position: absolute; top: 230px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .head .wordmark { height: 50px; }
+  .head .wordmark .tv { font-size: 19px; margin-top: -3px; }
+  h1 { position: absolute; top: 350px; left: 80px; right: 60px; font-size: 118px; }
+  .cards { position: absolute; top: 640px; left: 60px; right: 60px; display: flex; flex-direction: column; gap: 26px; }
+  .big { height: 300px; }
+  .big .label { font-size: 52px; bottom: 74px; left: 36px; }
+  .big .desc { position: absolute; left: 36px; right: 36px; bottom: 30px; font-size: 27px; color: rgb(255 255 255 / 0.85); font-weight: 600; }
+  .big .sub { left: 36px; top: 30px; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 99px; background: rgb(0 0 0 / 0.45); font-weight: 800; font-size: 22px; letter-spacing: 0.04em; backdrop-filter: blur(8px); }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--live); }
+  .twitch-art { --a: radial-gradient(70% 70% at 75% 25%, #9146ff, transparent 65%), radial-gradient(60% 60% at 20% 85%, #3fd5f2, transparent 60%), linear-gradient(140deg, #1d0b40, #08051a); }
+  .bottom { position: absolute; top: 1650px; left: 0; right: 0; display: flex; justify-content: center; }
+  .legal { bottom: 100px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="canvas story">
+  <div class="orb p" style="width:900px;height:900px;left:-400px;top:-260px;opacity:.55"></div>
+  <div class="orb c" style="width:760px;height:760px;right:-360px;top:900px;opacity:.35"></div>
+  <div class="orb k" style="width:600px;height:600px;left:-260px;top:1500px;opacity:.25"></div>
+  <div class="grain"></div>
+
+  <div class="head">
+    <span class="wordmark">
+      <svg viewBox="0 0 176 40" aria-label="NOVA">
+        <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="#3fd5f2"/></linearGradient></defs>
+        <g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="#f4f6ff"/><circle cx="66" cy="20" r="17" stroke="#f4f6ff"/><path d="M96 3l17 34 17-34" stroke="#f4f6ff"/><path d="M140 37l17-34 17 34" stroke="url(#g)"/></g>
+      </svg>
+      <span class="tv">TV</span>
+    </span>
+    <span class="badge-new"><i></i>NUEVO</span>
+  </div>
+
+  <h1 class="display">Más tele<br /><span class="grad-text">que nunca.</span></h1>
+
+  <div class="cards">
+    <div class="art big twitch-art"><span class="sub chip"><i></i>EN DIRECTO · 4001+</span><span class="label">Twitch</span><span class="desc">Directos en español aptos para todos, como canales de la tele.</span></div>
+    <div class="art big a1"><span class="sub chip"><i></i>GRATIS · 3001+</span><span class="label">Pluto TV</span><span class="desc">Más de 100 canales: dibujos, anime, cine, series y más.</span></div>
+    <div class="art big a2"><span class="sub chip"><i></i>MEJORA</span><span class="label">Sin cortes</span><span class="desc">Los canales lentos van con unos segundos de margen.</span></div>
+  </div>
+
+  <div class="bottom"><span class="cta grad">Descárgalo · enlace en la bio</span></div>
+  <p class="legal">Twitch y Pluto TV son marcas de sus propietarios. NOVA TV no está afiliada.</p>
+</div>
+</body>
+</html>

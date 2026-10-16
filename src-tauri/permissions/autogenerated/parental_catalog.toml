@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-parental-catalog"
+description = "Enables the parental_catalog command without any pre-configured scope."
+commands.allow = ["parental_catalog"]
+
+[[permission]]
+identifier = "deny-parental-catalog"
+description = "Denies the parental_catalog command without any pre-configured scope."
+commands.deny = ["parental_catalog"]
