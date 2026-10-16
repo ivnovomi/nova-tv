@@ -189,4 +189,4 @@ Los canales vienen de listas públicas: [TDTChannels](https://www.tdtchannels.co
 
 ## Licencia
 
-Pendiente de definir.
+© 2026 ivnovomi. Todos los derechos reservados: el código es visible, pero no se puede copiar, modificar ni redistribuir sin permiso. Ver [LICENSE](LICENSE).
