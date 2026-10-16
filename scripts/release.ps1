@@ -76,4 +76,5 @@ $ghArgs = @("release", "create", $tag, (Join-Path $out $asset), $latest, "--repo
 if ($Draft) { $ghArgs += "--draft" }
 gh @ghArgs
 if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
-Write-Host "Published. Installed copies will offer $version within 6 hours (or at once from Ajustes -> Actualizaciones)."
+if ($Draft) { Write-Host "Draft created: publish it on GitHub (or gh release edit $tag --repo $Repo --draft=false) to make it the update." }
+else { Write-Host "Published. Installed copies will offer $version within 6 hours (or at once from Ajustes -> Actualizaciones)." }
