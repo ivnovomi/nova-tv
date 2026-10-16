@@ -67,9 +67,10 @@ pub async fn splash_step(app: AppHandle, step: String) -> Result<String, String>
 }
 
 /// Start-up finished: opens NOVA (its window is created now, from
-/// tauri.conf.json) and closes this one.
+/// tauri.conf.json) and closes this one. Async on purpose: creating a window
+/// from a sync command deadlocks on Windows (it runs on the main thread).
 #[tauri::command]
-pub fn splash_done(app: AppHandle) -> Result<(), String> {
+pub async fn splash_done(app: AppHandle) -> Result<(), String> {
     if app.get_webview_window("main").is_none() {
         let config = app.config().app.windows.iter().find(|w| w.label == "main").cloned().ok_or("Falta la ventana principal")?;
         WebviewWindowBuilder::from_config(&app, &config).and_then(|b| b.build()).map_err(|e| e.to_string())?;
