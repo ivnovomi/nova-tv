@@ -16,6 +16,7 @@ pub(crate) const TDT_CHANNELS: &str = "https://www.tdtchannels.com/lists/tv.json
 pub(crate) const TDT_EPG: &str = "https://www.tdtchannels.com/epg/TV.json";
 const CHANNELS_TTL: u64 = 12 * 3600;
 const EPG_TTL: u64 = 3 * 3600;
+const PLUTO_EPG_TTL: u64 = 30 * 60;
 const CUSTOM_FIRST_NUMBER: u32 = 1001;
 const WORLD_FIRST_NUMBER: u32 = 5001;
 const WORLD_TTL: u64 = 24 * 3600;
@@ -113,7 +114,10 @@ pub(crate) struct Cached<T> {
 
 pub struct LiveTv {
     dir: PathBuf,
+    /// TDT guide only (3 h cache); Pluto and Twitch are added on each request.
     epg: Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>,
+    /// Pluto TV's guide (next 6 hours), cached for `PLUTO_EPG_TTL`.
+    pluto_epg: Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>,
     /// Last full channel list, for the phone remote.
     all: Mutex<Option<Vec<Channel>>>,
     /// Last error of each source ("tdt", "world", "pluto", "twitch", "epg"), for Ajustes → Estado de las fuentes.
@@ -122,7 +126,13 @@ pub struct LiveTv {
 
 impl LiveTv {
     pub fn new(dir: &Path) -> Self {
-        Self { dir: dir.join("livetv"), epg: Mutex::new(None), all: Mutex::new(None), errors: Mutex::new(HashMap::new()) }
+        Self {
+            dir: dir.join("livetv"),
+            epg: Mutex::new(None),
+            pluto_epg: Mutex::new(None),
+            all: Mutex::new(None),
+            errors: Mutex::new(HashMap::new()),
+        }
     }
 
     /// When a cached list was last downloaded (Unix seconds), from the file itself.
@@ -160,7 +170,8 @@ impl LiveTv {
 }
 
 fn get_text(url: &str) -> Result<String, String> {
-    ureq::get(url)
+    crate::net::agent()
+        .get(url)
         .header("User-Agent", "NOVA-TV/0.1 (+https://github.com/LaQuay/TDTChannels)")
         .call()
         .map_err(|e| e.to_string())?
@@ -535,6 +546,12 @@ struct Slot {
 }
 
 const FORGET_AFTER: u64 = 90 * 24 * 3600;
+/// Twitch streams come and go daily: their numbers are freed much sooner.
+const FORGET_TWITCH: u64 = 24 * 3600;
+
+fn forget_after(id: &str) -> u64 {
+    if id.starts_with("twitch:") { FORGET_TWITCH } else { FORGET_AFTER }
+}
 
 /// Number range of each source.
 fn range(source: Source) -> (u32, u32) {
@@ -554,15 +571,16 @@ fn stable_numbers(tv: &LiveTv, channels: &mut [Channel]) {
     let now = now_secs();
     let mut book: HashMap<String, Slot> = tv.read::<HashMap<String, Slot>>("numbers.json").map(|c| c.data).unwrap_or_default();
     let before = book.len();
-    book.retain(|_, s| now.saturating_sub(s.seen) < FORGET_AFTER);
+    book.retain(|id, s| now.saturating_sub(s.seen) < forget_after(id));
     let mut changed = book.len() != before;
     let mut taken: std::collections::HashSet<u32> = book.values().map(|s| s.n).collect();
+    let present: std::collections::HashSet<String> = channels.iter().map(|c| c.id.clone()).collect();
     let mut next: HashMap<(u32, u32), u32> = HashMap::new();
     for ch in channels.iter_mut() {
         if let Some(slot) = book.get_mut(&ch.id) {
             ch.number = slot.n;
-            // Refreshing "seen" once a day is enough.
-            if now.saturating_sub(slot.seen) > 24 * 3600 {
+            // Refreshing "seen" well before it would be forgotten is enough.
+            if now.saturating_sub(slot.seen) > forget_after(&ch.id) / 8 {
                 slot.seen = now;
                 changed = true;
             }
@@ -574,10 +592,27 @@ fn stable_numbers(tv: &LiveTv, channels: &mut [Channel]) {
             ch.number
         } else {
             let cursor = next.entry((lo, hi)).or_insert(lo);
-            while taken.contains(cursor) && *cursor < hi {
+            while *cursor <= hi && taken.contains(cursor) {
                 *cursor += 1;
             }
-            *cursor
+            if *cursor <= hi {
+                *cursor
+            } else {
+                // Range full: reuse the number of the channel seen longest ago (not on the lists now).
+                let oldest = book
+                    .iter()
+                    .filter(|(id, s)| (lo..=hi).contains(&s.n) && !present.contains(id.as_str()))
+                    .min_by_key(|(_, s)| s.seen)
+                    .map(|(id, s)| (id.clone(), s.n));
+                match oldest {
+                    Some((id, n)) => {
+                        book.remove(&id);
+                        n
+                    }
+                    // More live channels than numbers in the range: nothing to free.
+                    None => hi,
+                }
+            }
         };
         taken.insert(n);
         ch.number = n;
@@ -674,9 +709,30 @@ pub fn snapshot(app: &AppHandle) -> Vec<Channel> {
 pub fn now_title(app: &AppHandle, epg_id: &str) -> Option<String> {
     let now = now_secs() as i64;
     let tv = app.state::<LiveTv>();
-    let guard = tv.epg.lock().ok()?;
-    let (_, epg) = guard.as_ref()?;
-    epg.get(epg_id)?.iter().find(|p| p.start <= now && p.end > now).map(|p| p.title.clone())
+    let on_air = |cache: &Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>| {
+        let guard = cache.lock().ok()?;
+        let (_, epg) = guard.as_ref()?;
+        epg.get(epg_id)?.iter().find(|p| p.start <= now && p.end > now).map(|p| p.title.clone())
+    };
+    on_air(&tv.epg).or_else(|| on_air(&tv.pluto_epg))
+}
+
+/// Pluto TV's guide for the loaded Pluto channels, refreshed every `PLUTO_EPG_TTL`.
+fn pluto_guide(tv: &LiveTv) -> HashMap<String, Vec<Program>> {
+    if let Some((at, epg)) = tv.pluto_epg.lock().ok().and_then(|g| g.clone()) {
+        if now_secs().saturating_sub(at) < PLUTO_EPG_TTL {
+            return epg;
+        }
+    }
+    let pluto: Vec<Channel> = tv.all.lock().ok().and_then(|a| a.clone()).unwrap_or_default().into_iter().filter(|c| c.source == Source::Fast).collect();
+    if pluto.is_empty() {
+        return HashMap::new();
+    }
+    let epg = crate::pluto::guide(&pluto);
+    if let Ok(mut g) = tv.pluto_epg.lock() {
+        *g = Some((now_secs(), epg.clone()));
+    }
+    epg
 }
 
 /// "Comprobar ahora": re-checks every channel, ignoring saved results.
@@ -723,32 +779,32 @@ pub fn livetv_set_fast(enabled: bool, state: State<'_, AppState>) -> Result<(), 
 pub async fn livetv_epg(app: AppHandle) -> Result<HashMap<String, Vec<Program>>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let tv = app.state::<LiveTv>();
-        if let Some((at, epg)) = tv.epg.lock().ok().and_then(|g| g.clone()) {
-            if now_secs().saturating_sub(at) < EPG_TTL {
-                return Ok(epg);
+        let cached = tv.epg.lock().ok().and_then(|g| g.clone()).filter(|(at, _)| now_secs().saturating_sub(*at) < EPG_TTL);
+        let mut epg = match cached {
+            Some((_, epg)) => epg,
+            None => {
+                let fresh = get_text(TDT_EPG)
+                    .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).map_err(|e| e.to_string()))
+                    .map(|json| parse_epg(&json));
+                tv.note_error("epg", &fresh.as_ref().err().cloned());
+                let tdt = match fresh {
+                    Ok(epg) => {
+                        tv.write("epg.json", &epg);
+                        epg
+                    }
+                    // Offline: the saved guide is still right for the next day or so.
+                    Err(e) => tv.read::<HashMap<String, Vec<Program>>>("epg.json").map(|c| c.data).ok_or(format!("Guía no disponible: {e}"))?,
+                };
+                // Only the TDT guide is cached for hours; live sources change faster.
+                if let Ok(mut g) = tv.epg.lock() {
+                    *g = Some((now_secs(), tdt.clone()));
+                }
+                tdt
             }
-        }
-        let fresh = get_text(TDT_EPG)
-            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).map_err(|e| e.to_string()))
-            .map(|json| parse_epg(&json));
-        tv.note_error("epg", &fresh.as_ref().err().cloned());
-        let mut epg = match fresh {
-            Ok(epg) => {
-                tv.write("epg.json", &epg);
-                epg
-            }
-            // Offline: the saved guide is still right for the next day or so.
-            Err(e) => tv.read::<HashMap<String, Vec<Program>>>("epg.json").map(|c| c.data).ok_or(format!("Guía no disponible: {e}"))?,
         };
-        // Pluto TV's own guide (next 6 hours), live only.
-        let pluto: Vec<Channel> = tv.all.lock().ok().and_then(|a| a.clone()).unwrap_or_default().into_iter().filter(|c| c.source == Source::Fast).collect();
-        if !pluto.is_empty() {
-            epg.extend(crate::pluto::guide(&pluto));
-        }
+        // Pluto TV's own guide (its own short cache) and Twitch (from its live list), live only.
+        epg.extend(pluto_guide(&tv));
         epg.extend(crate::twitch::guide());
-        if let Ok(mut g) = tv.epg.lock() {
-            *g = Some((now_secs(), epg.clone()));
-        }
         Ok(epg)
     })
     .await
@@ -881,6 +937,40 @@ mod tests {
         stable_numbers(&tv, &mut second);
         let n: Vec<u32> = second.iter().map(|c| c.number).collect();
         assert_eq!(n, [5003, 5001, 5002], "b and c keep their numbers; a gets a free one");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn full_range_reuses_oldest_number() {
+        let dir = std::env::temp_dir().join(format!("nova-numbers-full-{}", now_secs()));
+        let tv = LiveTv::new(&dir);
+        let ch = |id: String, n: u32| Channel {
+            source: Source::Tdt,
+            country: None,
+            categories: vec![],
+            id,
+            number: n,
+            name: String::new(),
+            logo: None,
+            group: String::new(),
+            region: String::new(),
+            streams: vec![],
+            epg_id: None,
+            geo: false,
+        };
+        // Fill the whole TDT range (1-999).
+        let mut all: Vec<Channel> = (1..=999).map(|n| ch(format!("tdt:{n}"), n)).collect();
+        stable_numbers(&tv, &mut all);
+        let mut book = tv.read::<HashMap<String, Slot>>("numbers.json").map(|c| c.data).unwrap_or_default();
+        if let Some(s) = book.get_mut("tdt:6") {
+            s.seen -= 100; // seen longest ago
+        }
+        tv.write("numbers.json", &book);
+        // A new channel plus one that's still on the list.
+        let mut next = vec![ch("tdt:new".into(), 1), ch("tdt:1".into(), 1)];
+        stable_numbers(&tv, &mut next);
+        let n: Vec<u32> = next.iter().map(|c| c.number).collect();
+        assert_eq!(n, [6, 1], "takes the number of the channel seen longest ago, no duplicate");
         let _ = fs::remove_dir_all(dir);
     }
 

@@ -5,18 +5,20 @@
 //! Everything stays on this PC in `history.json`.
 
 use crate::commands::player;
-use crate::config::now_secs;
+use crate::config::{load_json, now_secs, write_atomic};
 use crate::session;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State, Webview};
 
+/// Per profile.
 const MAX_ENTRIES: usize = 200;
+/// A channel page that couldn't be resolved is tried again after this long.
+const RESOLVE_RETRY: Duration = Duration::from_secs(4 * 3600);
 const FEED_CHANNELS: usize = 8;
 const FEED_TTL: Duration = Duration::from_secs(30 * 60);
 
@@ -78,35 +80,49 @@ pub struct HistoryStore {
     path: PathBuf,
     data: Mutex<HistoryFile>,
     dirty: AtomicBool,
+    /// Held across a whole flush: a second flush (e.g. on exit) waits for the
+    /// one in progress instead of skipping it or sharing its temp file.
+    write: Mutex<()>,
     /// (built at, for profile, items)
     feed: Mutex<Option<(Instant, String, Vec<FeedItem>)>>,
+    /// Channel URLs being resolved, and ones that failed (retried after `RESOLVE_RETRY`).
+    resolving: Mutex<(HashSet<String>, HashMap<String, Instant>)>,
 }
 
 impl HistoryStore {
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("history.json");
-        let data = fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default();
-        Self { path, data: Mutex::new(data), dirty: AtomicBool::new(false), feed: Mutex::new(None) }
+        Self {
+            data: Mutex::new(load_json(&path)),
+            path,
+            dirty: AtomicBool::new(false),
+            write: Mutex::new(()),
+            feed: Mutex::new(None),
+            resolving: Mutex::new((HashSet::new(), HashMap::new())),
+        }
     }
 
     /// Writes to disk if anything changed (atomic temp + rename).
     pub fn flush(&self) {
+        let Ok(_write) = self.write.lock() else { return };
+        // Changes made after this point set `dirty` again and go in the next flush.
         if !self.dirty.swap(false, Ordering::AcqRel) {
             return;
         }
-        let Ok(data) = self.data.lock() else { return };
-        let Ok(json) = serde_json::to_string(&*data) else { return };
-        drop(data);
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let tmp = self.path.with_extension("json.tmp");
-        if fs::write(&tmp, json).and_then(|_| fs::rename(&tmp, &self.path)).is_err() {
+        let json = self.data.lock().ok().and_then(|data| serde_json::to_string(&*data).ok());
+        let written = json.is_some_and(|json| write_atomic(&self.path, &json).is_ok());
+        if !written {
             self.dirty.store(true, Ordering::Release);
         }
+    }
+
+    /// Forgets a deleted profile's history.
+    pub fn remove_profile(&self, profile: &str) {
+        if let Ok(mut data) = self.data.lock() {
+            data.entries.retain(|e| !e.owned_by(profile));
+        }
+        self.dirty.store(true, Ordering::Release);
+        self.flush();
     }
 
     fn sorted(&self, profile: &str) -> Vec<WatchEntry> {
@@ -227,10 +243,17 @@ pub fn player_report(webview: Webview, report: PlayerReport, app: AppHandle) -> 
         }
         let now_playing = entry.title.clone();
         session::set_now_playing(Some(now_playing));
-        // Keep the most recent entries only.
-        if data.entries.len() > MAX_ENTRIES {
+        // Keep this profile's most recent entries only (other profiles are untouched).
+        if data.entries.iter().filter(|e| e.owned_by(&profile)).count() > MAX_ENTRIES {
             data.entries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-            data.entries.truncate(MAX_ENTRIES);
+            let mut kept = 0;
+            data.entries.retain(|e| {
+                if !e.owned_by(&profile) {
+                    return true;
+                }
+                kept += 1;
+                kept <= MAX_ENTRIES
+            });
         }
     }
     store.dirty.store(true, Ordering::Release);
@@ -244,9 +267,12 @@ pub fn player_report(webview: Webview, report: PlayerReport, app: AppHandle) -> 
 // ───────────────────────── YouTube public data (no API key) ─────────────────────────
 
 fn http_get(url: &str) -> Result<String, String> {
-    ureq::get(url)
+    crate::net::agent()
+        .get(url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
         .header("Accept-Language", "es-ES,es;q=0.9")
+        // Skips the EU cookie-consent page.
+        .header("Cookie", "SOCS=CAI")
         .call()
         .map_err(|e| e.to_string())?
         .body_mut()
@@ -257,17 +283,35 @@ fn http_get(url: &str) -> Result<String, String> {
 }
 
 /// Finds the UC… channel id behind a channel URL (canonical link of its page).
+/// One lookup per channel at a time; failures wait `RESOLVE_RETRY` before trying again.
 fn resolve_channel_later(app: AppHandle, url: String) {
+    {
+        let store = app.state::<HistoryStore>();
+        let Ok(mut r) = store.resolving.lock() else { return };
+        let (in_flight, failed) = &mut *r;
+        failed.retain(|_, at| at.elapsed() < RESOLVE_RETRY);
+        if in_flight.contains(&url) || failed.contains_key(&url) {
+            return;
+        }
+        in_flight.insert(url.clone());
+    }
     std::thread::spawn(move || {
-        let Ok(html) = http_get(&url) else { return };
-        let marker = "https://www.youtube.com/channel/";
-        let id = html.match_indices(marker).find_map(|(i, _)| {
-            let id: String = html[i + marker.len()..].chars().take(24).collect();
-            (id.starts_with("UC") && id.len() == 24 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'))
-                .then_some(id)
+        let id = http_get(&url).ok().and_then(|html| {
+            let marker = "https://www.youtube.com/channel/";
+            html.match_indices(marker).find_map(|(i, _)| {
+                let id: String = html[i + marker.len()..].chars().take(24).collect();
+                (id.starts_with("UC") && id.len() == 24 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'))
+                    .then_some(id)
+            })
         });
+        let store = app.state::<HistoryStore>();
+        if let Ok(mut r) = store.resolving.lock() {
+            r.0.remove(&url);
+            if id.is_none() {
+                r.1.insert(url.clone(), Instant::now());
+            }
+        }
         if let Some(id) = id {
-            let store = app.state::<HistoryStore>();
             if let Ok(mut data) = store.data.lock() {
                 data.channels.insert(url, id);
             }
@@ -406,7 +450,7 @@ pub async fn play_youtube(video_id: String, position: Option<f64>, app: AppHandl
         return Err("Vídeo no válido.".into());
     }
     let resume = position.filter(|p| p.is_finite() && *p > 5.0).map(|p| (p - 3.0).max(0.0));
-    session::end(&app, false);
+    session::end_blocking(&app).await;
     let url = format!("https://www.youtube.com/tv#/watch?v={video_id}");
     let label = player::open_with_resume(&app, "YouTube", &url, Some((&video_id, resume.unwrap_or(0.0))))?;
     session::start(&app, "YouTube", session::Kind::Player(label));

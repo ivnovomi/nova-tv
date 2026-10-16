@@ -8,7 +8,7 @@ import { focusFirst } from "../../lib/spatialNav";
 import { api } from "../../lib/api";
 import type { Channel } from "../../lib/types";
 import { useToast } from "../../components/Toasts";
-import { power } from "../../app/power";
+import { power, usePower } from "../../app/power";
 import { ChannelGuide } from "./Guide";
 import { groupLabel, hhmm, isAvailable, liveTv, onAir, orderedStreams, useLiveTv } from "./store";
 import { useHlsStream } from "./useHlsStream";
@@ -109,14 +109,30 @@ export function TvMode() {
     const t = window.setInterval(() => setNow(Date.now() / 1000), 15_000);
     return () => window.clearInterval(t);
   }, []);
+  // The power menu, a countdown or the goodbye screen goes first: the TV keeps its hands off.
+  const { menu: powerMenu, countdown, leaving } = usePower();
+  const powerBusy = powerMenu || !!countdown || !!leaving;
   // Full screen, the TV owns the keyboard whenever no panel is open.
   useEffect(() => {
-    if (overlay === "none" && !pip) root.current?.focus({ preventScroll: true });
-  }, [overlay, powering, pip]);
+    if (overlay === "none" && !pip && !powerBusy) root.current?.focus({ preventScroll: true });
+  }, [overlay, powering, pip, powerBusy]);
   useEffect(() => {
     if (pip) setOverlay("none");
     else showBanner();
   }, [pip, showBanner]);
+  // A panel asked for from the phone, once the TV has finished turning on.
+  useEffect(() => {
+    if (!tv.panel || powering || pip || powerBusy || (tv.panel === "info" && !channel)) return;
+    setOverlay(tv.panel);
+    liveTv.panelShown();
+  }, [tv.panel, powering, pip, powerBusy, channel]);
+  // A channel number still being typed is dropped with the TV (or when it shrinks).
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(digitTimer.current);
+      setDigits("");
+    };
+  }, [pip, overlay]);
 
   const powerOff = () => setPowering("off");
   // Power effects end on a timer too, so nothing can leave the TV stuck mid-animation.
@@ -126,8 +142,8 @@ export function TvMode() {
     return () => window.clearTimeout(t);
   }, [powering]);
   // Back / Home: close the open panel, otherwise shrink the TV to a corner.
-  useBackHandler(() => (overlay !== "none" ? setOverlay("none") : liveTv.minimize()), !pip);
-  useHomeHandler(() => (overlay !== "none" ? setOverlay("none") : liveTv.minimize()), !pip);
+  useBackHandler(() => (overlay !== "none" ? setOverlay("none") : liveTv.minimize()), !pip && !powerBusy);
+  useHomeHandler(() => (overlay !== "none" ? setOverlay("none") : liveTv.minimize()), !pip && !powerBusy);
 
   const zap = (delta: number) => liveTv.zap(delta);
 
@@ -153,8 +169,9 @@ export function TvMode() {
       setDigits(next);
       window.clearTimeout(digitTimer.current);
       digitTimer.current = window.setTimeout(() => {
-        if (!liveTv.tuneNumber(Number(next))) toast.show("info", `No hay canal ${next}`);
         setDigits("");
+        if (!liveTv.isOpen()) return; // the TV went off meanwhile: don't turn it back on
+        if (!liveTv.tuneNumber(Number(next))) toast.show("info", `No hay canal ${next}`);
       }, DIGIT_MS);
     } else return;
     e.preventDefault();
@@ -168,7 +185,7 @@ export function TvMode() {
     <div
       ref={root}
       tabIndex={-1}
-      data-nav-scope={pip ? undefined : true}
+      data-nav-scope={pip || powerBusy ? undefined : true}
       onKeyDown={onKeyDown}
       onClick={() => (pip ? liveTv.expand() : overlay === "none" && showBanner())}
       className={`fixed overflow-hidden bg-black text-white outline-none transition-[inset,width,height,border-radius,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${

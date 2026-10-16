@@ -175,6 +175,12 @@ pub fn end(app: &AppHandle, refocus: bool) {
     }
 }
 
+/// `end` for async commands: closing a browser can wait up to 3 s, so it runs off the async runtime.
+pub async fn end_blocking(app: &AppHandle) {
+    let app = app.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || end(&app, false)).await;
+}
+
 /// Remote "Home": leave the service and go back to NOVA TV.
 pub fn go_home(app: &AppHandle) {
     let app = app.clone();
@@ -214,7 +220,7 @@ fn controller_may_type(app: &AppHandle) -> bool {
     let Some(session) = guard.as_ref() else { return false };
     #[cfg(windows)]
     {
-        let fg = win::foreground_pid();
+        let fg = keys::foreground_pid();
         match &session.kind {
             Kind::Player(_) => fg == Some(std::process::id()),
             Kind::Browser(child) => fg == Some(child.id()),
@@ -234,7 +240,7 @@ mod win {
     use windows::core::BOOL;
     use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetForegroundWindow, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_CLOSE,
+        EnumWindows, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_CLOSE,
     };
 
     unsafe extern "system" fn close_if_owned(hwnd: HWND, lparam: LPARAM) -> BOOL {
@@ -253,18 +259,6 @@ mod win {
     pub fn post_close(pid: u32) {
         unsafe {
             let _ = EnumWindows(Some(close_if_owned), LPARAM(pid as isize));
-        }
-    }
-
-    pub fn foreground_pid() -> Option<u32> {
-        unsafe {
-            let hwnd = GetForegroundWindow();
-            if hwnd.0.is_null() {
-                return None;
-            }
-            let mut pid = 0u32;
-            GetWindowThreadProcessId(hwnd, Some(&mut pid));
-            (pid != 0).then_some(pid)
         }
     }
 }

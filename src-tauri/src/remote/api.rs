@@ -51,11 +51,14 @@ fn decode(s: &str) -> String {
         match bytes[i] {
             b'+' => out.push(b' '),
             b'%' if i + 2 < bytes.len() => {
-                if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                    out.push(b);
-                    i += 2;
-                } else {
-                    out.push(b'%');
+                // Bytes, not str slices: raw UTF-8 after '%' must not split a char.
+                let hex = |b: u8| (b as char).to_digit(16);
+                match (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                    (Some(h), Some(l)) => {
+                        out.push((h * 16 + l) as u8);
+                        i += 2;
+                    }
+                    _ => out.push(b'%'),
                 }
             }
             b => out.push(b),
@@ -211,8 +214,8 @@ pub fn power(app: &AppHandle, mut request: Request) {
     let result = match body.action.as_str() {
         "display-off" => crate::power::run(app, "display-off"),
         "timer" => crate::power::set_timer(app, body.minutes).map(|_| ()),
-        "exit" if crate::profiles::require_adult(&app.state::<AppState>()).is_err() => {
-            Err("Para salir de NOVA en un perfil infantil hace falta el PIN, desde la tele.".into())
+        "exit" | "restart-nova" if crate::profiles::require_adult(&app.state::<AppState>()).is_err() => {
+            Err("En un perfil infantil hace falta el PIN, desde la tele.".into())
         }
         "menu" | "screensaver" | "cancel" | "shutdown" | "restart" | "exit" | "restart-nova" => {
             front(app);
@@ -309,13 +312,13 @@ pub fn parse_youtube(input: &str) -> Option<(String, u32)> {
         let (mut total, mut num) = (0u32, 0u32);
         for ch in t.chars() {
             match ch {
-                '0'..='9' => num = num * 10 + ch.to_digit(10).unwrap_or(0),
-                'h' => (total, num) = (total + num * 3600, 0),
-                'm' => (total, num) = (total + num * 60, 0),
-                _ => (total, num) = (total + num, 0),
+                '0'..='9' => num = num.saturating_mul(10).saturating_add(ch.to_digit(10).unwrap_or(0)),
+                'h' => (total, num) = (total.saturating_add(num.saturating_mul(3600)), 0),
+                'm' => (total, num) = (total.saturating_add(num.saturating_mul(60)), 0),
+                _ => (total, num) = (total.saturating_add(num), 0),
             }
         }
-        total + num
+        total.saturating_add(num)
     });
     Some((id, t.unwrap_or(0)))
 }
@@ -396,5 +399,14 @@ mod tests {
     fn query_decoding() {
         assert_eq!(query("/api/channels?q=la%20sexta&group=fav", "q").as_deref(), Some("la sexta"));
         assert_eq!(query("/api/channels?q=m%C3%BAsica", "q").as_deref(), Some("música"));
+        // Raw UTF-8 right after '%' must not panic.
+        assert_eq!(decode("%ñ1"), "%ñ1");
+        assert_eq!(decode("%é"), "%é");
+    }
+
+    #[test]
+    fn youtube_time_saturates() {
+        let id = "dQw4w9WgXcQ";
+        assert!(parse_youtube(&format!("https://youtu.be/{id}?t=99999999999h")).is_some());
     }
 }

@@ -1,10 +1,9 @@
 //! Real play time per game, measured by the game watcher (only time a game's
 //! own processes were actually running). Stored locally in `playtime.json`.
 
-use crate::config::now_secs;
+use crate::config::{load_json, now_secs, write_atomic};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -21,28 +20,24 @@ pub struct PlayStats {
 pub struct PlaytimeStore {
     path: PathBuf,
     data: Mutex<HashMap<String, PlayStats>>,
+    /// Held from snapshot to rename, so an older snapshot never overwrites a newer one.
+    write: Mutex<()>,
 }
 
 impl PlaytimeStore {
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("playtime.json");
-        let data = fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-        Self { path, data: Mutex::new(data) }
+        Self { data: Mutex::new(load_json(&path)), path, write: Mutex::new(()) }
     }
 
     fn save(&self, data: &HashMap<String, PlayStats>) {
         let Ok(json) = serde_json::to_string(data) else { return };
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let tmp = self.path.with_extension("json.tmp");
-        if fs::write(&tmp, json).is_ok() {
-            let _ = fs::rename(&tmp, &self.path);
-        }
+        let _ = write_atomic(&self.path, &json);
     }
 
     /// Adds `seconds` to a game; `new_session` counts a fresh play session.
     pub fn add(&self, id: &str, seconds: u64, new_session: bool) {
+        let Ok(_write) = self.write.lock() else { return };
         let Ok(mut data) = self.data.lock() else { return };
         let stats = data.entry(id.to_string()).or_default();
         stats.total_seconds += seconds;
@@ -81,6 +76,6 @@ mod tests {
         let reloaded = PlaytimeStore::load(&dir);
         let stats = reloaded.data.lock().unwrap().get("steam:1").cloned().unwrap();
         assert_eq!((stats.total_seconds, stats.sessions), (105, 1));
-        let _ = fs::remove_dir_all(dir);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

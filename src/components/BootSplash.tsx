@@ -76,11 +76,17 @@ export function BootSplash({ libraryReady, tv, onDone }: Props) {
     const start = () => {
       if (cancelled || started) return;
       started = true;
+      // Skipped before the intro began: the splash is fading out, so no sound at all.
+      if (done.current) {
+        sound.current?.dispose();
+        sound.current = null;
+        return;
+      }
       sound.current?.play();
       setPhase("intro");
     };
     void createBootSound().then((s) => {
-      if (cancelled || started) return s?.dispose();
+      if (cancelled || started || done.current) return s?.dispose();
       sound.current = s;
       start();
     });

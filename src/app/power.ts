@@ -36,13 +36,7 @@ function set(patch: Partial<State>) {
 }
 
 export function usePower(): State {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => state,
-  );
+  return useSyncExternalStore(power.subscribe, () => state);
 }
 
 /** Seconds to wait: short when you chose it at the TV, longer from the phone, a full minute for the sleep timer. */
@@ -89,6 +83,14 @@ export const power = {
 
   screensaver: (on: boolean) => set({ screensaver: on, menu: false }),
   isSaving: () => state.screensaver,
+  /** The menu, a countdown or the goodbye screen is in front of everything. */
+  isBusy: () => state.menu || !!state.countdown || !!state.leaving,
+  isLeaving: () => !!state.leaving,
+  /** For code outside React (e.g. waiting for the power menu to close). */
+  subscribe(l: () => void) {
+    listeners.add(l);
+    return () => void listeners.delete(l);
+  },
 
   async displayOff() {
     set({ menu: false });

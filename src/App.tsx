@@ -158,6 +158,11 @@ function Shell() {
   );
 
   const goHome = useCallback(() => {
+    // Under the screensaver Home only wakes it.
+    if (power.isSaving()) {
+      power.screensaver(false);
+      return;
+    }
     if (runHomeOverride()) return; // e.g. Gaming Mode opens its Guide
     history.current = [];
     if (screen === "home") {
@@ -175,10 +180,7 @@ function Shell() {
   useEffect(() => {
     if (!inTauri) return;
     const offs = [
-      listen("remote-home", () => {
-        if (power.isSaving()) power.screensaver(false);
-        else goHomeRef.current();
-      }),
+      listen("remote-home", () => goHomeRef.current()),
       listen("remote-search", () => navigateRef.current("search")),
       listen<string>("remote-paired", ({ payload }) => toast.show("success", "Mando móvil emparejado", payload)),
     ];

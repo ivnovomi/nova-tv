@@ -1,8 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { focusFirst } from "../lib/spatialNav";
-import { useBackHandler } from "../hooks/backStack";
+import { focusFirst, restoreFocus } from "../lib/spatialNav";
+import { useBackHandler, useHomeHandler } from "../hooks/backStack";
 
 interface Props {
   title: string;
@@ -16,13 +16,15 @@ interface Props {
 export function Modal({ title, subtitle, onClose, children, width = "44rem" }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   useBackHandler(onClose);
+  useHomeHandler(onClose);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const node = panel.current;
     const t = window.setTimeout(() => focusFirst(panel.current), 30);
     return () => {
       window.clearTimeout(t);
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
+      restoreFocus(previous, node);
     };
   }, []);
 

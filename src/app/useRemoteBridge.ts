@@ -3,20 +3,13 @@ import { listen } from "@tauri-apps/api/event";
 import { api, inTauri } from "../lib/api";
 import type { Library, Screen, Shortcut } from "../lib/types";
 import { liveTv, onAir, useLiveTv } from "../features/livetv/store";
+import { power } from "./power";
 
 interface Bridge {
   library: Library | null;
   screen: Screen;
   launch: (s: Shortcut) => void;
   playVideo: (videoId: string, position?: number) => void;
-}
-
-/** Sends a key to the TV mode (opens its guide, info, menu or list). */
-function tvKey(key: string) {
-  void liveTv.open();
-  window.setTimeout(() => {
-    document.querySelector<HTMLElement>('[aria-label^="TV"]')?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-  }, 400);
 }
 
 /**
@@ -32,6 +25,8 @@ export function useRemoteBridge({ library, screen, launch, playVideo }: Bridge) 
     if (!inTauri) return;
     const offs = [
       listen<{ action: string; id?: string; number?: number }>("remote-tv", ({ payload }) => {
+        // Under the screensaver the phone only wakes it (it brings the TV back itself).
+        if (power.isSaving()) return power.screensaver(false);
         switch (payload.action) {
           case "up":
           case "down":
@@ -54,26 +49,28 @@ export function useRemoteBridge({ library, screen, launch, playVideo }: Bridge) 
           case "off":
             liveTv.close();
             break;
+          // The list is the guide too. TvMode opens the panel once it has turned on.
           case "guide":
-            tvKey("g");
+          case "list":
+            liveTv.showPanel("guide");
             break;
           case "info":
-            tvKey("ArrowRight");
+            liveTv.showPanel("info");
             break;
           case "menu":
-            tvKey("m");
-            break;
-          case "list":
-            tvKey("Enter");
+            liveTv.showPanel("menu");
             break;
         }
       }),
       listen<{ id: string }>("remote-launch", ({ payload }) => {
+        // Waking only: launching now would leave the TV coming back on top of the app.
+        if (power.isSaving()) return power.screensaver(false);
         const lib = latest.current.library;
         const item = lib && [...lib.streaming, ...lib.games, ...lib.apps].find((s) => s.id === payload.id);
         if (item) latest.current.launch(item);
       }),
       listen<{ videoId: string; position: number }>("remote-cast", ({ payload }) => {
+        if (power.isSaving()) return power.screensaver(false);
         latest.current.playVideo(payload.videoId, payload.position || undefined);
       }),
     ];

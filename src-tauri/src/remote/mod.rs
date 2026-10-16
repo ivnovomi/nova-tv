@@ -4,12 +4,17 @@
 //! Safety model:
 //! - Only private/loopback client addresses are served.
 //! - Commands need a token obtained by pairing with the PIN shown on the TV
-//!   (the QR code carries it). The PIN rotates after every pairing and pairing
-//!   locks for a minute after repeated wrong PINs.
+//!   (the QR code carries it). Pairing is only open for a few minutes after
+//!   the TV shows the PIN. The PIN rotates after every pairing; wrong PINs
+//!   slow each address down exponentially, and too many close pairing (with a
+//!   new PIN) until it is reopened on the TV.
 //! - Requests must be `application/json`, so other websites cannot post to it
-//!   without a CORS preflight, which is never granted.
-//! - A remote can only press navigation/media/volume keys or type text. It
-//!   cannot launch programs.
+//!   without a CORS preflight, which is never granted. The Host header must be
+//!   an address of this PC (no DNS rebinding) and any Origin must match it.
+//! - Bodies are tiny and requests run on a few bounded workers, so one slow
+//!   client can't freeze the remote.
+//! - A remote can only press navigation/media/volume keys (into NOVA or its
+//!   session) or type text. It cannot launch programs.
 
 pub mod api;
 pub mod keys;
@@ -18,7 +23,8 @@ use crate::config::{new_id, now_secs, RemoteDevice};
 use crate::{session, AppState};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -26,20 +32,42 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const PORTS: std::ops::RangeInclusive<u16> = 8765..=8770;
-const MAX_BODY: usize = 2048;
-const MAX_FAILURES: u32 = 5;
-const LOCKOUT: Duration = Duration::from_secs(60);
+/// tiny_http buffers bodies up to this size itself, so a worker never waits on a slow upload.
+const MAX_BODY: usize = 1024;
+/// Requests handled at once; beyond this the remote answers 503.
+const MAX_WORKERS: usize = 8;
+/// Pairing stays open this long after the TV shows the PIN.
+const ARM_FOR: Duration = Duration::from_secs(3 * 60);
+/// Wrong PINs (from anywhere) before pairing closes until reopened on the TV.
+const MAX_TOTAL_FAILURES: u32 = 20;
+/// Wrong PINs per address before the exponential wait starts.
+const FREE_TRIES: u32 = 3;
+const MAX_BACKOFF_SECS: u64 = 300;
+const MAX_TRACKED_IPS: usize = 256;
+const NOT_ARMED: &str = "Abre Ajustes → Mando del móvil en la TV para emparejar";
 const PAGE: &str = include_str!("../../remote/index.html");
 const ICON: &str = include_str!("../../remote/icon.svg");
 const ICON_PNG: &[u8] = include_bytes!("../../remote/icon-180.png");
 const MANIFEST: &str = include_str!("../../remote/manifest.json");
 
+/// Wrong PINs from one address.
+struct IpFailures {
+    ip: IpAddr,
+    count: u32,
+    last: Instant,
+    wait_until: Instant,
+}
+
 struct Runtime {
     server: Option<Arc<Server>>,
     port: Option<u16>,
     pin: String,
-    failures: u32,
-    locked_until: Option<Instant>,
+    /// Pairing accepted until then (set when the TV shows the PIN).
+    armed_until: Option<Instant>,
+    /// Too many wrong PINs: only "Nuevo PIN" on the TV reopens pairing.
+    tripped: bool,
+    total_failures: u32,
+    ip_failures: Vec<IpFailures>,
     error: Option<String>,
 }
 
@@ -47,10 +75,50 @@ static RUNTIME: Mutex<Runtime> = Mutex::new(Runtime {
     server: None,
     port: None,
     pin: String::new(),
-    failures: 0,
-    locked_until: None,
+    armed_until: None,
+    tripped: false,
+    total_failures: 0,
+    ip_failures: Vec::new(),
     error: None,
 });
+static WORKERS: AtomicUsize = AtomicUsize::new(0);
+/// This PC's IPv4 addresses (for the Host check), refreshed every 30 s.
+static LOCAL_IPS: Mutex<Option<(Instant, Vec<Ipv4Addr>)>> = Mutex::new(None);
+
+impl Runtime {
+    fn arm(&mut self) {
+        if !self.tripped {
+            self.armed_until = Some(Instant::now() + ARM_FOR);
+        }
+    }
+
+    fn armed(&self) -> bool {
+        self.armed_until.is_some_and(|t| Instant::now() < t)
+    }
+}
+
+fn backoff(count: u32) -> Duration {
+    if count < FREE_TRIES {
+        return Duration::ZERO;
+    }
+    Duration::from_secs((1u64 << (count - FREE_TRIES).min(16)).min(MAX_BACKOFF_SECS))
+}
+
+/// Notes a wrong PIN from `ip` and sets how long it must wait.
+fn note_failure(list: &mut Vec<IpFailures>, ip: IpAddr, now: Instant) {
+    if let Some(f) = list.iter_mut().find(|f| f.ip == ip) {
+        f.count = f.count.saturating_add(1);
+        f.last = now;
+        f.wait_until = now + backoff(f.count);
+        return;
+    }
+    if list.len() >= MAX_TRACKED_IPS {
+        if let Some(oldest) = list.iter().enumerate().min_by_key(|(_, f)| f.last).map(|(i, _)| i) {
+            list.swap_remove(oldest);
+        }
+    }
+    list.push(IpFailures { ip, count: 1, last: now, wait_until: now + backoff(1) });
+}
 
 fn random_bytes<const N: usize>() -> [u8; N] {
     let mut buf = [0u8; N];
@@ -141,7 +209,7 @@ pub fn start(app: &AppHandle) {
                 let app = app.clone();
                 thread::spawn(move || {
                     for request in server.incoming_requests() {
-                        handle(&app, request);
+                        dispatch(&app, request, port);
                     }
                 });
                 return;
@@ -167,6 +235,30 @@ pub fn stop() {
 
 fn changed(app: &AppHandle) {
     let _ = app.emit("remote-changed", ());
+}
+
+/// Frees a worker slot when the request is done (even if the handler bails out early).
+struct WorkerSlot;
+
+impl Drop for WorkerSlot {
+    fn drop(&mut self) {
+        WORKERS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+/// Hands the request to a worker thread; at most `MAX_WORKERS` run at once.
+fn dispatch(app: &AppHandle, request: Request, port: u16) {
+    if WORKERS.fetch_add(1, Ordering::AcqRel) >= MAX_WORKERS {
+        WORKERS.fetch_sub(1, Ordering::AcqRel);
+        return error(request, 503, "Ocupado, inténtalo de nuevo");
+    }
+    let slot = WorkerSlot;
+    let app = app.clone();
+    // On spawn failure the closure (request and slot) is dropped: the client sees the connection close.
+    let _ = thread::Builder::new().name("nova-remote".into()).spawn(move || {
+        let _slot = slot;
+        handle(&app, request, port);
+    });
 }
 
 // ───────────────────────── HTTP ─────────────────────────
@@ -230,12 +322,70 @@ fn authorized(app: &AppHandle, request: &Request) -> Option<RemoteDevice> {
         .remote
         .devices
         .into_iter()
-        .find(|d| d.token == token)
+        .find(|d| crate::profiles::same_secret(&d.token, token))
 }
 
-fn handle(app: &AppHandle, mut request: Request) {
+fn is_local_ipv4(ip: Ipv4Addr) -> bool {
+    if ip.is_loopback() {
+        return true;
+    }
+    let Ok(mut cache) = LOCAL_IPS.lock() else { return false };
+    if !cache.as_ref().is_some_and(|(at, _)| at.elapsed() < Duration::from_secs(30)) {
+        let mut ips: Vec<Ipv4Addr> = local_ip_address::list_afinet_netifas()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(_, ip)| match ip {
+                IpAddr::V4(v4) => Some(v4),
+                IpAddr::V6(_) => None,
+            })
+            .collect();
+        ips.extend(lan_addresses().iter().filter_map(|s| s.parse::<Ipv4Addr>().ok()));
+        *cache = Some((Instant::now(), ips));
+    }
+    cache.as_ref().is_some_and(|(_, ips)| ips.contains(&ip))
+}
+
+/// DNS rebinding guard: Host must be this PC (by IP or localhost) on our port,
+/// and an Origin, when sent, must be that same host.
+fn host_allowed(request: &Request, port: u16) -> bool {
+    let Some(host) = header_value(request, "Host").map(str::trim) else { return false };
+    let Some((name, host_port)) = host.rsplit_once(':') else { return false };
+    if host_port.parse::<u16>().ok() != Some(port) {
+        return false;
+    }
+    let name_ok = name.eq_ignore_ascii_case("localhost") || name.parse::<Ipv4Addr>().is_ok_and(is_local_ipv4);
+    if !name_ok {
+        return false;
+    }
+    match header_value(request, "Origin") {
+        None => true,
+        Some(origin) => origin.trim().strip_prefix("http://").is_some_and(|o| o.eq_ignore_ascii_case(host)),
+    }
+}
+
+/// Only small bodies that tiny_http has already buffered: no chunked, unknown-length,
+/// `Expect` or upgraded requests that would leave a worker waiting on the socket.
+fn body_acceptable(request: &Request) -> bool {
+    let has = |name: &'static str| header_value(request, name).is_some();
+    let upgrade = header_value(request, "Connection").is_some_and(|v| v.to_ascii_lowercase().contains("upgrade"));
+    if has("Transfer-Encoding") || has("Expect") || upgrade {
+        return false;
+    }
+    match request.body_length() {
+        Some(n) => n <= MAX_BODY,
+        None => *request.method() != Method::Post,
+    }
+}
+
+fn handle(app: &AppHandle, mut request: Request, port: u16) {
     if !request.remote_addr().is_some_and(is_private) {
         return error(request, 403, "Solo red local");
+    }
+    if !host_allowed(&request, port) {
+        return error(request, 421, "Dirección no válida");
+    }
+    if !body_acceptable(&request) {
+        return error(request, 413, "Petición demasiado grande");
     }
     let path = request.url().split('?').next().unwrap_or("/").to_string();
     match (request.method().clone(), path.as_str()) {
@@ -256,9 +406,9 @@ fn handle(app: &AppHandle, mut request: Request) {
             struct Cmd {
                 cmd: String,
             }
-            match read_json::<Cmd>(&mut request) {
-                Ok(c) if run_command(app, &c.cmd) => respond(request, 204, "text/plain", String::new()),
-                Ok(_) => error(request, 400, "Orden desconocida"),
+            match read_json::<Cmd>(&mut request).map(|c| run_command(app, &c.cmd)) {
+                Ok(Ok(())) => respond(request, 204, "text/plain", String::new()),
+                Ok(Err((status, e))) => error(request, status, e),
                 Err(e) => error(request, 400, e),
             }
         }
@@ -287,6 +437,9 @@ fn handle(app: &AppHandle, mut request: Request) {
             }
             match read_json::<Text>(&mut request) {
                 Ok(t) if t.text.chars().count() <= 200 && !t.text.chars().any(char::is_control) => {
+                    if !keys::target_allowed() {
+                        return error(request, 409, keys::NOT_NOVA);
+                    }
                     keys::type_text(&t.text);
                     if t.submit {
                         keys::tap(keys::ENTER);
@@ -308,27 +461,41 @@ fn pair(app: &AppHandle, mut request: Request) {
         #[serde(default)]
         name: String,
     }
+    let Some(ip) = request.remote_addr().map(|a| a.ip().to_canonical()) else {
+        return error(request, 403, "Solo red local");
+    };
     let body = match read_json::<Pair>(&mut request) {
         Ok(b) => b,
         Err(e) => return error(request, 400, e),
     };
     {
-        let mut rt = RUNTIME.lock().unwrap();
-        if rt.locked_until.is_some_and(|t| Instant::now() < t) {
-            return error(request, 429, "Demasiados intentos. Espera un minuto.");
+        let Ok(mut rt) = RUNTIME.lock() else { return error(request, 500, "Mando no disponible") };
+        if !rt.armed() {
+            return error(request, 403, NOT_ARMED);
         }
-        if body.pin.trim() != rt.pin {
-            rt.failures += 1;
-            if rt.failures >= MAX_FAILURES {
-                rt.failures = 0;
-                rt.locked_until = Some(Instant::now() + LOCKOUT);
+        let now = Instant::now();
+        rt.ip_failures.retain(|f| now.duration_since(f.last) < Duration::from_secs(3600));
+        if let Some(f) = rt.ip_failures.iter().find(|f| f.ip == ip && now < f.wait_until) {
+            let secs = f.wait_until.duration_since(now).as_secs() + 1;
+            return error(request, 429, &format!("Demasiados intentos. Espera {secs} s."));
+        }
+        if !crate::profiles::same_secret(body.pin.trim(), &rt.pin) {
+            note_failure(&mut rt.ip_failures, ip, now);
+            rt.total_failures += 1;
+            if rt.total_failures >= MAX_TOTAL_FAILURES {
+                // Close pairing with a fresh PIN until someone reopens it on the TV.
+                rt.total_failures = 0;
+                rt.tripped = true;
+                rt.armed_until = None;
                 rt.pin = new_pin();
                 drop(rt);
                 changed(app);
+                return error(request, 403, "Demasiados intentos. Pide un PIN nuevo en la TV.");
             }
             return error(request, 403, "PIN incorrecto");
         }
-        rt.failures = 0;
+        rt.ip_failures.retain(|f| f.ip != ip);
+        rt.total_failures = 0;
         rt.pin = new_pin(); // one-time: the QR on screen is refreshed
     }
     let name: String = body.name.trim().chars().filter(|c| !c.is_control()).take(40).collect();
@@ -371,7 +538,7 @@ fn status(request: Request, device: RemoteDevice) {
     );
 }
 
-fn run_command(app: &AppHandle, cmd: &str) -> bool {
+fn run_command(app: &AppHandle, cmd: &str) -> Result<(), (u16, &'static str)> {
     let key = match cmd {
         "up" => keys::UP,
         "down" => keys::DOWN,
@@ -394,7 +561,7 @@ fn run_command(app: &AppHandle, cmd: &str) -> bool {
                 session::focus_main(app);
                 let _ = app.emit("remote-home", ());
             }
-            return true;
+            return Ok(());
         }
         "search" => {
             if session::is_active() {
@@ -402,12 +569,20 @@ fn run_command(app: &AppHandle, cmd: &str) -> bool {
             }
             session::focus_main(app);
             let _ = app.emit("remote-search", ());
-            return true;
+            return Ok(());
         }
-        _ => return false,
+        _ => return Err((400, "Orden desconocida")),
     };
+    // Media and volume keys are system-wide; the rest only go to NOVA or its session.
+    let system_key = matches!(
+        key,
+        keys::MEDIA_PLAY_PAUSE | keys::MEDIA_NEXT | keys::MEDIA_PREV | keys::VOLUME_UP | keys::VOLUME_DOWN | keys::VOLUME_MUTE
+    );
+    if !system_key && !keys::target_allowed() {
+        return Err((409, keys::NOT_NOVA));
+    }
     keys::tap(key);
-    true
+    Ok(())
 }
 
 // ───────────────────────── Tauri commands ─────────────────────────
@@ -438,8 +613,10 @@ pub struct RemoteInfo {
 pub async fn remote_info(state: State<'_, AppState>) -> Result<RemoteInfo, String> {
     let config = state.config.snapshot().remote;
     let (port, pin, error, locked) = {
-        let rt = RUNTIME.lock().map_err(|_| "Mando no disponible")?;
-        (rt.port, rt.pin.clone(), rt.error.clone(), rt.locked_until.is_some_and(|t| Instant::now() < t))
+        let mut rt = RUNTIME.lock().map_err(|_| "Mando no disponible")?;
+        // The TV is showing the PIN: open pairing for a few minutes.
+        rt.arm();
+        (rt.port, rt.pin.clone(), rt.error.clone(), rt.tripped)
     };
     let urls: Vec<String> = match port {
         Some(p) => lan_addresses().into_iter().map(|ip| format!("http://{ip}:{p}")).collect(),
@@ -503,7 +680,35 @@ pub async fn remote_revoke(id: String, app: AppHandle, state: State<'_, AppState
 #[tauri::command]
 pub async fn remote_new_pin(app: AppHandle) -> Result<(), String> {
     crate::profiles::require_adult(&app.state::<AppState>())?;
-    RUNTIME.lock().map_err(|_| "Mando no disponible")?.pin = new_pin();
+    {
+        let mut rt = RUNTIME.lock().map_err(|_| "Mando no disponible")?;
+        rt.pin = new_pin();
+        rt.tripped = false;
+        rt.total_failures = 0;
+        rt.arm();
+    }
     changed(&app);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn per_address_backoff() {
+        let (mut list, now) = (Vec::new(), Instant::now());
+        let a: IpAddr = "192.168.1.20".parse().unwrap();
+        let b: IpAddr = "192.168.1.21".parse().unwrap();
+        for _ in 0..FREE_TRIES - 1 {
+            note_failure(&mut list, a, now);
+        }
+        assert!(list[0].wait_until <= now, "first tries are free");
+        note_failure(&mut list, a, now);
+        note_failure(&mut list, a, now);
+        assert_eq!(list[0].wait_until - now, Duration::from_secs(2), "then it doubles");
+        note_failure(&mut list, b, now);
+        assert!(list[1].wait_until <= now, "other addresses aren't slowed down");
+        assert_eq!(backoff(100), Duration::from_secs(MAX_BACKOFF_SECS));
+    }
 }

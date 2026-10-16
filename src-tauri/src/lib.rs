@@ -5,6 +5,7 @@ mod history;
 mod livetv;
 mod livetv_health;
 mod metadata;
+mod net;
 mod nowplaying;
 mod playtime;
 mod pluto;

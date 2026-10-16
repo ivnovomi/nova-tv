@@ -41,6 +41,16 @@ export function focusFirst(container?: ParentNode | null): boolean {
   return false;
 }
 
+/**
+ * Gives the focus back to `previous` when a dialog closes, but only if it's
+ * still in the closing dialog (or nowhere): something opened on top keeps it.
+ */
+export function restoreFocus(previous: HTMLElement | null, closing: HTMLElement | null) {
+  const active = document.activeElement;
+  if (active && active !== document.body && !closing?.contains(active)) return;
+  if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
+}
+
 export function moveFocus(dir: Direction): boolean {
   const root = scopeRoot();
   const items = candidates(root);

@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed right-[var(--gutter)] top-28 z-50 flex w-[30rem] flex-col gap-3" aria-live="polite">
+      <div className="pointer-events-none fixed right-[var(--gutter)] top-28 z-[75] flex w-[30rem] flex-col gap-3" aria-live="polite">
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
             <motion.div

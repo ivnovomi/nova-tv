@@ -7,7 +7,7 @@ import { useNova } from "../app/context";
 import { api } from "../lib/api";
 import { formatDate, formatTime, useClock } from "../hooks/useClock";
 import { useNowPlaying } from "../hooks/useLiveData";
-import { liveTv } from "./livetv/store";
+import { liveTv, useLiveTv } from "./livetv/store";
 import { Wordmark } from "../components/Chrome";
 
 const SLIDE_MS = 14_000;
@@ -92,6 +92,24 @@ function Aurora() {
 }
 
 /**
+ * Turns the TV back on after the screensaver, as it was (full screen or in a
+ * corner), once no power menu or countdown is in front. Never while turning off.
+ */
+function resumeTv(pip: boolean) {
+  const tryNow = () => {
+    if (power.isLeaving() || liveTv.isOpen()) return true; // turning off, or already back on
+    if (power.isBusy() || power.isSaving()) return false;
+    void liveTv.open();
+    if (pip) liveTv.minimize();
+    return true;
+  };
+  if (tryNow()) return;
+  const off = power.subscribe(() => {
+    if (tryNow()) off();
+  });
+}
+
+/**
  * "Suspender": NOVA's screensaver. Clock, date and what's playing over slowly
  * moving art. Live TV stops while it's on (and comes back after). Any key,
  * click, controller button or the phone wakes it, and that press does nothing else.
@@ -100,12 +118,13 @@ export function Screensaver({ tvWasOn }: { tvWasOn: boolean }) {
   const now = useClock();
   const images = useArtwork();
   const playing = useNowPlaying();
-  const resumeTv = useRef(tvWasOn);
+  const { pip } = useLiveTv();
+  const resume = useRef({ on: tvWasOn, pip });
   const [spot, setSpot] = useState(0);
   const [hint, setHint] = useState(true);
 
   useEffect(() => {
-    if (resumeTv.current) liveTv.close();
+    if (resume.current.on) liveTv.close();
     const started = Date.now();
     const start = { x: -1, y: -1 };
     const wake = (e: Event) => {
@@ -135,7 +154,7 @@ export function Screensaver({ tvWasOn }: { tvWasOn: boolean }) {
       window.removeEventListener("pointermove", move, { capture: true });
       window.clearTimeout(hintTimer);
       window.clearInterval(spotTimer);
-      if (resumeTv.current) void liveTv.open();
+      if (resume.current.on) resumeTv(resume.current.pip);
     };
   }, []);
 

@@ -45,6 +45,9 @@ fn prefixes(game: &Shortcut) -> Vec<String> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     match &game.target {
         Target::Steam { app_id } => dirs.extend(steam::install_dir(*app_id)),
+        // Riot games start through Riot Client, which stays open: watching its folder
+        // would mean the game never ends. Only the game's own install folder counts.
+        Target::Executable { .. } if game.id.starts_with("riot:") => {}
         Target::Executable { path, .. } => dirs.extend(Path::new(path).parent().map(Path::to_path_buf)),
         _ => {}
     }

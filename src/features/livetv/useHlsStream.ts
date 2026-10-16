@@ -309,11 +309,16 @@ export function useHlsStream(
         // What the downloads actually measured, for the next channel.
         hls.on(Hls.Events.FRAG_LOADED, () => hls && rememberBandwidth(hls.bandwidthEstimate));
         hls.on(Hls.Events.FRAG_BUFFERED, release);
+        // Broken media on this stream: recover, then recover swapping the audio codec, then move on.
+        let mediaErrors = 0;
         hls.on(Hls.Events.ERROR, (_e, data) => {
           lastCode = (data.response as { code?: number } | undefined)?.code ?? lastCode;
           if (!data.fatal) return;
-          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
-          else fail();
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaErrors < 2) {
+            mediaErrors += 1;
+            if (mediaErrors === 2) hls?.swapAudioCodec();
+            hls?.recoverMediaError();
+          } else fail();
         });
         hls.loadSource(url);
         hls.attachMedia(el);

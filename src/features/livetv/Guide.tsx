@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "motion/react";
+import { motion, useIsPresent } from "motion/react";
 import { Star } from "lucide-react";
 import { useBackHandler } from "../../hooks/backStack";
 import { useToast } from "../../components/Toasts";
@@ -87,8 +87,16 @@ export function ChannelGuide({ channels, currentId, onClose }: Props) {
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now() / 1000), 30_000);
-    return () => window.clearInterval(t);
+    return () => {
+      window.clearInterval(t);
+      window.clearTimeout(digitTimer.current); // a number half-typed goes with the guide
+    };
   }, []);
+  // Closing (or the TV shrinking) starts the fade-out: drop it already then.
+  const present = useIsPresent();
+  useEffect(() => {
+    if (!present) window.clearTimeout(digitTimer.current);
+  }, [present]);
 
   const choose = (nextTab: string, nextSub?: string) => {
     const m: Memory = { tab: nextTab, subs: { ...memory.subs, ...(nextSub ? { [nextTab]: nextSub } : {}) } };
@@ -166,6 +174,7 @@ export function ChannelGuide({ channels, currentId, onClose }: Props) {
       setDigits(typed);
       window.clearTimeout(digitTimer.current);
       digitTimer.current = window.setTimeout(() => {
+        if (!liveTv.isOpen()) return;
         const n = Number(typed);
         const i = list.findIndex((c) => c.number === n);
         if (i >= 0) setRow(i);

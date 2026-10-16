@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { focusFirst, moveFocus, type Direction } from "../lib/spatialNav";
 import { inTauri } from "../lib/api";
 import { runBack } from "./backStack";
+import { power } from "../app/power";
 
 const KEY_DIR: Record<string, Direction> = {
   ArrowUp: "up",
@@ -116,6 +117,20 @@ export function useRemoteInput(onHome: () => void): string | null {
         view: b(8),
         home: b(16) || b(9),
       };
+      if (power.isSaving()) {
+        // The screensaver is up: a new press only wakes it and does nothing else
+        // (held until released, so it doesn't act on the screen that comes back).
+        let pressedNew = false;
+        for (const [action, pressed] of Object.entries(state)) {
+          if (!pressed) delete held[action];
+          else if (held[action] === undefined) {
+            held[action] = Infinity;
+            pressedNew = true;
+          }
+        }
+        if (pressedNew) power.screensaver(false);
+        return;
+      }
       for (const [action, pressed] of Object.entries(state)) {
         if (!pressed) {
           delete held[action];

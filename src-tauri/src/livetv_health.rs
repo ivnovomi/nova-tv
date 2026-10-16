@@ -3,13 +3,12 @@
 //! be hidden. Runs in the background with a small worker pool; results are saved
 //! and re-checked on a schedule (good: daily, dead: 6 h, blocked: hourly).
 
-use crate::config::now_secs;
+use crate::config::{load_json, now_secs, write_atomic};
 use crate::livetv::Channel;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -61,24 +60,29 @@ pub struct HealthStore {
     map: Mutex<HashMap<String, HealthEntry>>,
     running: AtomicBool,
     progress: Mutex<Progress>,
+    /// Held across serialise + write + rename, so saves land in order.
+    write: Mutex<()>,
+    /// A delayed save (after player reports) is already scheduled.
+    save_scheduled: AtomicBool,
 }
 
 impl HealthStore {
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("livetv").join("health.json");
-        let map = fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-        Self { path, map: Mutex::new(map), running: AtomicBool::new(false), progress: Mutex::new(Progress::default()) }
+        Self {
+            map: Mutex::new(load_json(&path)),
+            path,
+            running: AtomicBool::new(false),
+            progress: Mutex::new(Progress::default()),
+            write: Mutex::new(()),
+            save_scheduled: AtomicBool::new(false),
+        }
     }
 
     fn save(&self) {
+        let Ok(_write) = self.write.lock() else { return };
         let Ok(json) = self.map.lock().map(|m| serde_json::to_string(&*m).unwrap_or_default()) else { return };
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let tmp = self.path.with_extension("json.tmp");
-        if fs::write(&tmp, json).is_ok() {
-            let _ = fs::rename(&tmp, &self.path);
-        }
+        let _ = write_atomic(&self.path, &json);
     }
 
     fn is_fresh(&self, id: &str, now: u64) -> bool {
@@ -171,7 +175,12 @@ fn probe_youtube(agent: &ureq::Agent, stream: &str) -> Probe {
     if let Some(channel) = rest.strip_prefix("channel:") {
         let Some(page) = get(&format!("https://www.youtube.com/embed/live_stream?channel={channel}")) else { return Probe::Dead };
         let Some(i) = page.find("embedded_player_response") else { return Probe::Dead };
-        let response = &page[i..page.len().min(i + 30_000)];
+        // Up to 30 KB, cut back to a char boundary (slicing inside a UTF-8 char panics).
+        let mut end = page.len().min(i + 30_000);
+        while !page.is_char_boundary(end) {
+            end -= 1;
+        }
+        let Some(response) = page.get(i..end) else { return Probe::Dead };
         if response.contains("reason\\\":") {
             return Probe::Dead;
         }
@@ -252,6 +261,24 @@ fn probe_channel(agent: &ureq::Agent, channel: &Channel) -> HealthEntry {
     HealthEntry { status: if blocked { Health::Blocked } else { Health::Dead }, checked_at: now_secs(), stream: 0 }
 }
 
+/// Adds one on drop: a probe is counted as done however it ends.
+struct CountUp(Arc<AtomicUsize>);
+
+impl Drop for CountUp {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::AcqRel);
+    }
+}
+
+/// Subtracts one on drop: a worker is counted as gone however it ends.
+struct CountDown(Arc<AtomicUsize>);
+
+impl Drop for CountDown {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
 /// Checks every channel that isn't fresh, priority ids first. No-op if running.
 pub fn start(app: &AppHandle, channels: Vec<Channel>, priority: Vec<String>, force: bool) {
     let store = app.state::<HealthStore>();
@@ -287,14 +314,21 @@ pub fn start(app: &AppHandle, channels: Vec<Channel>, priority: Vec<String>, for
 
     let queue = Arc::new(Mutex::new(VecDeque::from(queue)));
     let pending: Arc<Mutex<Vec<(String, HealthEntry)>>> = Arc::new(Mutex::new(Vec::new()));
-    let done = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let done = Arc::new(AtomicUsize::new(0));
+    let alive = Arc::new(AtomicUsize::new(0));
 
     for _ in 0..WORKERS {
         let (queue, pending, done, app) = (queue.clone(), pending.clone(), done.clone(), app.clone());
-        std::thread::spawn(move || {
+        alive.fetch_add(1, Ordering::AcqRel);
+        let alive_guard = CountDown(alive.clone());
+        // If the thread can't start, the closure (and its guard) is dropped right away.
+        let _ = std::thread::Builder::new().spawn(move || {
+            let _alive = alive_guard;
             let agent = agent();
             loop {
                 let Some(channel) = queue.lock().ok().and_then(|mut q| q.pop_front()) else { return };
+                // Counts as done even if the probe fails badly, so the reporter always finishes.
+                let _done = CountUp(done.clone());
                 let entry = probe_channel(&agent, &channel);
                 let store = app.state::<HealthStore>();
                 if let Ok(mut m) = store.map.lock() {
@@ -303,7 +337,6 @@ pub fn start(app: &AppHandle, channels: Vec<Channel>, priority: Vec<String>, for
                 if let Ok(mut p) = pending.lock() {
                     p.push((channel.id, entry));
                 }
-                done.fetch_add(1, Ordering::AcqRel);
             }
         });
     }
@@ -318,7 +351,8 @@ pub fn start(app: &AppHandle, channels: Vec<Channel>, priority: Vec<String>, for
             let finished = done.load(Ordering::Acquire);
             let updates = pending.lock().map(|mut p| std::mem::take(&mut *p)).unwrap_or_default();
             let (ok, dead, blocked) = store.counts();
-            let running = finished < total;
+            // Also stop if every worker is gone (nothing left to finish the queue).
+            let running = finished < total && alive.load(Ordering::Acquire) > 0;
             let progress = Progress { running, done: finished, total, ok, dead, blocked };
             if let Ok(mut p) = store.progress.lock() {
                 *p = progress.clone();
@@ -367,7 +401,16 @@ pub fn livetv_report(id: String, ok: bool, blocked: bool, stream: u8, app: AppHa
     if let Ok(mut m) = store.map.lock() {
         m.insert(id.chars().take(200).collect(), entry);
     }
-    store.save();
+    // Saved a few seconds later off the main thread; reports in between share one write.
+    if !store.save_scheduled.swap(true, Ordering::AcqRel) {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(5));
+            let store = app.state::<HealthStore>();
+            store.save_scheduled.store(false, Ordering::Release);
+            store.save();
+        });
+    }
 }
 
 #[cfg(test)]

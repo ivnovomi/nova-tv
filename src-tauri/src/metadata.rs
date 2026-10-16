@@ -4,10 +4,9 @@
 //! up by name and only accepted on an exact (normalised) title match, so a game
 //! never gets someone else's artwork. Results are cached in `metadata.json`.
 
-use crate::config::{now_secs, Shortcut, Target};
+use crate::config::{load_json, now_secs, write_atomic, Shortcut, Target};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -57,24 +56,21 @@ pub struct MetadataStore {
     path: PathBuf,
     data: Mutex<HashMap<String, GameMeta>>,
     running: AtomicBool,
+    /// Held across serialise + write + rename, so saves land in order.
+    write: Mutex<()>,
 }
 
 impl MetadataStore {
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("metadata.json");
-        let data = fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-        Self { path, data: Mutex::new(data), running: AtomicBool::new(false) }
+        let data = load_json(&path);
+        Self { path, data: Mutex::new(data), running: AtomicBool::new(false), write: Mutex::new(()) }
     }
 
     fn save(&self) {
+        let Ok(_write) = self.write.lock() else { return };
         let Ok(json) = self.data.lock().map(|d| serde_json::to_string(&*d).unwrap_or_default()) else { return };
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let tmp = self.path.with_extension("json.tmp");
-        if fs::write(&tmp, json).is_ok() {
-            let _ = fs::rename(&tmp, &self.path);
-        }
+        let _ = write_atomic(&self.path, &json);
     }
 
     /// Cover art for a game (portrait first), when metadata has been fetched.
@@ -101,7 +97,8 @@ impl MetadataStore {
 }
 
 fn get_json(url: &str) -> Option<serde_json::Value> {
-    let body = ureq::get(url)
+    let body = crate::net::agent()
+        .get(url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
         .call()
         .ok()?

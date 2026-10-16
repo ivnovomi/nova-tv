@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useAnimationControls } from "motion/react";
 import { Check, Delete, LockKeyhole } from "lucide-react";
-import { focusFirst } from "../lib/spatialNav";
-import { useBackHandler } from "../hooks/backStack";
+import { focusFirst, restoreFocus } from "../lib/spatialNav";
+import { useBackHandler, useHomeHandler } from "../hooks/backStack";
 
 interface Props {
   title: string;
@@ -26,13 +26,15 @@ export function PinPad({ title, subtitle, onSubmit, onClose }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   const shake = useAnimationControls();
   useBackHandler(onClose);
+  useHomeHandler(onClose);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const node = panel.current;
     const t = window.setTimeout(() => focusFirst(panel.current), 30);
     return () => {
       window.clearTimeout(t);
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
+      restoreFocus(previous, node);
     };
   }, []);
 

@@ -29,6 +29,8 @@ interface State {
   signal: { id: string; ok: boolean } | null;
   /** Subtitles on (one track only, Spanish first). Off by default. */
   subtitles: boolean;
+  /** A panel asked for from the phone, shown once the TV has turned on. */
+  panel: "guide" | "info" | "menu" | null;
 }
 
 // ── Recently watched channels (per profile), for the guide's "Para ti" ──
@@ -80,10 +82,13 @@ let state: State = {
   hold: false,
   signal: null,
   subtitles: readSubs(),
+  panel: null,
 };
 const listeners = new Set<() => void>();
 let epgTimer: number | undefined;
 let healthListening = false;
+/** A forced reload asked for while another load was running (e.g. a profile switch). */
+let reloadPending = false;
 
 function set(patch: Partial<State>) {
   state = { ...state, ...patch };
@@ -151,7 +156,12 @@ export const liveTv = {
   loaded: () => !!state.data,
   /** Loads channels once (plus guide every 30 min and signal health). */
   async load(force = false) {
-    if (!inTauri || state.loading || (state.data && !force)) return;
+    if (!inTauri || (state.data && !force)) return;
+    if (state.loading) {
+      // The running load may be for the old list: run again when it ends.
+      if (force) reloadPending = true;
+      return;
+    }
     set({ loading: true, error: null });
     try {
       const data = await api.livetvChannels();
@@ -166,6 +176,10 @@ export const liveTv = {
     window.clearInterval(epgTimer);
     epgTimer = window.setInterval(loadEpg, 30 * 60 * 1000);
     if (state.open && !state.playing) set({ playing: firstChannel() });
+    if (reloadPending) {
+      reloadPending = false;
+      await liveTv.load(true);
+    }
   },
   /** Turn the TV on: last channel, a favourite, or the first with signal. */
   async open() {
@@ -180,7 +194,16 @@ export const liveTv = {
     void api.livetvSetLast(id).catch(() => {});
   },
   close() {
-    set({ open: false, pip: false, playing: null });
+    set({ open: false, pip: false, playing: null, panel: null });
+  },
+  isOpen: () => state.open,
+  /** Turns the TV on (if needed) and opens one of its panels as soon as it's ready. */
+  showPanel(panel: NonNullable<State["panel"]>) {
+    set({ panel });
+    void liveTv.open();
+  },
+  panelShown() {
+    if (state.panel) set({ panel: null });
   },
   /** Channel up/down through what you can actually watch (works from the phone remote too). */
   zap(delta: number) {

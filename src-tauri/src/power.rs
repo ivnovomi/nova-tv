@@ -130,7 +130,9 @@ pub fn run(app: &AppHandle, action: &str) -> Result<(), String> {
             app.exit(0);
             Ok(())
         }
+        // Also gated: restarting would reset in-memory state (PIN unlocks…).
         "restart-nova" => {
+            require_adult(&app.state::<AppState>())?;
             app.state::<HistoryStore>().flush();
             app.restart()
         }
@@ -142,13 +144,17 @@ pub fn run(app: &AppHandle, action: &str) -> Result<(), String> {
 /// Sets (1–240 minutes) or cancels (`None`) the sleep timer. When it ends the
 /// interface counts down a last minute before turning the PC off.
 pub fn set_timer(app: &AppHandle, minutes: Option<u32>) -> Result<PowerInfo, String> {
-    let generation = TIMER_GEN.fetch_add(1, Ordering::AcqRel) + 1;
     let until = match minutes {
         Some(m) if (1..=240).contains(&m) => Some(now_secs() + u64::from(m) * 60),
         Some(_) => return Err("El temporizador va de 1 a 240 minutos".into()),
         None => None,
     };
-    *TIMER_UNTIL.lock().map_err(|e| e.to_string())? = until;
+    // Generation and end time change together, under the same lock.
+    let generation = {
+        let mut t = TIMER_UNTIL.lock().map_err(|e| e.to_string())?;
+        *t = until;
+        TIMER_GEN.fetch_add(1, Ordering::AcqRel) + 1
+    };
     if let Some(until) = until {
         let app = app.clone();
         std::thread::spawn(move || {
@@ -158,7 +164,12 @@ pub fn set_timer(app: &AppHandle, minutes: Option<u32>) -> Result<PowerInfo, Str
                     return;
                 }
             }
-            if let Ok(mut t) = TIMER_UNTIL.lock() {
+            {
+                let Ok(mut t) = TIMER_UNTIL.lock() else { return };
+                // Replaced or cancelled while we were waking up.
+                if TIMER_GEN.load(Ordering::Acquire) != generation {
+                    return;
+                }
                 *t = None;
             }
             let _ = app.emit("power-timer-due", ());

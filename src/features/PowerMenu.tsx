@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { LockKeyhole, LogOut, MonitorOff, Moon, Power, RefreshCw, RotateCcw, Timer, TriangleAlert, type LucideProps } from "lucide-react";
 import { power, usePower, type Countdown, type Leaving } from "../app/power";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
-import { useBackHandler } from "../hooks/backStack";
-import { focusFirst } from "../lib/spatialNav";
+import { useBackHandler, useHomeHandler } from "../hooks/backStack";
+import { focusFirst, restoreFocus } from "../lib/spatialNav";
 import { formatTime, useClock } from "../hooks/useClock";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -112,13 +112,16 @@ function Menu() {
   const panel = useRef<HTMLDivElement>(null);
   const now = useClock();
   useBackHandler(power.closeMenu);
+  useHomeHandler(power.closeMenu);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const node = panel.current;
     const t = window.setTimeout(() => focusFirst(panel.current), 80);
     return () => {
       window.clearTimeout(t);
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
+      // Not when a countdown already took it: Enter there would open the menu again behind it.
+      restoreFocus(previous, node);
     };
   }, []);
 
@@ -176,6 +179,19 @@ function CountdownView({ countdown, os }: { countdown: Countdown; os: string }) 
   const root = useRef<HTMLDivElement>(null);
   const w = words(countdown.action, os);
   useBackHandler(power.cancel);
+  // Home never skips past a countdown: it cancels, like Back.
+  useHomeHandler(power.cancel);
+
+  // Nothing behind (a closing menu, the TV) may take the focus away from Cancelar.
+  const present = useIsPresent();
+  useEffect(() => {
+    if (!present) return; // fading out: let it go
+    const keep = (e: FocusEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) focusFirst(root.current);
+    };
+    document.addEventListener("focusin", keep);
+    return () => document.removeEventListener("focusin", keep);
+  }, [present]);
 
   useEffect(() => {
     const started = Date.now();

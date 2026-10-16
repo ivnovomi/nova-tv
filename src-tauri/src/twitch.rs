@@ -91,7 +91,8 @@ fn fetch() -> Result<Vec<TwitchLive>, String> {
 
 fn request(query: &str) -> Result<serde_json::Value, String> {
     let body = serde_json::json!({ "query": query }).to_string();
-    let text = ureq::post(GQL)
+    let text = crate::net::agent()
+        .post(GQL)
         .header("Client-Id", WEB_CLIENT_ID)
         .header("Content-Type", "application/json")
         .send(body.as_bytes())
@@ -266,7 +267,7 @@ pub async fn twitch_play(login: String, name: Option<String>, app: AppHandle, st
     }
     let name: String = name.unwrap_or_else(|| login.clone()).chars().filter(|c| !c.is_control()).take(40).collect();
     let url = format!("https://player.twitch.tv/?channel={login}&parent=player.twitch.tv&autoplay=true&muted=false");
-    crate::session::end(&app, false);
+    crate::session::end_blocking(&app).await;
     let label = crate::commands::player::open_plain(&app, &format!("Twitch · {name}"), &url)?;
     crate::session::start(&app, &format!("Twitch · {name}"), crate::session::Kind::Player(label));
     Ok(())

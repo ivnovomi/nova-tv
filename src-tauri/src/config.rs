@@ -191,6 +191,15 @@ pub struct ParentalConfig {
     pub pin_hash: Option<String>,
     #[serde(default)]
     pub pin_salt: Option<String>,
+    /// Wrong PINs since the last lockout (kept across restarts).
+    #[serde(default)]
+    pub fail_count: u32,
+    /// Lockouts in a row: each one doubles the wait.
+    #[serde(default)]
+    pub lockouts: u32,
+    /// Locked until this Unix time.
+    #[serde(default)]
+    pub locked_until: u64,
 }
 
 /// A user's own IPTV playlist (M3U).
@@ -266,6 +275,28 @@ impl ConfigStore {
     pub fn snapshot(&self) -> Config {
         self.data.lock().map(|c| c.clone()).unwrap_or_default()
     }
+}
+
+/// Reads a JSON data file. An unreadable one is kept as `<name>.json.bak`
+/// instead of being silently replaced by the next save.
+pub fn load_json<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> T {
+    let Ok(text) = fs::read_to_string(path) else { return T::default() };
+    serde_json::from_str(&text).unwrap_or_else(|err| {
+        eprintln!("NOVA TV: {} is invalid ({err}); keeping it as .bak", path.display());
+        let _ = fs::rename(path, path.with_extension("json.bak"));
+        T::default()
+    })
+}
+
+/// Writes a data file atomically (temp + rename). Callers hold their store's
+/// write lock across this call, so two writers never share the temp file.
+pub fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)
 }
 
 pub fn now_secs() -> u64 {

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownToLine, CircleCheck, Clock, LoaderCircle, RefreshCw, Sparkles, TriangleAlert, Undo2 } from "lucide-react";
 import { offered, updates, useUpdates } from "../app/updates";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
-import { useBackHandler } from "../hooks/backStack";
-import { focusFirst } from "../lib/spatialNav";
+import { useBackHandler, useHomeHandler } from "../hooks/backStack";
+import { focusFirst, restoreFocus } from "../lib/spatialNav";
 import { timeAgo } from "../lib/api";
 import { useToast } from "../components/Toasts";
 
@@ -169,12 +169,15 @@ function ProgressBar({ value }: { value: number | null }) {
 function NovaWindow({ label, onBack, children }: { label: string; onBack?: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useBackHandler(() => onBack?.());
+  // Home closes it like Back (and never reaches what's behind).
+  useHomeHandler(() => onBack?.());
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const node = panel.current;
     const t = window.setTimeout(() => focusFirst(panel.current), 60);
     return () => {
       window.clearTimeout(t);
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
+      restoreFocus(previous, node);
     };
   }, []);
   return createPortal(
@@ -229,6 +232,12 @@ function Header({ eyebrow, title, detail, mark }: { eyebrow: string; title: stri
 function UpdateBody() {
   const { status, phase, downloaded, total, speed, installError } = useUpdates();
   const canInstall = useCanInstall();
+  // The buttons go away while downloading: the progress keeps the focus so it never drops behind the window.
+  const holdFocus = useCallback((el: HTMLDivElement | null) => el?.focus({ preventScroll: true }), []);
+  // And when they come back (e.g. after a failed download), they get it again.
+  const regainFocus = useCallback((el: HTMLDivElement | null) => {
+    if (el && (!document.activeElement || document.activeElement === document.body)) focusFirst(el);
+  }, []);
   const update = status?.available;
   if (!status || !update) return null;
   const busy = phase === "downloading" || phase === "installing";
@@ -251,7 +260,7 @@ function UpdateBody() {
       <div className="px-12 pb-11 pt-8">
         <AnimatePresence mode="wait" initial={false}>
           {busy ? (
-            <motion.div key="busy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} aria-live="polite">
+            <motion.div key="busy" ref={holdFocus} tabIndex={-1} className="outline-none" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} aria-live="polite">
               <ProgressBar value={phase === "installing" ? null : share} />
               <div className="mt-4 flex items-baseline justify-between gap-6 text-[1.05rem] tabular-nums">
                 {phase === "installing" ? (
@@ -274,7 +283,7 @@ function UpdateBody() {
               </div>
             </motion.div>
           ) : canInstall ? (
-            <motion.div key="actions" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <motion.div key="actions" ref={regainFocus} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {installError && (
                 <p role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/10 px-5 py-3.5 text-[1.05rem] text-[#ffc2cf]">
                   <TriangleAlert className="mt-0.5 size-5 shrink-0" /> {installError}

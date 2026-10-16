@@ -8,25 +8,27 @@
 //! unlocking settings from it for a few minutes) needs the parental PIN, which
 //! is stored only as a salted, stretched hash and locks after repeated failures.
 
-use crate::config::{new_id, now_secs, Config, Profile};
+use crate::config::{new_id, now_secs, Config, ConfigStore, ParentalConfig, Profile};
 use crate::livetv::{Channel, Source};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 const MAX_PROFILES: usize = 8;
 /// Settings unlocked from a children's profile stay open this long.
 const UNLOCK_SECS: u64 = 10 * 60;
 const MAX_FAILS: u32 = 5;
+/// First lockout; each further one doubles it, up to `MAX_LOCKOUT_SECS`.
 const LOCKOUT_SECS: u64 = 60;
+const MAX_LOCKOUT_SECS: u64 = 30 * 60;
 const HASH_ROUNDS: u32 = 50_000;
 
 static UNLOCKED_UNTIL: AtomicU64 = AtomicU64::new(0);
-/// (failed attempts, locked until)
-static FAILS: Mutex<(u32, u64)> = Mutex::new((0, 0));
+/// One PIN check at a time (the fail counters live in the config).
+static CHECKING: Mutex<()> = Mutex::new(());
 
 pub const BLOCKED: &str = "Bloqueado por el control parental. Pide a un adulto que introduzca el PIN.";
 pub const KIDS_ONLY: &str = "No está disponible en un perfil infantil.";
@@ -149,28 +151,59 @@ fn valid_pin(pin: &str) -> bool {
     (4..=6).contains(&pin.len()) && pin.bytes().all(|b| b.is_ascii_digit())
 }
 
-fn check_pin(c: &Config, pin: &str) -> Result<(), String> {
-    let now = now_secs();
-    let mut fails = FAILS.lock().map_err(|_| "Inténtalo de nuevo")?;
-    if now < fails.1 {
-        return Err(format!("Demasiados intentos. Espera {} s.", fails.1 - now));
-    }
-    let (Some(expected), Some(salt)) = (&c.parental.pin_hash, &c.parental.pin_salt) else {
+/// Constant-time comparison.
+pub fn same_secret(a: &str, b: &str) -> bool {
+    a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+/// Whether `pin` is right, ignoring lockouts.
+fn pin_matches(p: &ParentalConfig, pin: &str) -> Result<bool, String> {
+    let (Some(expected), Some(salt)) = (&p.pin_hash, &p.pin_salt) else {
         return Err("Aún no hay PIN parental.".into());
     };
-    let actual = hash(salt, pin);
-    // Constant-time comparison.
-    let same = actual.len() == expected.len() && actual.bytes().zip(expected.bytes()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
-    if same && valid_pin(pin) {
-        *fails = (0, 0);
+    Ok(same_secret(&hash(salt, pin), expected) && valid_pin(pin))
+}
+
+fn lock_wait(p: &ParentalConfig, now: u64) -> Result<(), String> {
+    if now < p.locked_until {
+        return Err(format!("Demasiados intentos. Espera {} s.", p.locked_until - now));
+    }
+    Ok(())
+}
+
+/// Records an attempt: resets on success, locks with exponential backoff after `MAX_FAILS`.
+fn record_attempt(p: &mut ParentalConfig, ok: bool, now: u64) -> Result<(), String> {
+    if ok {
+        (p.fail_count, p.lockouts, p.locked_until) = (0, 0, 0);
         return Ok(());
     }
-    fails.0 += 1;
-    if fails.0 >= MAX_FAILS {
-        *fails = (0, now + LOCKOUT_SECS);
-        return Err(format!("PIN incorrecto. Bloqueado {LOCKOUT_SECS} s."));
+    p.fail_count = p.fail_count.saturating_add(1);
+    if p.fail_count >= MAX_FAILS {
+        let secs = LOCKOUT_SECS.saturating_mul(1u64 << p.lockouts.min(10)).min(MAX_LOCKOUT_SECS);
+        p.fail_count = 0;
+        p.lockouts = p.lockouts.saturating_add(1);
+        p.locked_until = now + secs;
+        return Err(format!("PIN incorrecto. Bloqueado {secs} s."));
     }
-    Err(format!("PIN incorrecto ({} de {MAX_FAILS} intentos)", fails.0))
+    Err(format!("PIN incorrecto ({} de {MAX_FAILS} intentos)", p.fail_count))
+}
+
+/// Checks the parental PIN. Failures and lockouts are saved, so restarting NOVA doesn't reset them.
+fn check_pin(store: &ConfigStore, pin: &str) -> Result<(), String> {
+    let _one = CHECKING.lock().map_err(|_| "Inténtalo de nuevo")?;
+    let now = now_secs();
+    let parental = store.snapshot().parental;
+    lock_wait(&parental, now)?;
+    let ok = pin_matches(&parental, pin)?;
+    if ok && parental.fail_count == 0 && parental.lockouts == 0 {
+        return Ok(()); // nothing to reset
+    }
+    let mut result = Ok(());
+    store.update(|c| {
+        result = record_attempt(&mut c.parental, ok, now);
+        Ok(())
+    })?;
+    result
 }
 
 // ───────────────────────── Commands ─────────────────────────
@@ -286,7 +319,7 @@ pub fn profile_save(input: ProfileInput, state: State<'_, AppState>, app: AppHan
 }
 
 #[tauri::command]
-pub fn profile_delete(id: String, state: State<'_, AppState>) -> Result<ProfilesInfo, String> {
+pub fn profile_delete(id: String, state: State<'_, AppState>, app: AppHandle) -> Result<ProfilesInfo, String> {
     require_adult(&state)?;
     state.config.update(|c| {
         if active(c).id == id {
@@ -298,6 +331,8 @@ pub fn profile_delete(id: String, state: State<'_, AppState>) -> Result<Profiles
         c.profiles.retain(|p| p.id != id);
         Ok(())
     })?;
+    // Its watch history goes with it.
+    app.state::<crate::history::HistoryStore>().remove_profile(&id);
     Ok(info(&state))
 }
 
@@ -308,7 +343,7 @@ pub fn profile_switch(id: String, pin: Option<String>, state: State<'_, AppState
     let target = c.profiles.iter().find(|p| p.id == id).ok_or("Ese perfil ya no existe.")?;
     let current = active(&c);
     if current.kids && !target.kids && c.parental.pin_hash.is_some() && !unlocked() {
-        check_pin(&c, pin.as_deref().unwrap_or_default())?;
+        check_pin(&state.config, pin.as_deref().unwrap_or_default())?;
     }
     state.config.update(|c| {
         c.active_profile = Some(id.clone());
@@ -327,7 +362,7 @@ pub fn parental_set_pin(current: Option<String>, pin: String, state: State<'_, A
     }
     let c = state.config.snapshot();
     if c.parental.pin_hash.is_some() {
-        check_pin(&c, current.as_deref().unwrap_or_default())?;
+        check_pin(&state.config, current.as_deref().unwrap_or_default())?;
     } else {
         require_adult(&state)?;
     }
@@ -350,7 +385,7 @@ pub fn parental_remove_pin(current: String, state: State<'_, AppState>) -> Resul
     if c.profiles.iter().any(|p| p.kids) {
         return Err("Mientras haya perfiles infantiles, el PIN es obligatorio.".into());
     }
-    check_pin(&c, &current)?;
+    check_pin(&state.config, &current)?;
     state.config.update(|c| {
         c.parental = Default::default();
         Ok(())
@@ -361,7 +396,7 @@ pub fn parental_remove_pin(current: String, state: State<'_, AppState>) -> Resul
 /// From a children's profile: a parent opens settings for a few minutes.
 #[tauri::command]
 pub fn parental_unlock(pin: String, state: State<'_, AppState>) -> Result<ProfilesInfo, String> {
-    check_pin(&state.config.snapshot(), &pin)?;
+    check_pin(&state.config, &pin)?;
     UNLOCKED_UNTIL.store(now_secs() + UNLOCK_SECS, Ordering::Release);
     Ok(info(&state))
 }
@@ -424,16 +459,26 @@ mod tests {
 
     #[test]
     fn pin_hash_and_lockout() {
-        let mut c = Config::default();
-        c.parental.pin_salt = Some("abc".into());
-        c.parental.pin_hash = Some(hash("abc", "2468"));
-        assert!(check_pin(&c, "2468").is_ok());
+        let mut p = ParentalConfig { pin_salt: Some("abc".into()), pin_hash: Some(hash("abc", "2468")), ..Default::default() };
+        assert!(pin_matches(&p, "2468").unwrap());
+        assert!(!pin_matches(&p, "0000").unwrap());
+        let now = 1_000;
         for _ in 0..MAX_FAILS - 1 {
-            assert!(check_pin(&c, "0000").unwrap_err().contains("incorrecto"));
+            assert!(record_attempt(&mut p, false, now).unwrap_err().contains("incorrecto"));
         }
-        assert!(check_pin(&c, "0000").unwrap_err().contains("Bloqueado"));
-        assert!(check_pin(&c, "2468").unwrap_err().contains("Espera"), "locked even with the right PIN");
-        *FAILS.lock().unwrap() = (0, 0);
+        assert!(record_attempt(&mut p, false, now).unwrap_err().contains("Bloqueado 60 s"));
+        assert!(lock_wait(&p, now + 10).unwrap_err().contains("Espera"), "locked even with the right PIN");
+        assert!(lock_wait(&p, now + 60).is_ok());
+        for _ in 0..MAX_FAILS {
+            let _ = record_attempt(&mut p, false, now + 60);
+        }
+        assert_eq!(p.locked_until, now + 60 + 120, "backoff doubles");
+        for _ in 0..20 * MAX_FAILS {
+            let _ = record_attempt(&mut p, false, now);
+        }
+        assert_eq!(p.locked_until, now + MAX_LOCKOUT_SECS, "capped");
+        assert!(record_attempt(&mut p, true, now).is_ok());
+        assert_eq!((p.fail_count, p.lockouts, p.locked_until), (0, 0, 0));
         assert_ne!(hash("abc", "2468"), hash("abd", "2468"), "salted");
     }
 }

@@ -81,17 +81,33 @@ pub fn validate_url(url: &str) -> Result<String, String> {
     Ok(url.to_string())
 }
 
-pub fn launch(url: &str, profiles_dir: &Path) -> Result<Child, String> {
+/// Browser profile folder for a NOVA profile: sign-ins (and cookies) never cross
+/// profiles. The main profile keeps the original "web" folder and its sign-ins.
+pub fn profile_dir_name(profile_id: &str) -> String {
+    let safe: String = profile_id.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').take(64).collect();
+    if safe.is_empty() || safe == "principal" {
+        "web".into()
+    } else {
+        format!("web-{safe}")
+    }
+}
+
+/// Opens `url` full screen. Children's profiles get kiosk mode (no address bar,
+/// no way to browse elsewhere) and their own browser profile.
+pub fn launch(url: &str, profiles_dir: &Path, profile_id: &str, kiosk: bool) -> Result<Child, String> {
     let url = validate_url(url)?;
     let browser = find_browser()
         .ok_or("Se necesita Microsoft Edge o Google Chrome para abrir servicios de streaming.")?;
-    let profile = profiles_dir.join("web");
+    let profile = profiles_dir.join(profile_dir_name(profile_id));
     std::fs::create_dir_all(&profile).map_err(|e| format!("No se pudo preparar el perfil del navegador: {e}"))?;
 
     let mut cmd = Command::new(&browser);
-    cmd.arg(format!("--app={url}"))
-        .arg(format!("--user-data-dir={}", profile.display()))
-        .arg("--start-fullscreen")
+    if kiosk {
+        cmd.arg("--kiosk").arg("--edge-kiosk-type=fullscreen").arg(&url);
+    } else {
+        cmd.arg(format!("--app={url}")).arg("--start-fullscreen");
+    }
+    cmd.arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--autoplay-policy=no-user-gesture-required");

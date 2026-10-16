@@ -1,5 +1,13 @@
-//! Synthesises key presses for whatever window is in the foreground (NOVA TV,
-//! YouTube TV, Netflix…). Only a fixed set of keys and plain text are possible.
+//! Synthesises key presses for the foreground window (NOVA TV, YouTube TV,
+//! Netflix…). Only a fixed set of keys and plain text are possible, and only
+//! into NOVA itself or the session it opened (see `target_allowed`).
+
+pub const NOT_NOVA: &str = "La tele no está mostrando NOVA. Pulsa Inicio en el mando.";
+
+/// Keys and text may only go to NOVA's own windows, or while a NOVA session is open.
+pub fn target_allowed() -> bool {
+    crate::session::is_active() || foreground_pid() == Some(std::process::id())
+}
 
 pub const LEFT: u16 = 0x25;
 pub const UP: u16 = 0x26;
@@ -53,11 +61,28 @@ mod imp {
             .collect();
         send(&inputs);
     }
+
+    pub fn foreground_pid() -> Option<u32> {
+        use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd.0.is_null() {
+                return None;
+            }
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            (pid != 0).then_some(pid)
+        }
+    }
 }
 
 #[cfg(windows)]
-pub use imp::{tap, type_text};
+pub use imp::{foreground_pid, tap, type_text};
 
+#[cfg(not(windows))]
+pub fn foreground_pid() -> Option<u32> {
+    None
+}
 #[cfg(not(windows))]
 pub fn tap(_: u16) {}
 #[cfg(not(windows))]

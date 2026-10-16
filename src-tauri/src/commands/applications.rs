@@ -351,7 +351,8 @@ pub async fn remove_shortcut(id: String, state: State<'_, AppState>) -> Result<(
 #[tauri::command]
 pub async fn launch_shortcut(id: String, app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     let shortcut = find_shortcut(&state, &id).ok_or("Este acceso ya no existe.")?;
-    if !crate::profiles::shortcut_allowed(&crate::profiles::active(&state.config.snapshot()), &id) {
+    let profile = crate::profiles::active(&state.config.snapshot());
+    if !crate::profiles::shortcut_allowed(&profile, &id) {
         return Err(crate::profiles::BLOCKED.into());
     }
     match &shortcut.target {
@@ -359,21 +360,21 @@ pub async fn launch_shortcut(id: String, app: AppHandle, state: State<'_, AppSta
         Target::Steam { app_id } => super::steam::launch(*app_id)?,
         Target::Web { url, tv: true } => {
             // No DRM needed: NOVA hosts it in its own TV window.
-            crate::session::end(&app, false);
+            crate::session::end_blocking(&app).await;
             let label = super::player::open(&app, &shortcut.name, url)?;
             crate::session::start(&app, &shortcut.name, crate::session::Kind::Player(label));
         }
         Target::Web { url, tv: false } => {
             let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("browser");
-            crate::session::end(&app, false);
-            let child = super::streaming::launch(url, &dir)?;
+            crate::session::end_blocking(&app).await;
+            let child = super::streaming::launch(url, &dir, &profile.id, profile.kids)?;
             crate::session::start(&app, &shortcut.name, crate::session::Kind::Browser(child));
         }
         // Games read the controller themselves: no streaming session, no key mapping.
         Target::Packaged { aumid } if shortcut.kind == ShortcutKind::Game => super::store::activate(aumid)?,
         Target::Uri { uri } => super::games::launch_uri(uri)?,
         Target::Packaged { aumid } => {
-            crate::session::end(&app, false);
+            crate::session::end_blocking(&app).await;
             super::store::launch(aumid)?;
             crate::session::start(&app, &shortcut.name, crate::session::Kind::Untracked);
         }

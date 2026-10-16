@@ -25,7 +25,10 @@ export function RemoteCard() {
     refresh();
     if (!inTauri) return;
     const off = listen("remote-changed", refresh);
+    // Pairing stays open only while this card is on screen (each call opens it for 3 minutes).
+    const keepOpen = window.setInterval(refresh, 120_000);
     return () => {
+      window.clearInterval(keepOpen);
       void off.then((f) => f());
     };
   }, [refresh]);
@@ -86,7 +89,7 @@ export function RemoteCard() {
                 ))}
               </p>
               {info.locked && (
-                <p className="mt-2 text-[0.95rem] text-warn">Demasiados intentos fallidos: emparejamiento bloqueado un minuto.</p>
+                <p className="mt-2 text-[0.95rem] text-warn">Demasiados intentos fallidos: emparejamiento cerrado. Pulsa «Nuevo PIN» para volver a abrirlo.</p>
               )}
             </>
           ) : (
