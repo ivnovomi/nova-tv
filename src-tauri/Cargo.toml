@@ -1,6 +1,6 @@
 [package]
 name = "nova-tv"
-version = "0.1.0"
+version = "0.1.1"
 description = "NOVA TV - Smart TV launcher for Windows"
 authors = ["ivnov"]
 edition = "2024"

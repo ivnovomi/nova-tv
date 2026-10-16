@@ -301,6 +301,15 @@ export interface FeedItem {
   thumbnail: string;
 }
 
+export interface PowerInfo {
+  /** "Windows" | "macOS" | "Linux": for "Salir a …". */
+  os: string;
+  /** Sleep timer end, Unix seconds. */
+  timerUntil: number | null;
+}
+
+export type PowerAction = "shutdown" | "restart" | "exit" | "restart-nova" | "display-off";
+
 export interface UpdateInfo {
   version: string;
   /** Release notes (Markdown). */

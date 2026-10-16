@@ -19,6 +19,9 @@ import { BootSplash } from "./components/BootSplash";
 import { ProfilePicker } from "./components/ProfilePicker";
 import { profiles, useProfiles } from "./app/profiles";
 import { updates } from "./app/updates";
+import { power, useAutoScreensaver, usePower } from "./app/power";
+import { PowerLayer } from "./features/PowerMenu";
+import { Screensaver } from "./features/Screensaver";
 import { UpdateNotice, UpdateWindows } from "./features/Updates";
 import { useRemoteBridge } from "./app/useRemoteBridge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -172,7 +175,10 @@ function Shell() {
   useEffect(() => {
     if (!inTauri) return;
     const offs = [
-      listen("remote-home", () => goHomeRef.current()),
+      listen("remote-home", () => {
+        if (power.isSaving()) power.screensaver(false);
+        else goHomeRef.current();
+      }),
       listen("remote-search", () => navigateRef.current("search")),
       listen<string>("remote-paired", ({ payload }) => toast.show("success", "Mando móvil emparejado", payload)),
     ];
@@ -376,7 +382,12 @@ function Shell() {
     return () => void off.then((f) => f());
   }, [reload, loadHistory, loadFeed, show]);
 
-  useEffect(() => updates.start(), []);
+  useEffect(() => {
+    updates.start();
+    power.start();
+  }, []);
+  const { screensaver } = usePower();
+  useAutoScreensaver(!booting && !picking && !tvOn && !gaming && !overlay);
 
   const pickerDone = () => {
     const boot = picking === "boot";
@@ -503,6 +514,9 @@ function Shell() {
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>{screensaver && <Screensaver key="screensaver" tvWasOn={tvOn} />}</AnimatePresence>
+      <PowerLayer />
 
       {/* Announced only in NOVA's own menus, never over the TV, a game or the start-up. */}
       <UpdateNotice hidden={booting || !!picking || tvOn || gaming} />

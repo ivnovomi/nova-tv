@@ -262,7 +262,7 @@ fn handle(app: &AppHandle, mut request: Request) {
                 Err(e) => error(request, 400, e),
             }
         }
-        (Method::Get, "/api/channels") | (Method::Get, "/api/apps") | (Method::Get, "/api/artwork") | (Method::Post, "/api/tv") | (Method::Post, "/api/launch") | (Method::Post, "/api/cast") | (Method::Post, "/api/volume") => {
+        (Method::Get, "/api/channels") | (Method::Get, "/api/apps") | (Method::Get, "/api/artwork") | (Method::Post, "/api/tv") | (Method::Post, "/api/launch") | (Method::Post, "/api/cast") | (Method::Post, "/api/volume") | (Method::Post, "/api/power") => {
             if authorized(app, &request).is_none() {
                 return error(request, 401, "No emparejado");
             }
@@ -273,6 +273,7 @@ fn handle(app: &AppHandle, mut request: Request) {
                 "/api/tv" => api::tv(app, request),
                 "/api/launch" => api::launch(app, request),
                 "/api/cast" => api::cast(app, request),
+                "/api/power" => api::power(app, request),
                 _ => api::set_volume(request),
             }
         }
@@ -365,6 +366,7 @@ fn status(request: Request, device: RemoteDevice) {
             "media": crate::nowplaying::current_summary(),
             "tv": api::published_tv(),
             "volume": volume,
+            "power": crate::power::info(),
         }),
     );
 }

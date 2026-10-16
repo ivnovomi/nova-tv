@@ -8,6 +8,7 @@ mod metadata;
 mod nowplaying;
 mod playtime;
 mod pluto;
+mod power;
 mod profiles;
 mod remote;
 mod search;
@@ -116,6 +117,9 @@ pub fn run() {
             history::play_youtube,
             sources::sources_status,
             sources::sources_probe,
+            power::power_info,
+            power::power_action,
+            power::power_timer,
             updates::updates_status,
             updates::updates_check,
             updates::updates_set_auto,

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-power-timer"
+description = "Enables the power_timer command without any pre-configured scope."
+commands.allow = ["power_timer"]
+
+[[permission]]
+identifier = "deny-power-timer"
+description = "Denies the power_timer command without any pre-configured scope."
+commands.deny = ["power_timer"]

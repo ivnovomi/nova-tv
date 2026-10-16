@@ -192,6 +192,41 @@ pub fn tv(app: &AppHandle, mut request: Request) {
     respond(request, 204, "text/plain", String::new());
 }
 
+// ───────────────────────── Power ─────────────────────────
+
+#[derive(Deserialize)]
+struct PowerRequest {
+    action: String,
+    #[serde(default)]
+    minutes: Option<u32>,
+}
+
+/// `POST /api/power` — the power button. Turning off, restarting or leaving
+/// NOVA is shown on the TV as a countdown that anyone there can cancel.
+pub fn power(app: &AppHandle, mut request: Request) {
+    let body = match read_json::<PowerRequest>(&mut request) {
+        Ok(b) => b,
+        Err(e) => return error(request, 400, e),
+    };
+    let result = match body.action.as_str() {
+        "display-off" => crate::power::run(app, "display-off"),
+        "timer" => crate::power::set_timer(app, body.minutes).map(|_| ()),
+        "exit" if crate::profiles::require_adult(&app.state::<AppState>()).is_err() => {
+            Err("Para salir de NOVA en un perfil infantil hace falta el PIN, desde la tele.".into())
+        }
+        "menu" | "screensaver" | "cancel" | "shutdown" | "restart" | "exit" | "restart-nova" => {
+            front(app);
+            let _ = app.emit("remote-power", &body.action);
+            Ok(())
+        }
+        _ => Err("Acción no válida".into()),
+    };
+    match result {
+        Ok(()) => json(request, 200, &crate::power::info()),
+        Err(e) => error(request, 400, &e),
+    }
+}
+
 // ───────────────────────── Apps ─────────────────────────
 
 #[derive(Serialize)]

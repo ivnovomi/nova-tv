@@ -27,6 +27,8 @@ import type {
   ShortcutKind,
   SystemInfo,
   SystemStats,
+  PowerAction,
+  PowerInfo,
   UpdateStatus,
   VolumeState,
 } from "./types";
@@ -100,6 +102,11 @@ export const api = {
   sourcesProbe: () => call<SourceProbe[]>("sources_probe"),
   twitchLive: () => call<TwitchLive[]>("twitch_live"),
   twitchPlay: (login: string, name: string) => call<void>("twitch_play", { login, name }),
+
+  powerInfo: () => call<PowerInfo>("power_info"),
+  powerAction: (action: PowerAction) => call<void>("power_action", { action }),
+  /** Sleep timer in minutes (1–240), or null to cancel. */
+  powerTimer: (minutes: number | null) => call<PowerInfo>("power_timer", { minutes }),
 
   updatesStatus: () => call<UpdateStatus>("updates_status"),
   updatesCheck: () => call<UpdateStatus>("updates_check"),

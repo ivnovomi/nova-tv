@@ -1,4 +1,5 @@
-import { CirclePlay, Gamepad2, House, Music, Pause, Play, RadioTower, Tv, LayoutGrid, Search, Settings, Activity, type LucideProps } from "lucide-react";
+import { CirclePlay, Gamepad2, House, Music, Pause, Play, Power, RadioTower, Tv, LayoutGrid, Search, Settings, Activity, type LucideProps } from "lucide-react";
+import { power } from "../app/power";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import type { Screen } from "../lib/types";
 import { api } from "../lib/api";
@@ -130,6 +131,9 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
           className={iconButton(screen === "settings")}
         >
           <Settings className="size-6" />
+        </button>
+        <button data-nav aria-label="Encendido: apagar, suspender, salir" onClick={power.openMenu} className={iconButton(false)}>
+          <Power className="size-6" />
         </button>
         <button
           data-nav

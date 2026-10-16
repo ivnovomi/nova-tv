@@ -335,6 +335,17 @@ pub fn spawn_gamepad_listener(app: AppHandle) {
                     let _ = app.emit("gamepads-changed", &snapshot);
                 }
             }
+            // Screen switched off from the power menu: any button turns it back on.
+            if crate::power::display_is_off() {
+                let any = gilrs.gamepads().any(|(_, pad)| {
+                    [Button::South, Button::East, Button::West, Button::North, Button::Start, Button::Mode, Button::DPadUp, Button::DPadDown, Button::DPadLeft, Button::DPadRight]
+                        .into_iter()
+                        .any(|b| pad.is_pressed(b))
+                });
+                if any {
+                    crate::power::wake_display();
+                }
+            }
             if !is_active() {
                 home_armed = true;
                 held.clear();

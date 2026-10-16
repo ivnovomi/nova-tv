@@ -4,6 +4,7 @@ import { enable as enableAutostart, disable as disableAutostart, isEnabled as au
 import { Activity, ArrowDownToLine, Info, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
 import { SourcesStatus } from "./SourcesStatus";
 import { UpdatesSettings } from "./Updates";
+import { SCREENSAVER_CHOICES, screensaverMinutes, setScreensaverMinutes } from "../app/power";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
 import { KidsLock, ProfilesSettings, UnlockedBanner } from "./ProfilesSettings";
 import { ambient, useAmbient, useClearAmbient } from "../app/ambient";
@@ -128,6 +129,7 @@ function Startup() {
   const [fullscreen, setFullscreen] = useState(readPref(FULLSCREEN_PREF, false));
   const [startTv, setStartTv] = useState(startsOnTv());
   const [bootSound, setBootSound] = useState(bootSoundOn());
+  const [saver, setSaver] = useState(screensaverMinutes());
 
   useEffect(() => {
     if (!inTauri) return;
@@ -150,7 +152,7 @@ function Startup() {
   };
 
   return (
-    <Section title="Inicio y energía" description="Cómo se abre NOVA. Apagar, reiniciar y suspender se hacen desde Windows.">
+    <Section title="Inicio y energía" description="Cómo se abre NOVA y cuándo descansa. Apagar, reiniciar y suspender: botón de encendido de la barra superior.">
       <Toggle
         title="Encender en TV en directo"
         description="Como una tele de verdad: tras la animación de inicio, NOVA abre tu último canal. Pulsa Inicio para ir a «Para ti». Si lo desactivas, NOVA arranca en «Para ti»."
@@ -174,6 +176,30 @@ function Startup() {
             });
         }}
       />
+      <div className="surface flex items-center gap-6 rounded-2xl px-6 py-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[1.25rem] font-semibold">Salvapantallas</p>
+          <p className="mt-1 text-[1rem] leading-relaxed text-ink-3">
+            Tras un rato sin tocar nada en los menús de NOVA (nunca mientras ves la TV o juegas). También desde el botón de encendido → Suspender.
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {SCREENSAVER_CHOICES.map((m) => (
+            <button
+              key={m}
+              data-nav
+              aria-pressed={saver === m}
+              onClick={() => {
+                setScreensaverMinutes(m);
+                setSaver(m);
+              }}
+              className={`focus-ring h-[2.6rem] rounded-full px-4 text-[1rem] font-semibold ${saver === m ? "bg-white text-black" : "bg-white/8 text-ink-2 focus:bg-white/16 focus:text-ink-1"}`}
+            >
+              {m === 0 ? "No" : `${m} min`}
+            </button>
+          ))}
+        </div>
+      </div>
       <Toggle
         title="Arrancar con Windows"
         description="Abre NOVA automáticamente al iniciar sesión, como una tele que se enciende. Desactivado por defecto; puedes quitarlo cuando quieras."

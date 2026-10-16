@@ -240,6 +240,22 @@
   .haptic { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
   .fade-in { animation: fade .25s var(--ease); }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+  /* Power */
+  .icon-btn.power { color: #ffc2cf; border-color: rgb(255 107 134 / .3); background: rgb(255 107 134 / .1); }
+  .plist { display: flex; flex-direction: column; gap: 2px; }
+  .prow { display: flex; align-items: center; gap: 14px; padding: 10px 6px; border-radius: 16px; text-align: left; transition: background .12s; }
+  .prow.pressed { background: rgb(255 255 255 / .08); }
+  .prow .ic { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgb(255 255 255 / .07); color: var(--ink); }
+  .prow .ic svg { width: 21px; height: 21px; }
+  .prow.danger .ic { background: rgb(255 107 134 / .16); color: var(--danger); }
+  .prow b { display: block; font-size: 15.5px; }
+  .prow small { display: block; font-size: 12.5px; color: var(--ink3); margin-top: 2px; line-height: 1.35; }
+  .psep { height: 1px; background: var(--line); margin: 6px 4px; }
+  .ptimer { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 2px 64px; scrollbar-width: none; }
+  .ptimer .chip.on { background: #fff; color: #000; border-color: #fff; }
+  .pending { margin: 4px 0 10px; padding: 14px; border-radius: 18px; border: 1px solid rgb(255 107 134 / .35); background: rgb(255 107 134 / .1); display: flex; align-items: center; gap: 12px; }
+  .pending p { flex: 1; margin: 0; font-size: 14.5px; font-weight: 600; }
+  .pending p small { display: block; font-weight: 400; color: var(--ink2); font-size: 12.5px; margin-top: 2px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -270,6 +286,7 @@
     <div class="logo" data-logo></div>
     <div class="pill"><span class="dot" id="dot"></span><span id="status">Conectando…</span></div>
     <button class="icon-btn" id="modeBtn" aria-label="Cambiar a modo táctil"></button>
+    <button class="icon-btn power" id="powerBtn" aria-label="Encendido" data-icon="power"></button>
   </header>
 
   <div class="view">
@@ -389,6 +406,27 @@
   <div class="keypad" id="keypad"></div>
 </div>
 
+<!-- Power sheet -->
+<div class="sheet" id="powerSheet" aria-hidden="true">
+  <div class="sheet-head">
+    <h3>Encendido</h3>
+    <button class="icon-btn" id="powerClose" aria-label="Cerrar" data-icon="close"></button>
+  </div>
+  <div id="powerPending"></div>
+  <div class="plist">
+    <button class="prow danger" data-power="shutdown"><span class="ic" data-icon="power"></span><span><b>Apagar equipo</b><small>Cuenta atrás en la TV; se puede cancelar.</small></span></button>
+    <button class="prow" data-power="restart"><span class="ic" data-icon="restart"></span><span><b>Reiniciar equipo</b><small>Apaga el PC y lo vuelve a encender.</small></span></button>
+    <button class="prow" data-power="screensaver"><span class="ic" data-icon="moon"></span><span><b>Suspender</b><small>Salvapantallas con reloj en la TV.</small></span></button>
+    <button class="prow" data-power="display-off"><span class="ic" data-icon="screenoff"></span><span><b>Apagar pantalla</b><small>Toca cualquier botón del mando para volver.</small></span></button>
+    <div class="psep"></div>
+    <div class="prow" style="padding-bottom:2px"><span class="ic" data-icon="timer"></span><span><b>Temporizador de apagado</b><small id="timerText">Apaga el equipo solo, como una tele.</small></span></div>
+    <div class="ptimer" id="timerChips"></div>
+    <div class="psep"></div>
+    <button class="prow" data-power="restart-nova"><span class="ic" data-icon="back"></span><span><b>Reiniciar NOVA TV</b><small>Cierra NOVA y lo abre de nuevo.</small></span></button>
+    <button class="prow" data-power="exit"><span class="ic" data-icon="exit"></span><span><b id="exitLabel">Salir a Windows</b><small>Cierra NOVA y vuelve al escritorio.</small></span></button>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -421,6 +459,11 @@
     "tab-tv": S('<rect x="3" y="6" width="18" height="12" rx="2"/><path d="m8 2 4 4 4-4"/>'),
     "tab-apps": S('<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>'),
     "tab-now": S('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
+    restart: S('<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>'),
+    moon: S('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
+    screenoff: S('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M3 3l18 18"/>'),
+    timer: S('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>'),
+    exit: S('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'),
   };
   document.querySelectorAll("[data-icon]").forEach((el) => {
     const svg = ICONS[el.dataset.icon];
@@ -645,6 +688,52 @@
     } catch (e) { toast(offline(e)); }
   });
 
+  // Power: off / restart / leave show a countdown on the TV (cancellable from here too).
+  let lastPower = null, pending = null, pendingTimer;
+  const LEAVING = { shutdown: "Apagando el equipo", restart: "Reiniciando el equipo", exit: "Saliendo de NOVA", "restart-nova": "Reiniciando NOVA TV" };
+  const mins = (m) => (m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) : ""));
+  function renderPower() {
+    const p = lastPower;
+    if (p) $("exitLabel").textContent = "Salir a " + p.os;
+    const until = p && p.timerUntil ? new Date(p.timerUntil * 1000) : null;
+    $("timerText").textContent = until
+      ? "Se apagará a las " + until.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+      : "Apaga el equipo solo, como una tele.";
+    $("timerChips").innerHTML = [null, 15, 30, 60, 90, 120]
+      .map((m) => `<button class="chip${m === null && !until ? " on" : ""}" data-min="${m ?? ""}">${m === null ? "No" : mins(m)}</button>`)
+      .join("");
+    $("powerPending").innerHTML = pending
+      ? `<div class="pending"><p>${LEAVING[pending]}…<small>Cuenta atrás en la TV</small></p><button class="cta" id="pendingCancel">Cancelar</button></div>`
+      : "";
+  }
+  async function doPower(action, minutes) {
+    try {
+      lastPower = await api("/api/power", { action, minutes });
+      if (LEAVING[action]) {
+        pending = action;
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(() => { pending = null; renderPower(); }, 10500);
+      } else if (action === "cancel") {
+        pending = null;
+        toast("Cancelado");
+      } else if (action === "timer") {
+        toast(minutes ? "Se apagará en " + mins(minutes) : "Temporizador quitado");
+      } else {
+        openSheet("powerSheet", false);
+        toast(action === "screensaver" ? "Salvapantallas en la TV" : "Pantalla apagada");
+      }
+      renderPower();
+    } catch (e) { toast(offline(e)); }
+  }
+  $("powerBtn").addEventListener("click", () => { haptic(); renderPower(); openSheet("powerSheet", true); refreshStatus(); });
+  $("powerClose").addEventListener("click", () => openSheet("powerSheet", false));
+  document.querySelectorAll("[data-power]").forEach((el) => el.addEventListener("click", () => { haptic(15); doPower(el.dataset.power); }));
+  $("timerChips").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-min]");
+    if (b) { haptic(); doPower("timer", b.dataset.min ? Number(b.dataset.min) : null); }
+  });
+  $("powerPending").addEventListener("click", (e) => { if (e.target.closest("#pendingCancel")) { haptic(); doPower("cancel"); } });
+
   // Number pad
   let digits = "";
   const pad = $("keypad");
@@ -803,6 +892,7 @@
         "Conectado";
       setStatus(true, label);
       applyVolume(s.volume);
+      if (s.power) { lastPower = s.power; if ($("powerSheet").classList.contains("open")) renderPower(); }
       if (tab === "tv") renderTvNow();
       if (tab === "now") renderNow(s);
     } catch (e) {

@@ -8,6 +8,7 @@ import { focusFirst } from "../../lib/spatialNav";
 import { api } from "../../lib/api";
 import type { Channel } from "../../lib/types";
 import { useToast } from "../../components/Toasts";
+import { power } from "../../app/power";
 import { ChannelGuide } from "./Guide";
 import { groupLabel, hhmm, isAvailable, liveTv, onAir, orderedStreams, useLiveTv } from "./store";
 import { useHlsStream } from "./useHlsStream";
@@ -419,6 +420,16 @@ function TvMenu({ onClose, onPowerOff, onSubtitles }: { onClose: () => void; onP
           </span>
           <button data-nav aria-pressed={subtitles} onClick={onSubtitles} className={`focus-lift btn shrink-0 ${subtitles ? "btn-primary" : "btn-ghost"}`}>
             {subtitles ? "Activados" : "Desactivados"}
+          </button>
+        </div>
+        <div className="mt-3 flex items-center gap-4 rounded-xl bg-white/5 px-5 py-4">
+          <Power className="size-6 shrink-0 text-ink-2" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[1.1rem] font-semibold">Encendido</span>
+            <span className="block text-[0.95rem] text-ink-3">Apagar o reiniciar el equipo, suspender, temporizador de apagado.</span>
+          </span>
+          <button data-nav onClick={power.openMenu} className="focus-lift btn btn-ghost shrink-0">
+            Abrir
           </button>
         </div>
 
