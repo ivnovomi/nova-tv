@@ -87,7 +87,7 @@ Está pensado para el sofá: se maneja entero con un mando de consola, el teclad
 
 ## Descarga
 
-1. Descarga el instalador desde [**Releases**](../../releases/latest).
+1. Descarga el instalador desde [**Releases**](https://github.com/ivnovomi/nova-tv-releases/releases/latest).
 2. Ábrelo y sigue los pasos. NOVA TV usa WebView2, que ya viene en Windows 10 y 11.
 3. Para el mando: en NOVA ve a **Ajustes → Mando del móvil** y escanea el código QR con tu móvil, conectado al mismo Wi-Fi.
 
