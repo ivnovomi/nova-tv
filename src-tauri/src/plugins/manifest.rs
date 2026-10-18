@@ -98,7 +98,7 @@ fn is_label(s: &str) -> bool {
 }
 
 /// "es.ejemplo.eltiempo": three or more dot-separated parts, lower case.
-fn valid_id(id: &str) -> bool {
+pub fn valid_id(id: &str) -> bool {
     id.len() <= 100 && id.split('.').count() >= 3 && id.split('.').all(is_label)
 }
 

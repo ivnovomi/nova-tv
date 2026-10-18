@@ -4,5 +4,6 @@
 
 pub mod http;
 pub mod manifest;
+pub mod package;
 pub mod runtime;
 pub mod storage;
