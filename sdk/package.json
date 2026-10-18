@@ -13,6 +13,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./testing": { "types": "./dist/testing.d.ts", "default": "./dist/testing.js" },
     "./schema/nova-plugin.schema.json": "./schema/nova-plugin.schema.json"
   },
   "files": ["dist", "schema", "README.md", "LICENSE"],

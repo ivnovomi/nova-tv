@@ -219,6 +219,47 @@ Un aviso breve en NOVA, con el nombre de tu plugin. Como mucho **3 por minuto**:
 
 ---
 
+## 8. Probar tu plugin sin abrir NOVA
+
+`@novatv/sdk/testing` monta un **NOVA de mentira** en Node con las mismas reglas que el de verdad (solo HTTPS a tus dominios, sin redirecciones, 5 MB, permisos, 3 avisos por minuto…) y **revisa lo que devuelves** como lo haría NOVA: lo que NOVA descartaría o no podría mostrar aparece en `nova.problems`.
+
+```ts
+// mi-plugin/test/canales.test.ts
+import { testPlugin, test, assert } from "@novatv/sdk/testing";
+import manifest from "../nova-plugin.json";
+import plugin from "../src/index";
+
+const nova = testPlugin(manifest, plugin, {
+  offline: true,                                            // nada sale a internet…
+  mock: {                                                   // …las respuestas son estas
+    "https://api.ejemplo.es/canales": [{ id: 1, nombre: "Noticias 24h" }],   // objeto → JSON
+    "https://cdn.ejemplo.es/*": "#EXTM3U\n…",                                 // texto; "*" = empieza por
+    "https://api.ejemplo.es/caido": { status: 503, body: "" },               // código y cuerpo a mano
+  },
+});
+
+test("da sus canales sin problemas", async () => {
+  const canales = await nova.channels();
+  assert.equal(canales.length, 1);
+  assert.deepEqual(nova.problems, []);
+});
+```
+
+```
+npm run plugin:test -- plugins/mi-plugin
+```
+
+| `testPlugin(...)` te da | Para qué |
+|---|---|
+| `channels()`, `stream(id, { retry })`, `check(id)`, `guide(ids?, range?)`, `rows()`, `search(q)`, `screensaver()` | Llaman a tu plugin **como NOVA**: si el manifiesto no pide el permiso de esa parte, fallan igual que en NOVA. |
+| `problems` | Lo que NOVA descartaría en la última respuesta (ids repetidos, imágenes sin https, categorías que no existen…). |
+| `requests`, `logs`, `notices`, `storage` | Qué peticiones hizo, qué escribió en el registro, qué avisos mandó y qué guardó. |
+| `setProfile({ kids: true })`, `setSetting("ciudad", "Bilbao")` | Cambia quién mira o una opción para las siguientes llamadas. |
+
+Opciones: `settings`, `location`, `profile`, `locale`, `mock`, `offline` (sin mock, falla en vez de salir a internet) y `print: false` (no enseña el registro). Sin `offline`, las peticiones sin mock van a internet de verdad.
+
+---
+
 ## Ejercicio: Twitch y Pluto TV
 
 NOVA ya tiene Twitch y Pluto TV programados en Rust (`src-tauri/src/twitch.rs` y `src-tauri/src/pluto.rs`). Tu reto es reescribirlos como plugins con este SDK y que funcionen **igual**. Aquí tienes qué pieza del SDK resuelve cada cosa; el código es tuyo.

@@ -8,9 +8,11 @@
     "noEmit": true,
     "skipLibCheck": true,
     "noUnusedLocals": true,
+    "resolveJsonModule": true,
     "paths": {
-      "@novatv/sdk": ["../sdk/src/index.ts"]
+      "@novatv/sdk": ["../sdk/src/index.ts"],
+      "@novatv/sdk/testing": ["../sdk/src/testing.ts"]
     }
   },
-  "include": ["*/src"]
+  "include": ["*/src", "*/test"]
 }

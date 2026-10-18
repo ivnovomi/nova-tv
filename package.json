@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "plugin:build": "node scripts/build-plugin.mjs",
-    "plugin:check": "tsc -p plugins"
+    "plugin:check": "tsc -p plugins",
+    "plugin:test": "node scripts/test-plugin.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
