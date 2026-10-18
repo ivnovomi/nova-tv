@@ -31,7 +31,7 @@ const MAX_CATALOG: u64 = 4 * 1024 * 1024;
 /// kept in the team's credentials. With None the store would only install in
 /// developer mode, without a signature check.
 const STORE_PUBLIC_KEY: Option<&str> = Some(
-    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY1QkI4M0E2MjRGNkVFMzkKUldRNTd2WWtwb083WlNKbTB3cm1zYjFpTURBWnVwbXhyWTVMODdiRXdnNWJDMy9lQ3R1SUVJSlcK",
+    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERFNzZBQUNFMEU3RUQzRTYKUldUbTAzNE96cXAyM3ZIMXlIaFRKcWxjVlExK1lWWkVGSnZKQ3lzRGJZVEI2UkFiZFZvYVFMMCsK",
 );
 
 // ───────────────────────── The catalogue ─────────────────────────
@@ -421,6 +421,44 @@ mod tests {
         let text = String::from_utf8(base64::engine::general_purpose::STANDARD.decode(STORE_PUBLIC_KEY.unwrap()).unwrap()).unwrap();
         assert!(minisign_verify::PublicKey::decode(&text).is_ok());
         assert!(verify_signature("no es una firma", b"paquete").is_err());
+    }
+
+    /// A package signed for the store (`npx tauri signer sign`), before publishing it:
+    /// NOVA_STORE_PACKAGE=<path to .novapkg> cargo test --lib signed_package -- --ignored
+    #[test]
+    #[ignore = "needs a signed package"]
+    fn signed_package_is_accepted() {
+        let path = std::path::PathBuf::from(std::env::var("NOVA_STORE_PACKAGE").expect("NOVA_STORE_PACKAGE"));
+        let data = std::fs::read(&path).unwrap();
+        let signature = std::fs::read_to_string(path.with_extension("novapkg.sig")).unwrap();
+        verify_signature(&signature, &data).expect("signed with the store key");
+        let mut tampered = data.clone();
+        tampered[100] ^= 1;
+        assert!(verify_signature(&signature, &tampered).is_err(), "a changed byte breaks it");
+        println!("sha256 {}", Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect::<String>());
+    }
+
+    /// The published store, as a TV sees it: every plugin downloads, matches its
+    /// SHA-256, carries the store's signature and is the package it announces.
+    #[test]
+    #[ignore = "needs internet"]
+    fn the_published_store_installs() {
+        let catalog = fetch_catalog().unwrap();
+        assert!(!catalog.plugins.is_empty());
+        for entry in &catalog.plugins {
+            let mut res = agent(60).get(&entry.package.url).call().unwrap();
+            let data = res.body_mut().with_config().limit(entry.package.size + 1).read_to_vec().unwrap();
+            let sum: String = Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(sum, entry.package.sha256, "{}", entry.id);
+            verify_signature(entry.package.signature.as_deref().unwrap(), &data).unwrap();
+            let file = std::env::temp_dir().join(format!("nova-store-check-{}.novapkg", std::process::id()));
+            std::fs::write(&file, &data).unwrap();
+            let manifest = super::super::package::inspect(&file).unwrap().manifest;
+            let _ = std::fs::remove_file(&file);
+            assert_eq!((manifest.id.as_str(), manifest.version.as_str()), (entry.id.as_str(), entry.version.as_str()));
+            assert_eq!(serde_json::to_value(&manifest.permissions).unwrap(), serde_json::to_value(&entry.permissions).unwrap());
+            println!("✓ {} {} ({} bytes)", entry.name, entry.version, data.len());
+        }
     }
 
     #[test]
