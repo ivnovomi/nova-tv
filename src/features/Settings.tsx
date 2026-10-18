@@ -392,8 +392,8 @@ export function SettingsScreen() {
   // Children's profile: settings stay locked until a parent enters the PIN.
   if (profile?.kids && !isUnlocked(info)) return <KidsLock />;
   return (
-    <div className="grid h-full grid-cols-[22rem_minmax(0,1fr)] gap-10 px-[var(--gutter)] pb-8 pt-2">
-      <nav aria-label="Ajustes">
+    <div className="grid h-full grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] gap-[clamp(1.5rem,2.5vw,2.5rem)] px-[var(--gutter)] pb-8 pt-2">
+      <nav aria-label="Ajustes" className="no-scrollbar min-h-0 overflow-y-auto pb-6">
         <p className="eyebrow mb-2 px-4 text-cyan">NOVA</p>
         <h1 className="mb-6 px-4 text-[2.6rem] font-semibold tracking-tight">Ajustes</h1>
         {SECTIONS.map(({ id, label, icon: Icon }) => (

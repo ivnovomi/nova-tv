@@ -169,7 +169,7 @@ function SettingField({ plugin, setting, onSaved }: { plugin: PluginInfo; settin
     api.pluginsSetSetting(plugin.id, setting.key, next).then(onSaved, (e) => toast.show("error", "No se pudo guardar", errorText(e)));
 
   const label = (
-    <span className="min-w-0 flex-1">
+    <span className="min-w-[12rem] flex-1">
       <span className="block text-[1.05rem] font-semibold">{setting.label}</span>
       {setting.help && <span className="block text-[0.95rem] text-ink-3">{setting.help}</span>}
     </span>
@@ -202,18 +202,21 @@ function SettingField({ plugin, setting, onSaved }: { plugin: PluginInfo; settin
     if (next !== value) void save(next);
   };
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       {label}
-      <input
-        data-nav
-        className="field w-[18rem]"
+      {/* .field is width:100% (unlayered CSS beats utilities): its box sets the width. */}
+      <span className="block w-full max-w-[22rem] sm:w-[22rem]">
+        <input
+          data-nav
+          className="field"
         inputMode={setting.type === "number" ? "decimal" : "text"}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => e.key === "Enter" && commit()}
-        maxLength={500}
-      />
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+          maxLength={500}
+        />
+      </span>
     </div>
   );
 }

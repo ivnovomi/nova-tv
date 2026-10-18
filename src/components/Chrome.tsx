@@ -88,9 +88,13 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
       active ? "bg-white text-black" : "bg-white/8 text-ink-2 backdrop-blur focus:bg-white/14 focus:text-ink-1"
     }`;
   return (
-    <header className="relative z-10 flex h-[6.6rem] shrink-0 items-center gap-10 px-[var(--gutter)]">
-      <Wordmark />
-      <nav className="flex items-center gap-1" aria-label="Principal">
+    // Fits a TV and a half-screen window alike: gaps shrink with the window, labels never wrap,
+    // and as a last resort the tabs scroll sideways.
+    <header className="relative z-10 flex h-[6.6rem] shrink-0 items-center gap-[clamp(1rem,2.2vw,2.5rem)] px-[var(--gutter)]">
+      <div className="shrink-0">
+        <Wordmark />
+      </div>
+      <nav className="no-scrollbar flex min-w-0 items-center gap-1 overflow-x-auto py-2" aria-label="Principal">
         {items.map(({ id, label }) => {
           const active = screen === id;
           return (
@@ -100,7 +104,7 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
               data-nav-tab={id}
               aria-current={active ? "page" : undefined}
               onClick={() => onNavigate(id)}
-              className={`focus-ring relative h-[3.2rem] rounded-full px-5 text-[1.2rem] font-semibold transition-colors ${
+              className={`focus-ring relative h-[3.2rem] shrink-0 whitespace-nowrap rounded-full px-[clamp(0.8rem,1.1vw,1.25rem)] text-[1.2rem] font-semibold transition-colors ${
                 active ? "bg-white text-black" : "text-ink-2 focus:bg-white/12 focus:text-ink-1"
               }`}
             >
@@ -109,8 +113,10 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
           );
         })}
       </nav>
-      <div className="ml-auto flex items-center gap-4">
-        <NowPlayingChip />
+      <div className="ml-auto flex shrink-0 items-center gap-[clamp(0.5rem,1vw,1rem)]">
+        <span className="contents max-[1279px]:hidden">
+          <NowPlayingChip />
+        </span>
         <UpdateChip />
         <button
           data-nav
@@ -149,7 +155,7 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
           )}
           {profile?.kids && <span className="badge absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#ffb547] px-1.5 text-[0.6rem] text-black">NIÑOS</span>}
         </button>
-        <p className="ml-2 text-[1.9rem] font-semibold tabular-nums" title={formatDate(now)}>
+        <p className="ml-2 whitespace-nowrap text-[1.9rem] font-semibold tabular-nums" title={formatDate(now)}>
           {formatTime(now)}
         </p>
       </div>
