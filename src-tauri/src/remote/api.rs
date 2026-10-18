@@ -362,19 +362,25 @@ struct Volume {
     muted: Option<bool>,
 }
 
-/// `POST /api/volume` — exact system volume (0-100) and mute.
-pub fn set_volume(mut request: Request) {
+/// `POST /api/volume` — exact system volume (0-100) and mute (shown on the TV with NOVA's bar).
+pub fn set_volume(app: &AppHandle, mut request: Request) {
     let body = match read_json::<Volume>(&mut request) {
         Ok(b) => b,
         Err(e) => return error(request, 400, e),
     };
+    let changing = body.level.is_some() || body.muted.is_some();
     let result = match (body.level, body.muted) {
         (Some(level), _) => volume::set_level(level.min(100)),
         (None, Some(muted)) => volume::set_mute(muted),
         (None, None) => volume::get(),
     };
     match result {
-        Ok(v) => json(request, 200, &v),
+        Ok(v) => {
+            if changing {
+                crate::osd::show(app, &v);
+            }
+            json(request, 200, &v)
+        }
         Err(e) => error(request, 500, &e),
     }
 }

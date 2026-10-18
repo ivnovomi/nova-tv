@@ -8,10 +8,10 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
-  // Two pages: NOVA itself and the start-up window (splash.html).
+  // NOVA itself, the start-up window (splash.html) and the volume bar (volume.html).
   build: {
     rollupOptions: {
-      input: { main: "index.html", splash: "splash.html" },
+      input: { main: "index.html", splash: "splash.html", volume: "volume.html" },
     },
   },
 

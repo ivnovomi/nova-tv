@@ -19,10 +19,11 @@ function usePluginRows(): PluginRows[] {
     const load = () => api.pluginsRows().then(setRows, () => {});
     load();
     const timer = window.setInterval(load, ASK_EVERY_MS);
-    const off = listen("profile-changed", load); // each profile sees its own plugins
+    // Each profile sees its own plugins; installing, enabling… a plugin shows right away.
+    const offs = [listen("profile-changed", load), listen("plugins-changed", load)];
     return () => {
       window.clearInterval(timer);
-      void off.then((f) => f());
+      offs.forEach((off) => void off.then((f) => f()));
     };
   }, []);
   return rows;

@@ -27,6 +27,23 @@
         "useHttpsScheme": true
       },
       {
+        "label": "volume",
+        "create": false,
+        "title": "Volumen",
+        "url": "volume.html",
+        "width": 132,
+        "height": 440,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "visible": false,
+        "useHttpsScheme": true
+      },
+      {
         "label": "main",
         "create": false,
         "title": "NOVA TV",

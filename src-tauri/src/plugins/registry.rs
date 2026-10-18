@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// The parts a plugin can provide, and the permission each one needs.
 const PARTS: &[&str] = &["channels", "guide", "rows", "search", "screensaver"];
@@ -531,7 +531,9 @@ pub async fn plugins_install(path: String, app: AppHandle) -> Result<(), String>
         // Options the new version no longer has are forgotten.
         entry.settings.retain(|k, _| manifest.settings.iter().any(|s| s.key == *k));
         Ok(())
-    })
+    })?;
+    changed(&app, &manifest.id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -546,7 +548,15 @@ pub async fn plugins_uninstall(id: String, delete_data: bool, app: AppHandle) ->
             c.plugins.installed.remove(&id);
         }
         Ok(())
-    })
+    })?;
+    changed(&app, &id);
+    Ok(())
+}
+
+/// Tells the interface a plugin changed, so live TV and "Para ti" reload what
+/// it brings (only that plugin is asked again; every other source stays cached).
+fn changed(app: &AppHandle, id: &str) {
+    let _ = app.emit("plugins-changed", id);
 }
 
 fn update_state(app: &AppHandle, id: &str, change: impl FnOnce(&mut PluginState)) -> Result<(), String> {
@@ -558,6 +568,7 @@ fn update_state(app: &AppHandle, id: &str, change: impl FnOnce(&mut PluginState)
         Ok(())
     })?;
     app.state::<Registry>().stop(id);
+    changed(app, id);
     Ok(())
 }
 

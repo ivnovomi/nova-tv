@@ -371,6 +371,16 @@ function Shell() {
     );
   }, []);
 
+  // A plugin was installed, enabled, changed…: its channels and guide, now (the
+  // rest of live TV stays cached in Rust, so this is quick).
+  useEffect(() => {
+    if (!inTauri) return;
+    const off = listen("plugins-changed", () => {
+      if (liveTv.loaded()) void liveTv.load(true);
+    });
+    return () => void off.then((f) => f());
+  }, []);
+
   // Another profile: everything it sees comes again from Rust, already filtered.
   useEffect(() => {
     if (!inTauri) return;

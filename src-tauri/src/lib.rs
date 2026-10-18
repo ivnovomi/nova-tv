@@ -7,6 +7,7 @@ mod livetv_health;
 mod metadata;
 mod net;
 mod nowplaying;
+mod osd;
 mod playtime;
 mod plugins;
 mod pluto;
@@ -80,6 +81,7 @@ pub fn run() {
             remote::start(app.handle());
             app.manage(plugins::registry::Registry::new(app.handle()));
             plugins::tv::init(app.handle());
+            osd::spawn(app.handle().clone());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
             updates::clean_leftovers(app.handle());

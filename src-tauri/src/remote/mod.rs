@@ -424,7 +424,7 @@ fn handle(app: &AppHandle, mut request: Request, port: u16) {
                 "/api/launch" => api::launch(app, request),
                 "/api/cast" => api::cast(app, request),
                 "/api/power" => api::power(app, request),
-                _ => api::set_volume(request),
+                _ => api::set_volume(app, request),
             }
         }
         (Method::Post, "/api/text") => {
@@ -551,9 +551,15 @@ fn run_command(app: &AppHandle, cmd: &str) -> Result<(), (u16, &'static str)> {
         "playpause" => keys::MEDIA_PLAY_PAUSE,
         "next" => keys::MEDIA_NEXT,
         "prev" => keys::MEDIA_PREV,
-        "volup" => keys::VOLUME_UP,
-        "voldown" => keys::VOLUME_DOWN,
-        "mute" => keys::VOLUME_MUTE,
+        // Volume: NOVA's own, with its bar on the TV (not Windows' flyout).
+        "volup" | "voldown" | "mute" => {
+            let change = match cmd {
+                "volup" => crate::osd::Change::Up,
+                "voldown" => crate::osd::Change::Down,
+                _ => crate::osd::Change::Mute,
+            };
+            return crate::osd::change(app, change).map(|_| ()).map_err(|_| (500, "No se pudo cambiar el volumen"));
+        }
         "home" => {
             if session::is_active() {
                 session::go_home(app);
@@ -573,11 +579,8 @@ fn run_command(app: &AppHandle, cmd: &str) -> Result<(), (u16, &'static str)> {
         }
         _ => return Err((400, "Orden desconocida")),
     };
-    // Media and volume keys are system-wide; the rest only go to NOVA or its session.
-    let system_key = matches!(
-        key,
-        keys::MEDIA_PLAY_PAUSE | keys::MEDIA_NEXT | keys::MEDIA_PREV | keys::VOLUME_UP | keys::VOLUME_DOWN | keys::VOLUME_MUTE
-    );
+    // Media keys are system-wide; the rest only go to NOVA or its session.
+    let system_key = matches!(key, keys::MEDIA_PLAY_PAUSE | keys::MEDIA_NEXT | keys::MEDIA_PREV);
     if !system_key && !keys::target_allowed() {
         return Err((409, keys::NOT_NOVA));
     }
