@@ -319,8 +319,13 @@ pub fn resolve(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolve
     if !manifest.permissions.channels || !state.enabled || !approved(&manifest, state) {
         return Err("Este plugin está desactivado".into());
     }
-    if profile.kids && !kids_visible(channel_id) {
-        return Err(crate::profiles::BLOCKED.into());
+    // Children: the same rule as the channel list (plugin allowed, channel "Infantil"),
+    // checked here too so a channel id asked for directly gets nothing more.
+    if profile.kids {
+        let listed = CHANNELS.lock().ok().and_then(|c| c.get(plugin_id).and_then(|(_, list, _)| list.iter().find(|ch| ch.id == channel_id).cloned()));
+        if !listed.is_some_and(|ch| crate::profiles::channel_allowed(&profile, &ch)) {
+            return Err(crate::profiles::BLOCKED.into());
+        }
     }
     let plugin = registry.plugin(plugin_id, state)?;
     let fixed = CHANNELS.lock().ok().and_then(|c| c.get(plugin_id).and_then(|(_, _, f)| f.get(channel_id).cloned()));
@@ -361,6 +366,11 @@ pub fn resolve(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolve
 pub fn playlist(app: &AppHandle, plugin_id: &str, url: &str) -> Result<String, String> {
     let registry = app.state::<Registry>();
     let manifest = registry.installed_manifests().into_iter().find(|m| m.id == plugin_id).ok_or("Ese plugin no está instalado")?;
+    // Only for a plugin that's on, with the domains the user approved.
+    let config = app.state::<AppState>().config.snapshot();
+    if !config.plugins.installed.get(plugin_id).is_some_and(|s| s.enabled && approved(&manifest, s)) {
+        return Err("Este plugin está desactivado".into());
+    }
     let headers = PROXY_HEADERS.lock().ok().and_then(|h| h.get(plugin_id).cloned()).unwrap_or_default();
     let response = super::http::fetch(&manifest, super::http::Request { url: url.to_string(), method: None, headers, body: None, timeout: Some(15) })?;
     if response.status != 200 {

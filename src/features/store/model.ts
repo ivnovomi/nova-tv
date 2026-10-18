@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { api, inTauri } from "../../lib/api";
 import type { PluginPermissions, StoreEntry, StoreInfo, StoreProgress } from "../../lib/types";
-import { PREVIEW } from "./preview";
 
 // ───────────────────────── Categories ─────────────────────────
 
@@ -102,9 +101,11 @@ async function load(refresh: boolean) {
   } catch (e) {
     info = { catalog: null, installed: {}, error: String(e), fetchedAt: null, signed: false, developerMode: false };
   }
-  // In development the store can be designed before the official catalogue exists.
-  const preview = !info.catalog && import.meta.env.DEV;
-  data = { ...info, catalog: info.catalog ?? (preview ? PREVIEW : null), preview, installed: preview ? { ...previewInstalled, ...info.installed } : info.installed };
+  // In development the store can be designed before the official catalogue
+  // exists. Loaded only then: release builds don't even include it.
+  const preview = import.meta.env.DEV && !info.catalog;
+  const example = import.meta.env.DEV && preview ? (await import("./preview")).PREVIEW : null;
+  data = { ...info, catalog: info.catalog ?? example, preview, installed: preview ? { ...previewInstalled, ...info.installed } : info.installed };
   emit();
 }
 
