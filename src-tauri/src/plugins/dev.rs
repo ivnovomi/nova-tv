@@ -127,12 +127,12 @@ fn load(app: &AppHandle, id: &str, dir: &Path) {
     registry.stop(id);
 
     // Started now, so a mistake shows in the terminal at once.
-    if let Some(plugin_state) = state.config.snapshot().plugins.installed.get(id) {
-        if let Ok(plugin) = registry.plugin(id, plugin_state) {
-            let mut parts: Vec<&str> = plugin.parts.keys().map(String::as_str).collect();
-            parts.sort_unstable();
-            append(&registry.dev_dir, id, "nova", &format!("{} {} cargado en NOVA: {}", manifest.name, manifest.version, parts.join(", ")));
-        }
+    if let Some(plugin_state) = state.config.snapshot().plugins.installed.get(id)
+        && let Ok(plugin) = registry.plugin(id, plugin_state)
+    {
+        let mut parts: Vec<&str> = plugin.parts.keys().map(String::as_str).collect();
+        parts.sort_unstable();
+        append(&registry.dev_dir, id, "nova", &format!("{} {} cargado en NOVA: {}", manifest.name, manifest.version, parts.join(", ")));
     }
     changed(app, id);
 }
@@ -171,52 +171,6 @@ fn finish(app: &AppHandle, id: &str) {
     // Nothing left of `nova dev`: not even the folder.
     let _ = std::fs::remove_dir(&registry.dev_dir);
     changed(app, id);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn links_of_gone_clis_are_removed() {
-        let dir = std::env::temp_dir().join(format!("nova-dev-test-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let plugin = if cfg!(windows) { "C:\\plugins\\mi-plugin" } else { "/plugins/mi-plugin" };
-        let link = serde_json::json!({ "dir": plugin }).to_string();
-
-        std::fs::write(dir.join("es.ejemplo.vivo.json"), &link).unwrap();
-        std::fs::write(dir.join("es.ejemplo.viejo.json"), &link).unwrap();
-        std::fs::write(dir.join("es.ejemplo.viejo.log"), "").unwrap();
-        let old = SystemTime::now() - Duration::from_secs(60);
-        std::fs::File::options().write(true).open(dir.join("es.ejemplo.viejo.json")).unwrap().set_modified(old).unwrap();
-        std::fs::write(dir.join("es.ejemplo.roto.json"), "no es json").unwrap();
-        std::fs::write(dir.join("es.ejemplo.relativo.json"), r#"{ "dir": "plugins/x" }"#).unwrap();
-        std::fs::write(dir.join("es.ejemplo.vivo.saved.json"), "null").unwrap();
-
-        let live = live_links(&dir);
-        assert_eq!(live.keys().collect::<Vec<_>>(), ["es.ejemplo.vivo"]);
-        assert!(!dir.join("es.ejemplo.viejo.json").exists());
-        assert!(!dir.join("es.ejemplo.viejo.log").exists());
-        assert!(!dir.join("es.ejemplo.roto.json").exists());
-        assert!(!dir.join("es.ejemplo.relativo.json").exists());
-        // What NOVA saved to restore later isn't a link.
-        assert!(dir.join("es.ejemplo.vivo.saved.json").exists());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn the_log_is_never_created_by_nova() {
-        let path = std::env::temp_dir().join(format!("nova-dev-log-{}.log", std::process::id()));
-        let _ = std::fs::remove_file(&path);
-        append_to(&path, "info", "hola");
-        assert!(!path.exists());
-        std::fs::write(&path, "").unwrap();
-        append_to(&path, "info", "hola");
-        let line: serde_json::Value = serde_json::from_str(std::fs::read_to_string(&path).unwrap().trim()).unwrap();
-        assert_eq!(line["message"], "hola");
-        let _ = std::fs::remove_file(&path);
-    }
 }
 
 /// Watches the links: loads new plugins, reloads changed ones and undoes the ones that ended.
@@ -270,4 +224,50 @@ pub fn spawn(app: AppHandle) {
             }
         })
         .ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn links_of_gone_clis_are_removed() {
+        let dir = std::env::temp_dir().join(format!("nova-dev-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let plugin = if cfg!(windows) { "C:\\plugins\\mi-plugin" } else { "/plugins/mi-plugin" };
+        let link = serde_json::json!({ "dir": plugin }).to_string();
+
+        std::fs::write(dir.join("es.ejemplo.vivo.json"), &link).unwrap();
+        std::fs::write(dir.join("es.ejemplo.viejo.json"), &link).unwrap();
+        std::fs::write(dir.join("es.ejemplo.viejo.log"), "").unwrap();
+        let old = SystemTime::now() - Duration::from_secs(60);
+        std::fs::File::options().write(true).open(dir.join("es.ejemplo.viejo.json")).unwrap().set_modified(old).unwrap();
+        std::fs::write(dir.join("es.ejemplo.roto.json"), "no es json").unwrap();
+        std::fs::write(dir.join("es.ejemplo.relativo.json"), r#"{ "dir": "plugins/x" }"#).unwrap();
+        std::fs::write(dir.join("es.ejemplo.vivo.saved.json"), "null").unwrap();
+
+        let live = live_links(&dir);
+        assert_eq!(live.keys().collect::<Vec<_>>(), ["es.ejemplo.vivo"]);
+        assert!(!dir.join("es.ejemplo.viejo.json").exists());
+        assert!(!dir.join("es.ejemplo.viejo.log").exists());
+        assert!(!dir.join("es.ejemplo.roto.json").exists());
+        assert!(!dir.join("es.ejemplo.relativo.json").exists());
+        // What NOVA saved to restore later isn't a link.
+        assert!(dir.join("es.ejemplo.vivo.saved.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_log_is_never_created_by_nova() {
+        let path = std::env::temp_dir().join(format!("nova-dev-log-{}.log", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        append_to(&path, "info", "hola");
+        assert!(!path.exists());
+        std::fs::write(&path, "").unwrap();
+        append_to(&path, "info", "hola");
+        let line: serde_json::Value = serde_json::from_str(std::fs::read_to_string(&path).unwrap().trim()).unwrap();
+        assert_eq!(line["message"], "hola");
+        let _ = std::fs::remove_file(&path);
+    }
 }

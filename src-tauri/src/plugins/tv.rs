@@ -34,7 +34,9 @@ static KIDS_VISIBLE: RwLock<Option<HashSet<String>>> = RwLock::new(None);
 /// Per plugin: when its channels were loaded, the list, and each channel's fixed stream (if any).
 type ChannelCache = HashMap<String, (Instant, Vec<Channel>, HashMap<String, serde_json::Value>)>;
 static CHANNELS: LazyLock<Mutex<ChannelCache>> = LazyLock::new(Default::default);
-static GUIDE: LazyLock<Mutex<HashMap<String, (Instant, HashMap<String, Vec<Program>>)>>> = LazyLock::new(Default::default);
+/// Per plugin: when its guide was loaded, and the programmes by channel.
+type GuideCache = HashMap<String, (Instant, HashMap<String, Vec<Program>>)>;
+static GUIDE: LazyLock<Mutex<GuideCache>> = LazyLock::new(Default::default);
 /// Headers the last `stream()` of each plugin asked for its proxied playlists.
 static PROXY_HEADERS: LazyLock<Mutex<HashMap<String, HashMap<String, String>>>> = LazyLock::new(Default::default);
 
@@ -170,10 +172,10 @@ pub fn channels(app: &AppHandle) -> Vec<Channel> {
                 let cached = CHANNELS.lock().ok().and_then(|c| c.get(&manifest.id).cloned());
                 let plugin = registry.plugin(&manifest.id, &state);
                 let fresh_for = plugin.as_ref().map(|p| ttl(p, "channels", 6 * 3600, 3600)).unwrap_or(Duration::from_secs(6 * 3600));
-                if let Some((at, list, _)) = &cached {
-                    if at.elapsed() < fresh_for {
-                        return list.clone();
-                    }
+                if let Some((at, list, _)) = &cached
+                    && at.elapsed() < fresh_for
+                {
+                    return list.clone();
                 }
                 let (ctx, opaque) = context(&manifest.id, &profile);
                 match plugin.and_then(|p| p.call("channels", "load", serde_json::json!([ctx]), Some(opaque))) {
@@ -225,11 +227,11 @@ pub fn guide(app: &AppHandle) -> HashMap<String, Vec<Program>> {
         }
         let Ok(plugin) = registry.plugin(&plugin_id, state) else { continue };
         let cached = GUIDE.lock().ok().and_then(|g| g.get(&plugin_id).cloned());
-        if let Some((at, programs)) = &cached {
-            if at.elapsed() < ttl(&plugin, "guide", 3600, 15 * 60) {
-                out.extend(programs.clone());
-                continue;
-            }
+        if let Some((at, programs)) = &cached
+            && at.elapsed() < ttl(&plugin, "guide", 3600, 15 * 60)
+        {
+            out.extend(programs.clone());
+            continue;
         }
         let now = crate::config::now_secs() as i64;
         let (ctx, opaque) = context(&plugin_id, &profile);

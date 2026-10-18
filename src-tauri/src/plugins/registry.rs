@@ -34,6 +34,9 @@ fn has_permission(p: &Permissions, part: &str) -> bool {
     }
 }
 
+/// (plugin id, opaque profile id).
+type RowsKey = (String, String);
+
 pub struct Registry {
     plugins_dir: PathBuf,
     data_dir: PathBuf,
@@ -46,7 +49,7 @@ pub struct Registry {
     /// Last start or call error per plugin, for Ajustes.
     errors: Mutex<HashMap<String, String>>,
     /// Rows per (plugin, profile), with when they were loaded.
-    rows: Mutex<HashMap<(String, String), (Instant, Vec<Row>)>>,
+    rows: Mutex<HashMap<RowsKey, (Instant, Vec<Row>)>>,
     /// Screensaver images per plugin, with when they were loaded.
     art: Mutex<HashMap<String, (Instant, Vec<String>)>>,
 }
@@ -95,7 +98,7 @@ impl Registry {
             Some((manifest, dir))
         });
         let mut out: Vec<_> = packaged.chain(dev.iter().cloned()).collect();
-        out.sort_by(|a, b| a.0.name.to_lowercase().cmp(&b.0.name.to_lowercase()));
+        out.sort_by_key(|(m, _)| m.name.to_lowercase());
         out
     }
 
@@ -333,10 +336,10 @@ fn rows_for(app: &AppHandle) -> Vec<PluginRows> {
                 let cached = registry.rows.lock().ok().and_then(|r| r.get(&key).cloned());
                 let plugin = registry.plugin(&manifest.id, &state);
                 let ttl = plugin.as_ref().ok().map(|p| refresh_secs(p.refresh("rows"), 30 * 60, 15 * 60)).unwrap_or(30 * 60);
-                if let Some((at, rows)) = &cached {
-                    if at.elapsed() < Duration::from_secs(ttl) {
-                        return PluginRows { plugin: manifest.id, name: manifest.name, rows: rows.clone() };
-                    }
+                if let Some((at, rows)) = &cached
+                    && at.elapsed() < Duration::from_secs(ttl)
+                {
+                    return PluginRows { plugin: manifest.id, name: manifest.name, rows: rows.clone() };
                 }
                 let fresh = plugin.and_then(|p| p.call("rows", "load", serde_json::json!([ctx]), Some(opaque_id)));
                 let rows = match fresh {
@@ -454,10 +457,10 @@ pub async fn plugins_screensaver(app: AppHandle) -> Vec<String> {
                     let cached = registry.art.lock().ok().and_then(|a| a.get(&manifest.id).cloned());
                     let plugin = registry.plugin(&manifest.id, &state);
                     let ttl = plugin.as_ref().ok().map(|p| refresh_secs(p.refresh("screensaver"), 24 * 3600, 15 * 60)).unwrap_or(24 * 3600);
-                    if let Some((at, images)) = &cached {
-                        if at.elapsed() < Duration::from_secs(ttl) {
-                            return images.clone();
-                        }
+                    if let Some((at, images)) = &cached
+                        && at.elapsed() < Duration::from_secs(ttl)
+                    {
+                        return images.clone();
                     }
                     let (ctx, opaque) = context(&manifest.id, &profile);
                     match plugin.and_then(|p| p.call("screensaver", "load", serde_json::json!([ctx]), Some(opaque))) {
