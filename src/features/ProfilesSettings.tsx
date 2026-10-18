@@ -53,7 +53,7 @@ function usePinFlow() {
 
 /** What a children's profile restricts — said plainly, nothing promised that isn't enforced. */
 const KIDS_RULES = [
-  "TV en directo: solo canales infantiles (TDT infantil y dibujos de Pluto TV; anime y canales del mundo, si los activas).",
+  "TV en directo: solo canales infantiles (TDT infantil, los canales «Infantil» de los plugins que permitas en Ajustes → Plugins y, si los activas, los del mundo).",
   "Apps, juegos y streaming: solo los que elijas aquí.",
   "Sin búsqueda en YouTube ni en los archivos del PC, y sin «Multimedia».",
   "Sin Ajustes: hace falta el PIN para abrirlos o para cambiar a otro perfil.",
@@ -63,8 +63,8 @@ const KIDS_RULES = [
 function ProfileEditor({ initial, onClose, onSaved }: { initial: Profile | null; onClose: () => void; onSaved: (p: ProfileInput) => Promise<void> }) {
   const [draft, setDraft] = useState<ProfileInput>(
     initial
-      ? { id: initial.id, name: initial.name, avatar: initial.avatar, color: initial.color, kids: initial.kids, allowed: initial.allowed, allowAnime: initial.allowAnime, allowWorld: initial.allowWorld }
-      : { name: "", avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)], color: COLORS[0], kids: false, allowed: ["stream:youtubekids"], allowAnime: true, allowWorld: false },
+      ? { id: initial.id, name: initial.name, avatar: initial.avatar, color: initial.color, kids: initial.kids, allowed: initial.allowed, allowWorld: initial.allowWorld }
+      : { name: "", avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)], color: COLORS[0], kids: false, allowed: ["stream:youtubekids"], allowWorld: false },
   );
   const [catalog, setCatalog] = useState<Shortcut[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,11 +167,8 @@ function ProfileEditor({ initial, onClose, onSaved }: { initial: Profile | null;
             ))}
           </ul>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              ["allowAnime", "Anime de Pluto TV", "Dragon Ball, One Piece, Detective Conan…"],
-              ["allowWorld", "Canales infantiles del mundo", "De iptv-org: nadie los revisa uno a uno."],
-            ].map(([key, title, desc]) => {
-              const on = draft[key as "allowAnime" | "allowWorld"];
+            {[["allowWorld", "Canales infantiles del mundo", "De iptv-org: nadie los revisa uno a uno."]].map(([key, title, desc]) => {
+              const on = draft[key as "allowWorld"];
               return (
                 <button key={key} data-nav role="switch" aria-checked={on} onClick={() => patch({ [key]: !on })} className={`focus-ring rounded-2xl px-5 py-4 text-left ${on ? "bg-white/12" : "bg-white/4"}`}>
                   <span className="flex items-center justify-between text-[1.05rem] font-semibold">

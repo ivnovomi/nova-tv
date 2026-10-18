@@ -506,25 +506,6 @@ function TvMenu({ onClose, onPowerOff, onSubtitles }: { onClose: () => void; onP
         </div>
         <div className="mt-2 flex items-center gap-4 rounded-xl bg-white/5 px-5 py-4">
           <span className="min-w-0 flex-1">
-            <span className="block text-[1.1rem] font-semibold">Pluto TV</span>
-            <span className={`block text-[0.95rem] ${data?.fastError ? "text-danger" : "text-ink-3"}`}>
-              {data?.fastError ?? "Canales gratis con anuncios: dibujos, anime, MTV, cine y series, con guía. Del 3001 en adelante."}
-            </span>
-          </span>
-          <button
-            data-nav
-            aria-pressed={data?.fastEnabled}
-            onClick={async () => {
-              await api.livetvSetFast(!data?.fastEnabled);
-              await liveTv.load(true);
-            }}
-            className={`focus-lift btn shrink-0 ${data?.fastEnabled ? "btn-primary" : "btn-ghost"}`}
-          >
-            {data?.fastEnabled ? "Activado" : "Desactivado"}
-          </button>
-        </div>
-        <div className="mt-2 flex items-center gap-4 rounded-xl bg-white/5 px-5 py-4">
-          <span className="min-w-0 flex-1">
             <span className="block text-[1.1rem] font-semibold">Twitch en directo</span>
             <span className={`block text-[0.95rem] ${data?.twitchError ? "text-danger" : "text-ink-3"}`}>
               {data?.twitchError ?? "Directos en español aptos para todos. Del 4001 en adelante."}

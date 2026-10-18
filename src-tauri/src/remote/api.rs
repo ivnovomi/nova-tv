@@ -110,9 +110,7 @@ const GROUPS: &[(&str, &str)] = &[
     ("tdt:Informativos", "Informativos"),
     ("tdt:Deportivos", "Deportivos"),
     ("tdt:Infantiles", "Infantiles"),
-    ("pluto", "Pluto TV"),
-    ("pluto:Infantil", "Dibujos"),
-    ("pluto:Anime", "Anime"),
+    ("plugins", "Plugins"),
     ("twitch", "Twitch"),
     ("cat:Noticias", "Noticias del mundo"),
     ("cat:Deportes", "Deportes del mundo"),
@@ -126,9 +124,8 @@ const GROUPS: &[(&str, &str)] = &[
 fn in_group(c: &Channel, group: &str, favorites: &[String]) -> bool {
     match group.split_once(':') {
         _ if group == "fav" => favorites.contains(&c.id),
-        _ if group == "pluto" => c.id.starts_with("pluto:"),
+        _ if group == "plugins" => c.id.starts_with(crate::plugins::tv::PREFIX),
         _ if group == "twitch" => c.id.starts_with("twitch:"),
-        Some(("pluto", g)) => c.id.starts_with("pluto:") && c.group == g,
         Some(("tdt", g)) => c.id.starts_with("tdt:") && c.country.as_deref() == Some("ES") && c.group == g,
         Some(("cat", g)) => c.categories.iter().any(|k| k == g),
         _ => true,

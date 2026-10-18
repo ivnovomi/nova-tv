@@ -220,8 +220,6 @@ fn probe_stream(agent: &ureq::Agent, url: &str) -> Probe {
             _ => Probe::Dead,
         };
     }
-    let signed = crate::pluto::sign(url, false);
-    let url = signed.as_deref().unwrap_or(url);
     let text = match fetch(agent, url) {
         Ok(t) => t,
         Err(p) => return p,
@@ -299,7 +297,7 @@ pub fn start(app: &AppHandle, channels: Vec<Channel>, priority: Vec<String>, for
     let rank = |c: &Channel| -> u8 {
         if priority.contains(&c.id) {
             0
-        } else if (c.id.starts_with("tdt:") && c.country.as_deref() == Some("ES")) || c.id.starts_with("pluto:") {
+        } else if (c.id.starts_with("tdt:") && c.country.as_deref() == Some("ES")) || c.id.starts_with(crate::plugins::tv::PREFIX) {
             1
         } else if c.id.starts_with("m3u:") {
             2

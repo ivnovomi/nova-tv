@@ -99,10 +99,7 @@ export const api = {
   livetvAddPlaylist: (name: string, url: string) => call<number>("livetv_add_playlist", { name, url }),
   livetvRemovePlaylist: (id: string) => call<void>("livetv_remove_playlist", { id }),
   livetvSetWorld: (enabled: boolean) => call<void>("livetv_set_world", { enabled }),
-  livetvSetFast: (enabled: boolean) => call<void>("livetv_set_fast", { enabled }),
   livetvSetTwitch: (enabled: boolean) => call<void>("livetv_set_twitch", { enabled }),
-  /** Pluto TV playlists, fetched (and signed) by NOVA. */
-  livetvPlaylist: (url: string) => call<string>("livetv_playlist", { url }),
   livetvCheckNow: () => call<void>("livetv_check_now"),
   livetvHealth: () => call<{ map: Record<string, HealthEntry>; progress: HealthProgress }>("livetv_health"),
   livetvReport: (id: string, ok: boolean, blocked: boolean, stream: number) => call<void>("livetv_report", { id, ok, blocked, stream }),

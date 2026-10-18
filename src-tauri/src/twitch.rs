@@ -217,7 +217,7 @@ pub fn guide() -> HashMap<String, Vec<Program>> {
     let list = CACHE.lock().ok().and_then(|c| c.clone()).map(|(_, l)| l).unwrap_or_default();
     list.into_iter()
         .map(|s| {
-            let start = s.started_at.as_deref().and_then(crate::pluto::iso_secs).filter(|t| *t <= now).unwrap_or(now);
+            let start = s.started_at.as_deref().and_then(iso_secs).filter(|t| *t <= now).unwrap_or(now);
             let program = Program {
                 start,
                 end: (now / 3600 + 1) * 3600 + 3600,
@@ -229,6 +229,25 @@ pub fn guide() -> HashMap<String, Vec<Program>> {
             (format!("twitch:{}", s.login), vec![program])
         })
         .collect()
+}
+
+/// Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+
+/// "2026-10-15T23:37:01Z" (when a stream started) → Unix seconds.
+fn iso_secs(s: &str) -> Option<i64> {
+    let n = |r: std::ops::Range<usize>| s.get(r)?.parse::<i64>().ok();
+    if s.len() < 19 {
+        return None;
+    }
+    Some(days_from_civil(n(0..4)?, n(5..7)?, n(8..10)?) * 86400 + n(11..13)? * 3600 + n(14..16)? * 60 + n(17..19)?)
 }
 
 /// "Estado de las fuentes": does Twitch's public API answer right now?
@@ -276,6 +295,13 @@ pub async fn twitch_play(login: String, name: Option<String>, app: AppHandle, st
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dates() {
+        assert_eq!(iso_secs("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(iso_secs("2026-10-15T23:37:01.000Z"), Some(1792107421));
+        assert_eq!(iso_secs("ayer"), None);
+    }
 
     #[test]
     fn filters_for_everyone() {

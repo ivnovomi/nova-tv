@@ -288,15 +288,6 @@ function TvSettings() {
         }}
       />
       <Toggle
-        title="Pluto TV"
-        description={data?.fastError ?? "Canales gratis y legales con anuncios: Bob Esponja, Dragon Ball, MTV, cine, series… con guía. Del 3001 en adelante."}
-        value={!!data?.fastEnabled}
-        onChange={async () => {
-          await api.livetvSetFast(!data?.fastEnabled);
-          await liveTv.load(true);
-        }}
-      />
-      <Toggle
         title="Twitch en directo"
         description={data?.twitchError ?? "Directos en español aptos para todos (sin etiquetas de contenido adulto), como canales del 4001 en adelante, con el reproductor oficial de Twitch."}
         value={!!data?.twitchEnabled}

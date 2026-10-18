@@ -59,10 +59,10 @@ pub fn sources_status(app: AppHandle) -> Vec<SourceStatus> {
     vec![
         channel_source("tdt", "TDTChannels", "TDT de España e internacional", Source::Tdt, true, Some("channels-v2.json")),
         SourceStatus { key: "epg", name: "Guía de TDTChannels", role: "Programación de la TDT", enabled: true, updated_at: tv.cached_at("epg.json"), error: error("epg"), ..Default::default() },
-        channel_source("pluto", "Pluto TV", "Canales gratis con anuncios", Source::Fast, !config.fast_disabled, Some("pluto.json")),
         channel_source("twitch", "Twitch", "Directos aptos para todos", Source::Twitch, !config.twitch_disabled, None),
         channel_source("world", "iptv-org", "Canales públicos del mundo", Source::World, !config.world_disabled, Some("world.json")),
         channel_source("playlist", "Tus listas M3U", "Listas añadidas por ti", Source::Playlist, !config.playlists.is_empty(), None),
+        channel_source("plugins", "Plugins", "Canales de tus plugins (Pluto TV…)", Source::Plugin, true, None),
     ]
 }
 
@@ -122,7 +122,6 @@ mod tests {
         let probes = [
             http("tdt", "TDTChannels", TDT_CHANNELS, true),
             http("epg", "Guía", TDT_EPG, true),
-            timed("pluto", "Pluto TV", || crate::pluto::probe()),
             timed("twitch", "Twitch", || crate::twitch::probe().map(|_| "Responde".into())),
             http("world", "iptv-org", &world, true),
             http("youtube", "YouTube", "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=jNQXAC9IVRw&format=json", false),
@@ -142,7 +141,6 @@ pub async fn sources_probe() -> Vec<Probe> {
         let checks: Vec<Box<dyn FnOnce() -> Probe + Send>> = vec![
             Box::new(|| http("tdt", "TDTChannels", TDT_CHANNELS, true)),
             Box::new(|| http("epg", "Guía de TDTChannels", TDT_EPG, true)),
-            Box::new(|| timed("pluto", "Pluto TV", || crate::pluto::probe().map(|region| format!("Sesión correcta · región {region}")))),
             Box::new(|| timed("twitch", "Twitch", || crate::twitch::probe().map(|_| "Responde".to_string()))),
             Box::new(move || http("world", "iptv-org", &world, true)),
             Box::new(|| http("youtube", "YouTube", "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=jNQXAC9IVRw&format=json", false)),

@@ -307,7 +307,6 @@ export function flag(code: string | null | undefined): string {
 /** "Generalistas", "🇲🇽 México · Noticias", or the playlist group. */
 export function groupLabel(c: Channel): string {
   if (c.source === "world") return `${countryName(c.country)}${c.categories[0] ? ` · ${c.categories[0]}` : ""}`;
-  if (c.source === "fast") return `Pluto TV · ${c.group}`;
   if (c.source === "twitch") return `Twitch · ${c.group}`;
   if (c.source === "plugin") return c.group === c.region ? c.region : `${c.region} · ${c.group}`;
   return c.group;
@@ -339,15 +338,18 @@ export function buildGroups(channels: Channel[], favorites: string[]): Group[] {
     push(`tdt:${g}`, g, "España · TDT", tdtSpain.filter((c) => c.group === g)),
   );
 
-  // Pluto TV: free channels with ads, in Pluto's own categories.
-  const fast = channels.filter((c) => c.source === "fast");
-  [...new Set(fast.map((c) => c.group))].forEach((g) => push(`fast:${g}`, g, "Pluto TV · gratis", fast.filter((c) => c.group === g)));
+  // Plugins (Pluto TV…): each one in its own section, by its own groups.
+  const plugins = channels.filter((c) => c.source === "plugin");
+  for (const name of new Set(plugins.map((c) => c.region))) {
+    const mine = plugins.filter((c) => c.region === name);
+    [...new Set(mine.map((c) => c.group))].forEach((g) => push(`plugin:${name}:${g}`, g, name, mine.filter((c) => c.group === g)));
+  }
 
   // Twitch: what's live right now, for everyone.
   push("twitch", "En directo ahora", "Twitch", channels.filter((c) => c.source === "twitch"));
 
   const world = channels.filter((c) => c.source === "world");
-  const themed = [...fast, ...world];
+  const themed = [...plugins, ...world];
   THEMES.forEach((t) => push(`cat:${t}`, t, "Temáticas", themed.filter((c) => c.categories.includes(t))));
 
   const byCountry = new Map<string, Channel[]>();

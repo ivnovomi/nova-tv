@@ -209,6 +209,14 @@ pub fn channels(app: &AppHandle) -> Vec<Channel> {
     handles.into_iter().filter_map(|h| h.join().ok()).flatten().collect()
 }
 
+/// What's on now on a plugin's channel, if its guide has been loaded.
+pub fn now_title(epg_id: &str, now: i64) -> Option<String> {
+    let (plugin, _) = split(epg_id)?;
+    let guide = GUIDE.lock().ok()?;
+    let (_, programs) = guide.get(plugin)?;
+    programs.get(epg_id)?.iter().find(|p| p.start <= now && p.end > now).map(|p| p.title.clone())
+}
+
 /// Programmes from the plugins with `guide`, keyed by channel id.
 pub fn guide(app: &AppHandle) -> HashMap<String, Vec<Program>> {
     let config = app.state::<AppState>().config.snapshot();

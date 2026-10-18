@@ -11,7 +11,6 @@ mod nowplaying;
 mod osd;
 mod playtime;
 mod plugins;
-mod pluto;
 mod power;
 mod profiles;
 mod remote;
@@ -177,9 +176,7 @@ pub fn run() {
             livetv::livetv_add_playlist,
             livetv::livetv_remove_playlist,
             livetv::livetv_set_world,
-            livetv::livetv_set_fast,
             livetv::livetv_set_twitch,
-            pluto::livetv_playlist,
             livetv::livetv_check_now,
             livetv_health::livetv_health,
             livetv_health::livetv_report,

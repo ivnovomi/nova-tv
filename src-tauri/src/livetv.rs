@@ -16,7 +16,6 @@ pub(crate) const TDT_CHANNELS: &str = "https://www.tdtchannels.com/lists/tv.json
 pub(crate) const TDT_EPG: &str = "https://www.tdtchannels.com/epg/TV.json";
 const CHANNELS_TTL: u64 = 12 * 3600;
 const EPG_TTL: u64 = 3 * 3600;
-const PLUTO_EPG_TTL: u64 = 30 * 60;
 const CUSTOM_FIRST_NUMBER: u32 = 1001;
 /// 5001–10000 belong to plugins (see plugins/tv.rs); the world catalogue starts after them.
 const WORLD_FIRST_NUMBER: u32 = 10001;
@@ -34,8 +33,6 @@ pub enum Source {
     World,
     /// The user's own M3U playlist.
     Playlist,
-    /// Free ad-supported TV (Pluto TV).
-    Fast,
     /// Twitch live streams for everyone.
     Twitch,
     /// A plugin's channels (each plugin has its own number block).
@@ -101,9 +98,6 @@ pub struct LiveTvData {
     /// Worldwide iptv-org catalogue switched on.
     world_enabled: bool,
     world_error: Option<String>,
-    /// Pluto TV switched on.
-    fast_enabled: bool,
-    fast_error: Option<String>,
     /// Twitch live streams switched on.
     twitch_enabled: bool,
     twitch_error: Option<String>,
@@ -117,22 +111,22 @@ pub(crate) struct Cached<T> {
 
 pub struct LiveTv {
     dir: PathBuf,
-    /// TDT guide only (3 h cache); Pluto and Twitch are added on each request.
+    /// TDT guide only (3 h cache); Twitch and plugins are added on each request.
     epg: Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>,
-    /// Pluto TV's guide (next 6 hours), cached for `PLUTO_EPG_TTL`.
-    pluto_epg: Mutex<Option<(u64, HashMap<String, Vec<Program>>)>>,
     /// Last full channel list, for the phone remote.
     all: Mutex<Option<Vec<Channel>>>,
-    /// Last error of each source ("tdt", "world", "pluto", "twitch", "epg"), for Ajustes → Estado de las fuentes.
+    /// Last error of each source ("tdt", "world", "twitch", "epg"), for Ajustes → Estado de las fuentes.
     pub(crate) errors: Mutex<HashMap<&'static str, String>>,
 }
 
 impl LiveTv {
     pub fn new(dir: &Path) -> Self {
+        let dir = dir.join("livetv");
+        // Pluto TV was built in until 0.3 (now it's a plugin): its old list goes.
+        let _ = fs::remove_file(dir.join("pluto.json"));
         Self {
-            dir: dir.join("livetv"),
+            dir,
             epg: Mutex::new(None),
-            pluto_epg: Mutex::new(None),
             all: Mutex::new(None),
             errors: Mutex::new(HashMap::new()),
         }
@@ -561,7 +555,6 @@ fn range(ch: &Channel) -> (u32, u32) {
     match ch.source {
         Source::Tdt => (1, 999),
         Source::Playlist => (CUSTOM_FIRST_NUMBER, 2999),
-        Source::Fast => (3001, 3999),
         Source::Twitch => (crate::twitch::FIRST_NUMBER, 4999),
         Source::Plugin => crate::plugins::tv::block_of(ch.number),
         Source::World => (WORLD_FIRST_NUMBER, 99_999),
@@ -633,18 +626,16 @@ struct Collected {
     playlists: Vec<PlaylistInfo>,
     tdt_error: Option<String>,
     world_error: Option<String>,
-    fast_error: Option<String>,
     twitch_error: Option<String>,
 }
 
-/// Every source in channel-number order: TDT, playlists (1001+), Pluto TV (3001+),
-/// Twitch (4001+), world (5001+).
+/// Every source in channel-number order: TDT, playlists (1001+), Twitch (4001+),
+/// plugins (5001+, in blocks of 500), world (10001+).
 fn collect(app: &AppHandle) -> Collected {
     let tv = app.state::<LiveTv>();
     let config = app.state::<AppState>().config.snapshot().live_tv;
     let (mut channels, tdt_error) = tdt_channels(&tv);
     let (world, world_error) = if config.world_disabled { (vec![], None) } else { world_channels(&tv, &channels) };
-    let (fast, fast_error) = if config.fast_disabled { (vec![], None) } else { crate::pluto::channels(&tv) };
     let (twitch, twitch_error) = if config.twitch_disabled { (vec![], None) } else { crate::twitch::channels() };
     let mut playlists = Vec::new();
     let mut next = CUSTOM_FIRST_NUMBER;
@@ -654,19 +645,17 @@ fn collect(app: &AppHandle) -> Collected {
         playlists.push(PlaylistInfo { id: p.id.clone(), name: p.name.clone(), url: p.url.clone(), channels: list.len(), error });
         channels.extend(list);
     }
-    channels.extend(fast);
     channels.extend(twitch);
     channels.extend(crate::plugins::tv::channels(app));
     channels.extend(world);
     stable_numbers(&tv, &mut channels);
     tv.note_error("tdt", &tdt_error);
     tv.note_error("world", &world_error);
-    tv.note_error("pluto", &fast_error);
     tv.note_error("twitch", &twitch_error);
     if let Ok(mut all) = tv.all.lock() {
         *all = Some(channels.clone());
     }
-    Collected { channels, playlists, tdt_error, world_error, fast_error, twitch_error }
+    Collected { channels, playlists, tdt_error, world_error, twitch_error }
 }
 
 #[tauri::command]
@@ -689,8 +678,6 @@ pub async fn livetv_channels(app: AppHandle) -> Result<LiveTvData, String> {
             tdt_error: c.tdt_error,
             world_enabled: !config.world_disabled,
             world_error: c.world_error,
-            fast_enabled: !config.fast_disabled,
-            fast_error: c.fast_error,
             twitch_enabled: !config.twitch_disabled,
             twitch_error: c.twitch_error,
         }
@@ -699,7 +686,7 @@ pub async fn livetv_channels(app: AppHandle) -> Result<LiveTvData, String> {
     .map_err(|e| e.to_string())
 }
 
-/// Every channel the active profile may watch (TDT, Pluto, world, playlists),
+/// Every channel the active profile may watch (TDT, Twitch, plugins, world, playlists),
 /// from memory when NOVA already loaded them.
 pub fn snapshot(app: &AppHandle) -> Vec<Channel> {
     let all = match app.state::<LiveTv>().all.lock().ok().and_then(|a| a.clone()) {
@@ -719,25 +706,7 @@ pub fn now_title(app: &AppHandle, epg_id: &str) -> Option<String> {
         let (_, epg) = guard.as_ref()?;
         epg.get(epg_id)?.iter().find(|p| p.start <= now && p.end > now).map(|p| p.title.clone())
     };
-    on_air(&tv.epg).or_else(|| on_air(&tv.pluto_epg))
-}
-
-/// Pluto TV's guide for the loaded Pluto channels, refreshed every `PLUTO_EPG_TTL`.
-fn pluto_guide(tv: &LiveTv) -> HashMap<String, Vec<Program>> {
-    if let Some((at, epg)) = tv.pluto_epg.lock().ok().and_then(|g| g.clone()) {
-        if now_secs().saturating_sub(at) < PLUTO_EPG_TTL {
-            return epg;
-        }
-    }
-    let pluto: Vec<Channel> = tv.all.lock().ok().and_then(|a| a.clone()).unwrap_or_default().into_iter().filter(|c| c.source == Source::Fast).collect();
-    if pluto.is_empty() {
-        return HashMap::new();
-    }
-    let epg = crate::pluto::guide(&pluto);
-    if let Ok(mut g) = tv.pluto_epg.lock() {
-        *g = Some((now_secs(), epg.clone()));
-    }
-    epg
+    on_air(&tv.epg).or_else(|| crate::plugins::tv::now_title(epg_id, now))
 }
 
 /// "Comprobar ahora": re-checks every channel, ignoring saved results.
@@ -772,15 +741,6 @@ pub fn livetv_set_twitch(enabled: bool, state: State<'_, AppState>) -> Result<()
 }
 
 #[tauri::command]
-pub fn livetv_set_fast(enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
-    crate::profiles::require_adult(&state)?;
-    state.config.update(|c| {
-        c.live_tv.fast_disabled = !enabled;
-        Ok(())
-    })
-}
-
-#[tauri::command]
 pub async fn livetv_epg(app: AppHandle) -> Result<HashMap<String, Vec<Program>>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let tv = app.state::<LiveTv>();
@@ -807,8 +767,7 @@ pub async fn livetv_epg(app: AppHandle) -> Result<HashMap<String, Vec<Program>>,
                 tdt
             }
         };
-        // Pluto TV's own guide (its own short cache) and Twitch (from its live list), live only.
-        epg.extend(pluto_guide(&tv));
+        // Twitch (from its live list) and plugins (their own caches), live only.
         epg.extend(crate::twitch::guide());
         epg.extend(crate::plugins::tv::guide(&app));
         Ok(epg)

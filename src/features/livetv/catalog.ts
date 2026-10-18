@@ -3,9 +3,9 @@ import { countryName } from "./store";
 
 /**
  * The TV's catalogue, organised like a streaming app instead of 300 groups:
- * a few top tabs (Para ti, España, Pluto TV, Twitch, themes, Mundo…), some
+ * a few top tabs (Para ti, España, Twitch, each plugin, themes, Mundo…), some
  * with sub-tabs. Within a theme, what's closest comes first: Spain's TDT,
- * then Pluto TV and Twitch, then Spanish-speaking countries, then the world.
+ * then Twitch and plugins, then Spanish-speaking countries, then the world.
  */
 
 export interface Sub {
@@ -50,10 +50,10 @@ const SPAIN_SUBS: { key: string; label: string; groups: string[] }[] = [
   { key: "streaming", label: "Streaming", groups: ["Streaming", "Eventuales"] },
 ];
 
-/** Closeness to a viewer in Spain: TDT, Pluto/Twitch, playlists, Spanish-speaking world, the rest. */
+/** Closeness to a viewer in Spain: TDT, Twitch/plugins, playlists, Spanish-speaking world, the rest. */
 function rank(c: Channel): number {
   if (c.source === "tdt" && c.region === "España") return 0;
-  if (c.source === "fast" || c.source === "twitch" || c.source === "plugin") return 1;
+  if (c.source === "twitch" || c.source === "plugin") return 1;
   if (c.source === "playlist") return 2;
   const i = SPANISH_SPEAKING.indexOf((c.country ?? "").toUpperCase());
   return i >= 0 ? 3 + i / 100 : 4;
@@ -90,10 +90,6 @@ export function buildTabs(channels: Channel[], favorites: string[], recent: stri
     sub("otros", "Más temáticos", spain.filter((c) => !known.has(c.group) && !!TDT_THEME[c.group]).sort(byNumber)),
   ]);
 
-  // Pluto TV, in its own categories.
-  const pluto = channels.filter((c) => c.source === "fast");
-  add("pluto", "Pluto TV", [sub("all", "Todo", [...pluto].sort(byNumber)), ...[...new Set(pluto.map((c) => c.group))].map((g) => sub(g, g, pluto.filter((c) => c.group === g).sort(byNumber)))]);
-
   // Twitch: what's live now.
   add("twitch", "Twitch", [sub("live", "En directo ahora", channels.filter((c) => c.source === "twitch").sort(byNumber))]);
 
@@ -111,7 +107,7 @@ export function buildTabs(channels: Channel[], favorites: string[], recent: stri
     add(t.key, t.label, [
       sub("all", "Todo", list),
       sub("es", "España", list.filter((c) => c.source === "tdt" && c.region === "España")),
-      sub("free", "Pluto TV, Twitch y plugins", list.filter((c) => c.source === "fast" || c.source === "twitch" || c.source === "plugin")),
+      sub("free", "Twitch y plugins", list.filter((c) => c.source === "twitch" || c.source === "plugin")),
       sub("world", "Resto del mundo", list.filter((c) => c.source === "world" || (c.source === "tdt" && c.region !== "España"))),
     ]);
   }

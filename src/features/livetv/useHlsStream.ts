@@ -38,15 +38,6 @@ function explain(code: number | undefined, youtube: boolean): string {
   }
 }
 
-/** Pluto TV only lets its own website read its playlists: NOVA fetches (and signs) them. */
-const proxied = (url: string) => {
-  try {
-    return inTauri && new URL(url).hostname.endsWith(".pluto.tv");
-  } catch {
-    return false;
-  }
-};
-
 const Base = Hls.DefaultConfig.loader as unknown as new (config: HlsConfig) => Loader<PlaylistLoaderContext>;
 
 /**
@@ -88,9 +79,6 @@ function loaderThrough(through: (url: string) => boolean, fetchText: (url: strin
   }
   };
 }
-
-/** Pluto TV playlists through NOVA (signed there). */
-const PlutoLoader = loaderThrough(proxied, (url) => api.livetvPlaylist(url));
 
 /** A plugin stream that asked for the proxy: all its playlists through NOVA, as that plugin. */
 const pluginLoaders = new Map<string, ReturnType<typeof loaderThrough>>();
@@ -335,7 +323,7 @@ export function useHlsStream(
           startFragPrefetch: true,
           // No 1080p for the small picture-in-picture window.
           capLevelToPlayerSize: true,
-          pLoader: viaPlugin ? pluginLoader(viaPlugin) : PlutoLoader,
+          ...(viaPlugin ? { pLoader: pluginLoader(viaPlugin) } : {}),
           ...(plan.behind ? { liveSyncDuration: plan.behind, liveMaxLatencyDuration: plan.behind + 120 } : {}),
           ...(plan.lowStart ? { startLevel: 0 } : {}),
           ...(plan.carefulAbr ? { abrBandWidthFactor: 0.75, abrBandWidthUpFactor: 0.5 } : {}),

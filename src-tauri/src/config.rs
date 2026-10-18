@@ -225,9 +225,6 @@ pub struct Profile {
     /// Kids: apps, games and services they may open (shortcut ids).
     #[serde(default)]
     pub allowed: Vec<String>,
-    /// Kids: Pluto TV's anime channels (Dragon Ball, One Piece…).
-    #[serde(default = "default_true")]
-    pub allow_anime: bool,
     /// Kids: worldwide "kids" channels from iptv-org (not reviewed by anyone).
     #[serde(default)]
     pub allow_world: bool,
@@ -273,9 +270,6 @@ pub struct LiveTvConfig {
     /// The worldwide iptv-org catalogue is on unless the user turns it off.
     #[serde(default)]
     pub world_disabled: bool,
-    /// Pluto TV is on unless the user turns it off.
-    #[serde(default)]
-    pub fast_disabled: bool,
     /// Twitch live streams (as TV channels) are on unless the user turns them off.
     #[serde(default)]
     pub twitch_disabled: bool,

@@ -56,7 +56,6 @@ export interface Profile {
   lastChannel: string | null;
   /** Kids: shortcut ids they may open. */
   allowed: string[];
-  allowAnime: boolean;
   allowWorld: boolean;
 }
 
@@ -68,11 +67,10 @@ export interface ProfilesInfo {
   unlockedUntil: number | null;
 }
 
-export type ProfileInput = Pick<Profile, "name" | "avatar" | "color" | "kids" | "allowed" | "allowAnime" | "allowWorld"> & { id?: string };
+export type ProfileInput = Pick<Profile, "name" | "avatar" | "color" | "kids" | "allowed" | "allowWorld"> & { id?: string };
 
 export interface Channel {
-  /** "fast" = Pluto TV (free, with ads). */
-  source: "tdt" | "world" | "playlist" | "fast" | "twitch" | "plugin";
+  source: "tdt" | "world" | "playlist" | "twitch" | "plugin";
   country: string | null;
   categories: string[];
   id: string;
@@ -126,8 +124,6 @@ export interface LiveTvData {
   tdtError: string | null;
   worldEnabled: boolean;
   worldError: string | null;
-  fastEnabled: boolean;
-  fastError: string | null;
   twitchEnabled: boolean;
   twitchError: string | null;
 }

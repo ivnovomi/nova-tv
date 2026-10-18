@@ -43,7 +43,6 @@ fn main_profile(c: &Config) -> Profile {
         favorites: c.live_tv.favorites.clone(),
         last_channel: c.live_tv.last_channel.clone(),
         allowed: vec![],
-        allow_anime: true,
         allow_world: false,
     }
 }
@@ -105,21 +104,22 @@ pub fn deny_kids(state: &AppState) -> Result<(), String> {
     }
 }
 
-/// Kids see an allow-list: Spain's kids TDT channels, Pluto's kids (and
-/// optionally anime) channels, and — only if a parent turns it on — worldwide
+/// Kids see an allow-list: Spain's kids TDT channels, the kids channels of the
+/// plugins a parent allowed, and — only if a parent turns it on — worldwide
 /// kids channels. Never the user's own playlists.
 pub fn channel_allowed(p: &Profile, c: &Channel) -> bool {
     if !p.kids {
         return true;
     }
+    let for_kids = c.categories.iter().any(|k| k == "Infantil");
     match c.source {
         Source::Tdt => c.group == "Infantiles",
-        Source::Fast => c.group == "Infantil" || (p.allow_anime && c.group == "Anime"),
-        Source::World => p.allow_world && c.categories.iter().any(|k| k == "Infantil"),
+        Source::World => p.allow_world && for_kids,
         Source::Playlist => false,
         Source::Twitch => shortcut_allowed(p, "stream:twitch"),
-        // Only plugins for everyone that a parent allowed for children.
-        Source::Plugin => crate::plugins::tv::kids_visible(&c.id),
+        // A plugin for everyone that a parent allowed for children, and of it
+        // only the channels it marks "Infantil" (Pluto TV also has horror, crime…).
+        Source::Plugin => for_kids && crate::plugins::tv::kids_visible(&c.id),
     }
 }
 
@@ -246,14 +246,8 @@ pub struct ProfileInput {
     kids: bool,
     #[serde(default)]
     allowed: Vec<String>,
-    #[serde(default = "yes")]
-    allow_anime: bool,
     #[serde(default)]
     allow_world: bool,
-}
-
-fn yes() -> bool {
-    true
 }
 
 #[tauri::command]
@@ -290,7 +284,6 @@ pub fn profile_save(input: ProfileInput, state: State<'_, AppState>, app: AppHan
                 p.color = color;
                 p.kids = input.kids;
                 p.allowed = allowed;
-                p.allow_anime = input.allow_anime;
                 p.allow_world = input.allow_world;
                 changed_active = p.id == current;
             }
@@ -307,7 +300,6 @@ pub fn profile_save(input: ProfileInput, state: State<'_, AppState>, app: AppHan
                     favorites: vec![],
                     last_channel: None,
                     allowed,
-                    allow_anime: input.allow_anime,
                     allow_world: input.allow_world,
                 });
             }
@@ -435,7 +427,6 @@ mod tests {
             favorites: vec![],
             last_channel: None,
             allowed: vec!["stream:youtubekids".into()],
-            allow_anime: false,
             allow_world: false,
         }
     }
@@ -462,9 +453,9 @@ mod tests {
         let k = kid();
         assert!(channel_allowed(&k, &channel(Source::Tdt, "Infantiles", &[])));
         assert!(!channel_allowed(&k, &channel(Source::Tdt, "Generalistas", &[])));
-        assert!(channel_allowed(&k, &channel(Source::Fast, "Infantil", &["Infantil"])));
-        assert!(!channel_allowed(&k, &channel(Source::Fast, "Anime", &["Infantil"])), "anime off for this kid");
-        assert!(!channel_allowed(&k, &channel(Source::Fast, "MTV en Pluto TV", &["Entretenimiento"])));
+        // A plugin's channels: only "Infantil" ones, and only from plugins a parent allowed.
+        assert!(!channel_allowed(&k, &channel(Source::Plugin, "Terror", &["Cine"])));
+        assert!(!channel_allowed(&k, &channel(Source::Plugin, "Dibujos", &["Infantil"])), "plugin not allowed for kids");
         assert!(!channel_allowed(&k, &channel(Source::World, "US", &["Infantil"])), "world kids off by default");
         assert!(!channel_allowed(&k, &channel(Source::Playlist, "Kids", &["Infantil"])));
         assert!(shortcut_allowed(&k, "stream:youtubekids"));
