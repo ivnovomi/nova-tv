@@ -3,6 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { createHash } from "node:crypto";
 import { bundle } from "./bundle.mjs";
 import { zip } from "./novapkg.mjs";
 import { validate } from "./validate.mjs";
@@ -54,8 +55,11 @@ export async function packCommand(args) {
   writeFileSync(pkg, zip(entries));
 
   const unpacked = entries.reduce((n, e) => n + e.data.length, 0);
+  const bytes = readFileSync(pkg);
   if (out) console.log(`  código   ${manifest.main} (${kb(statSync(out).size)}, minificado y legible)`);
-  console.log(`  paquete  ${relative(process.cwd(), pkg)} (${kb(statSync(pkg).size)}; ${kb(unpacked)} instalado, ${files.size} archivos)`);
+  console.log(`  paquete  ${relative(process.cwd(), pkg)} (${kb(bytes.length)}; ${kb(unpacked)} instalado, ${files.size} archivos)`);
+  // What the store's catalogue needs for this version (docs/plugins/store.md).
+  console.log(c.dim(`  tienda   "size": ${bytes.length}, "sha256": "${createHash("sha256").update(bytes).digest("hex")}"`));
   for (const f of files) {
     if (/\.(png|jpe?g|webp|gif|svg)$/i.test(f) && statSync(join(dir, f)).size > 1024 * 1024) console.log(`  ${c.yellow("!")} ${f} pesa más de 1 MB: cada tele que lo instale lo descarga entero.`);
   }

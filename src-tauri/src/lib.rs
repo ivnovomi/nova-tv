@@ -82,6 +82,7 @@ pub fn run() {
             app.manage(plugins::registry::Registry::new(app.handle()));
             plugins::tv::init(app.handle());
             plugins::dev::spawn(app.handle().clone());
+            plugins::store::clean_downloads(app.handle());
             osd::spawn(app.handle().clone());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
@@ -137,6 +138,8 @@ pub fn run() {
             plugins::registry::plugins_set_setting,
             plugins::registry::plugins_rollback,
             plugins::registry::plugins_log,
+            plugins::store::store_catalog,
+            plugins::store::store_install,
             plugins::registry::plugins_account,
             plugins::registry::plugins_account_start,
             plugins::registry::plugins_account_poll,

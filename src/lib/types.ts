@@ -1,4 +1,73 @@
-export type Screen = "home" | "search" | "settings" | "livetv" | "streaming" | "apps" | "games" | "media" | "system";
+export type Screen = "home" | "search" | "settings" | "livetv" | "streaming" | "apps" | "games" | "media" | "system" | "store";
+
+// ───────────────────────── Plugin store ─────────────────────────
+
+export interface StoreScreenshot {
+  url: string;
+  caption?: string | null;
+}
+
+export interface StoreChange {
+  version: string;
+  date: number;
+  notes: string[];
+}
+
+export interface StoreEntry {
+  id: string;
+  name: string;
+  version: string;
+  tagline: string;
+  description: string;
+  author: { name: string; verified: boolean; url?: string | null };
+  category: string;
+  audience: "everyone" | "adults";
+  icon?: string | null;
+  banner?: string | null;
+  accent?: string | null;
+  screenshots: StoreScreenshot[];
+  permissions: PluginPermissions;
+  changelog: StoreChange[];
+  languages: string[];
+  updatedAt: number;
+  reviewedAt: number;
+  tags: string[];
+  package: { url: string; sha256: string; signature?: string | null; size: number };
+}
+
+export interface StoreCollection {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  style: "cards" | "wide" | "ranked" | "editorial" | string;
+  ids: string[];
+  accent?: string | null;
+  image?: string | null;
+}
+
+export interface StoreCatalog {
+  version: number;
+  updatedAt: number;
+  featured: string[];
+  collections: StoreCollection[];
+  plugins: StoreEntry[];
+}
+
+export interface StoreInfo {
+  catalog: StoreCatalog | null;
+  installed: Record<string, string>;
+  error: string | null;
+  fetchedAt: number | null;
+  signed: boolean;
+  developerMode: boolean;
+}
+
+export interface StoreProgress {
+  id: string;
+  phase: "download" | "verify" | "install" | "done";
+  done: number;
+  total: number;
+}
 
 export type ShortcutKind = "app" | "game" | "stream";
 export type ShortcutSource = "user" | "detected" | "steam" | "builtin" | "store" | "epic" | "gog" | "ubisoft" | "xbox" | "launcher";

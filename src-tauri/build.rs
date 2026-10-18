@@ -24,6 +24,8 @@ fn main() {
             "plugins_set_setting",
             "plugins_rollback",
             "plugins_log",
+            "store_catalog",
+            "store_install",
             "plugins_account",
             "plugins_account_start",
             "plugins_account_poll",

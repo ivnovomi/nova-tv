@@ -371,3 +371,114 @@
   transform-origin: center;
   animation: spin 60s linear infinite;
 }
+
+/* ───────────────────────── Plugin store ───────────────────────── */
+/* Each page is lit by the colour of the plugin in front (--a: "r g b"). */
+.store-aurora {
+  position: absolute;
+  inset: -6rem -10rem auto;
+  height: 62rem;
+  pointer-events: none;
+  filter: blur(4rem) saturate(1.2);
+  opacity: 0.85;
+}
+.store-aurora i {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--a) / 0.55), transparent);
+  animation: aurora 18s ease-in-out infinite alternate;
+}
+.store-aurora i:nth-child(1) {
+  width: 52rem;
+  height: 34rem;
+  left: 8%;
+  top: 0;
+}
+.store-aurora i:nth-child(2) {
+  width: 44rem;
+  height: 30rem;
+  right: 6%;
+  top: 6rem;
+  background: radial-gradient(closest-side, rgb(var(--a) / 0.35), transparent);
+  animation-duration: 23s;
+  animation-direction: alternate-reverse;
+}
+.store-aurora i:nth-child(3) {
+  width: 36rem;
+  height: 22rem;
+  left: 40%;
+  top: 18rem;
+  background: radial-gradient(closest-side, rgb(63 213 242 / 0.18), transparent);
+  animation-duration: 29s;
+}
+@keyframes aurora {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(-5%, 2%, 0) scale(0.95);
+  }
+}
+
+/* The hero's floating screenshots. */
+.store-float {
+  animation: store-float 7s ease-in-out infinite alternate;
+}
+@keyframes store-float {
+  to {
+    translate: 0 -0.9rem;
+  }
+}
+
+/* A light sweep across the install button while it works. */
+.store-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: store-shine 1.4s linear infinite;
+}
+@keyframes store-shine {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* "Lo más instalado": outlined giant numbers. */
+.store-rank {
+  font-size: 13rem;
+  font-weight: 800;
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  color: transparent;
+  -webkit-text-stroke: 0.25rem rgb(var(--a) / 0.85);
+  text-shadow: 0 0 3rem rgb(var(--a) / 0.35);
+}
+
+/* The hero's slide timers. */
+.store-timer {
+  animation: store-timer var(--d, 9s) linear forwards;
+  transform-origin: left;
+}
+@keyframes store-timer {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-aurora i,
+  .store-float,
+  .store-shine {
+    animation: none;
+  }
+}

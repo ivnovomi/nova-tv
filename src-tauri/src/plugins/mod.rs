@@ -11,3 +11,4 @@ pub mod tv;
 pub mod runtime;
 pub mod secrets;
 pub mod storage;
+pub mod store;

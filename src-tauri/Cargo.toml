@@ -37,6 +37,9 @@ local-ip-address = "0.6"
 # Public YouTube data for the history feed (channel pages, RSS). No API keys.
 ureq = "3"
 sha2 = "0.10"
+# Plugin store: packages signed by the NOVA team (same scheme as the updater).
+minisign-verify = "0.3"
+base64 = "0.22"
 # Updates from GitHub Releases (NSIS installer, signed). No "zip": NOVA ships the .exe installer.
 tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 rquickjs = "0.14"

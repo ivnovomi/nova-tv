@@ -22,6 +22,8 @@ permissions = [
   "allow-plugins-set-setting",
   "allow-plugins-rollback",
   "allow-plugins-log",
+  "allow-store-catalog",
+  "allow-store-install",
   "allow-plugins-account",
   "allow-plugins-account-start",
   "allow-plugins-account-poll",

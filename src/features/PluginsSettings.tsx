@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { listen } from "@tauri-apps/api/event";
-import { Baby, Code, FileWarning, Globe, Image as ImageIcon, KeyRound, LayoutList, ListVideo, LoaderCircle, LogIn, LogOut, MapPin, Bell, PackagePlus, Puzzle, RefreshCw, RotateCcw, ScrollText, Search, Trash2, TriangleAlert, Tv, UserRound } from "lucide-react";
+import { Baby, Code, FileWarning, Globe, Image as ImageIcon, KeyRound, LayoutList, ListVideo, LoaderCircle, LogIn, LogOut, MapPin, Bell, PackagePlus, Puzzle, RefreshCw, RotateCcw, ScrollText, Search, Store, Trash2, TriangleAlert, Tv, UserRound } from "lucide-react";
+import { useNova } from "../app/context";
 import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toasts";
 import { api, inTauri, pickPluginPackage } from "../lib/api";
@@ -12,7 +13,7 @@ type ToggleComponent = (p: { title: string; description: string; value: boolean;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** What a plugin asks for, in plain words. */
-function permissionLines(p: PluginPermissions): { icon: typeof Globe; text: string }[] {
+export function permissionLines(p: PluginPermissions): { icon: typeof Globe; text: string }[] {
   const lines: { icon: typeof Globe; text: string }[] = [];
   if (p.network?.length) lines.push({ icon: Globe, text: `Conectarse a ${p.network.join(", ")}` });
   if (p.channels) lines.push({ icon: Tv, text: "Añadir canales a la TV en directo" });
@@ -488,6 +489,7 @@ function PluginCard({ plugin, onChanged, onLog, onUninstall }: { plugin: PluginI
 /** Ajustes → Plugins. */
 export function PluginsSettings({ Toggle }: { Toggle: ToggleComponent }) {
   const toast = useToast();
+  const nova = useNova();
   const [info, setInfo] = useState<PluginsInfo | null>(null);
   const [installing, setInstalling] = useState<{ path: string; pkg: PackageInfo } | null>(null);
   const [log, setLog] = useState<PluginInfo | null>(null);
@@ -526,7 +528,10 @@ export function PluginsSettings({ Toggle }: { Toggle: ToggleComponent }) {
         onChange={() => void api.pluginsSetDeveloper(!info.developerMode).then(reload, (e) => toast.show("error", "No se pudo cambiar", errorText(e)))}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <button data-nav disabled={!info.developerMode} onClick={() => void pick()} className="focus-lift btn btn-primary">
+        <button data-nav onClick={() => nova.navigate("store")} className="focus-lift btn btn-primary">
+          <Store className="size-5" /> Explorar la tienda
+        </button>
+        <button data-nav disabled={!info.developerMode} onClick={() => void pick()} className="focus-lift btn btn-ghost">
           <PackagePlus className="size-5" /> Instalar .novapkg
         </button>
         {!info.developerMode && <span className="text-[0.95rem] text-ink-3">Activa el modo desarrollador para instalar paquetes.</span>}
@@ -536,7 +541,7 @@ export function PluginsSettings({ Toggle }: { Toggle: ToggleComponent }) {
         <div className="surface flex items-center gap-5 rounded-2xl px-6 py-6">
           <PluginIcon icon={null} />
           <p className="text-[1.05rem] text-ink-2">
-            No hay plugins instalados. Pronto podrás añadirlos desde la tienda de NOVA; mientras tanto, crea el tuyo con <span className="font-mono">@novatv/sdk</span> e instálalo aquí.
+            No hay plugins instalados. Encuéntralos en la tienda de NOVA, o crea el tuyo con <span className="font-mono">@novatv/sdk</span> e instálalo aquí.
           </p>
         </div>
       ) : (

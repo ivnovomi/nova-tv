@@ -1,4 +1,4 @@
-import { CirclePlay, Gamepad2, House, Music, Pause, Play, Power, RadioTower, Tv, LayoutGrid, Search, Settings, Activity, type LucideProps } from "lucide-react";
+import { CirclePlay, Gamepad2, House, Music, Pause, Play, Power, RadioTower, Store, Tv, LayoutGrid, Search, Settings, Activity, type LucideProps } from "lucide-react";
 import { power } from "../app/power";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import type { Screen } from "../lib/types";
@@ -38,6 +38,7 @@ export const NAV_ITEMS: { id: Screen; label: string; icon: ComponentType<LucideP
   { id: "games", label: "Juegos", icon: Gamepad2 },
   { id: "apps", label: "Apps", icon: LayoutGrid },
   { id: "media", label: "Multimedia", icon: CirclePlay },
+  { id: "store", label: "Tienda", icon: Store },
 ];
 
 let cachedUser: string | null = null;
@@ -81,8 +82,8 @@ export function TopBar({ screen, onNavigate, onProfiles }: { screen: Screen; onN
   const now = useClock();
   const user = useUserName();
   const profile = useActiveProfile();
-  // Children's profile: no PC files ("Multimedia").
-  const items = profile?.kids ? NAV_ITEMS.filter((i) => i.id !== "media") : NAV_ITEMS;
+  // Children's profile: no PC files ("Multimedia") and no store (installing is for adults).
+  const items = profile?.kids ? NAV_ITEMS.filter((i) => i.id !== "media" && i.id !== "store") : NAV_ITEMS;
   const iconButton = (active: boolean) =>
     `focus-ring grid size-[3.4rem] place-items-center rounded-full ${
       active ? "bg-white text-black" : "bg-white/8 text-ink-2 backdrop-blur focus:bg-white/14 focus:text-ink-1"

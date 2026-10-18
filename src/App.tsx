@@ -15,6 +15,7 @@ import { SearchScreen } from "./features/Search";
 import { TvMode } from "./features/livetv/TvMode";
 import { AmbientBackdrop } from "./components/AmbientBackdrop";
 import { FULLSCREEN_PREF, SettingsScreen, startsOnTv } from "./features/Settings";
+import { StoreScreen } from "./features/store/StoreScreen";
 import { BootSplash } from "./components/BootSplash";
 import { ProfilePicker } from "./components/ProfilePicker";
 import { profiles, useProfiles } from "./app/profiles";
@@ -504,6 +505,7 @@ function Shell() {
             {screen === "apps" && <AppsScreen />}
             {screen === "media" && <MediaScreen />}
             {screen === "settings" && <SettingsScreen />}
+            {screen === "store" && <StoreScreen />}
           </motion.div>
         </main>
         <Footer gamepad={gamepad} />

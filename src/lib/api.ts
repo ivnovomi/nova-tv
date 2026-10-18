@@ -38,6 +38,7 @@ import type {
   PluginsInfo,
   PowerAction,
   PowerInfo,
+  StoreInfo,
   UpdateStatus,
   VolumeState,
 } from "./types";
@@ -121,6 +122,10 @@ export const api = {
   pluginsSetSetting: (id: string, key: string, value: unknown) => call<void>("plugins_set_setting", { id, key, value }),
   pluginsRollback: (id: string) => call<void>("plugins_rollback", { id }),
   pluginsLog: (id: string) => call<PluginLogLine[]>("plugins_log", { id }),
+  /** The plugin store's catalogue (the saved one if recent, unless `refresh`) and what's installed. */
+  storeCatalog: (refresh: boolean) => call<StoreInfo>("store_catalog", { refresh }),
+  /** Downloads, verifies and installs a plugin from the store (progress: "store-progress"). */
+  storeInstall: (id: string) => call<void>("store_install", { id }),
   /** Who is signed in with the plugin, for the profile watching (null: nobody). */
   pluginsAccount: (id: string) => call<PluginAccountUser | null>("plugins_account", { id }),
   /** Starts signing in: the code to show. Then poll every `interval` seconds. */

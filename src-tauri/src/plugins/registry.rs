@@ -685,7 +685,12 @@ pub async fn plugins_install(path: String, app: AppHandle) -> Result<(), String>
     .await
     .map_err(|e| e.to_string())??;
     let (_, manifest) = installed;
-    state.config.update(|c| {
+    record_install(&app, &manifest)
+}
+
+/// After installing: the permissions the user approved are recorded as granted.
+pub(crate) fn record_install(app: &AppHandle, manifest: &Manifest) -> Result<(), String> {
+    app.state::<AppState>().config.update(|c| {
         let entry = c.plugins.installed.entry(manifest.id.clone()).or_insert_with(|| PluginState {
             enabled: true,
             granted: serde_json::Value::Null,
@@ -698,8 +703,23 @@ pub async fn plugins_install(path: String, app: AppHandle) -> Result<(), String>
         entry.settings.retain(|k, _| manifest.settings.iter().any(|s| s.key == *k));
         Ok(())
     })?;
-    changed(&app, &manifest.id);
+    changed(app, &manifest.id);
     Ok(())
+}
+
+/// Installed plugins and their versions (for the store's buttons).
+pub(crate) fn installed_versions(app: &AppHandle) -> HashMap<String, String> {
+    app.state::<Registry>().installed().into_iter().map(|(m, _)| (m.id, m.version)).collect()
+}
+
+/// For the store: stops a plugin, then installs a package into the plugins folder.
+pub(crate) fn install_package(app: &AppHandle, id: &str, package: &Path) -> Result<(), String> {
+    let registry = app.state::<Registry>();
+    if registry.is_dev(id) {
+        return Err(DEV_BUSY.into());
+    }
+    registry.stop(id);
+    package::install(package, &registry.plugins_dir).map(|_| ())
 }
 
 const DEV_BUSY: &str = "Este plugin lo está ejecutando nova dev: ciérralo (Ctrl+C) para volver a la versión instalada";
