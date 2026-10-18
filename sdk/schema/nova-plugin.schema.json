@@ -62,7 +62,8 @@
         "search": { "description": "Aparecer en la búsqueda.", "type": "boolean" },
         "screensaver": { "description": "Poner fondos en el salvapantallas.", "type": "boolean" },
         "notify": { "description": "Mostrar avisos breves.", "type": "boolean" },
-        "location": { "description": "Ubicación aproximada (ciudad).", "type": "boolean" }
+        "location": { "description": "Ubicación aproximada (ciudad).", "type": "boolean" },
+        "account": { "description": "Iniciar sesión en tu servicio con un código en la tele, y guardar la sesión (cifrada, por perfil).", "type": "boolean" }
       }
     },
     "settings": {

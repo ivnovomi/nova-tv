@@ -22,4 +22,4 @@ Aquí se usa la CLI del propio repo ([`../cli`](../cli/README.md)): `npm run nov
 | `npm run plugin:test -- plugins/mi-plugin` | Ejecuta sus pruebas en un NOVA de mentira ([guía](../sdk/README.md#9-probar-tu-plugin-sin-abrir-nova)). |
 | `npm run plugin:build -- plugins/mi-plugin` | Lo valida (`nova pack`) y lo empaqueta en `dist/<id>-<versión>.novapkg`, listo para instalar. El código va minificado pero legible (sin comentarios ni código sin usar, con sus nombres y sangría, para poder revisarlo tal cual), los JSON compactos y sin basura del sistema (`.DS_Store`, `Thumbs.db`, `.map`…). |
 
-`plugins/canales-prueba/test` tiene un ejemplo de pruebas.
+Ejemplos: `canales-prueba` (canales, guía, emisiones con proxy) y `cuenta-ejemplo` (inicio de sesión con código y una fila con tu lista), los dos con sus pruebas en `test/`.

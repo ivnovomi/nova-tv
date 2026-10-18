@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { listen } from "@tauri-apps/api/event";
-import { Baby, Code, FileWarning, Globe, Image as ImageIcon, LayoutList, ListVideo, MapPin, Bell, PackagePlus, Puzzle, RotateCcw, ScrollText, Search, Trash2, TriangleAlert, Tv } from "lucide-react";
+import { Baby, Code, FileWarning, Globe, Image as ImageIcon, KeyRound, LayoutList, ListVideo, LoaderCircle, LogIn, LogOut, MapPin, Bell, PackagePlus, Puzzle, RefreshCw, RotateCcw, ScrollText, Search, Trash2, TriangleAlert, Tv, UserRound } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toasts";
 import { api, inTauri, pickPluginPackage } from "../lib/api";
-import type { PackageInfo, PluginInfo, PluginLogLine, PluginPermissions, PluginSetting, PluginsInfo } from "../lib/types";
+import type { PackageInfo, PluginAccountUser, PluginInfo, PluginLogLine, PluginPermissions, PluginSetting, PluginSignIn, PluginsInfo } from "../lib/types";
 
 type ToggleComponent = (p: { title: string; description: string; value: boolean; onChange: () => void; busy?: boolean }) => ReactNode;
 
@@ -22,6 +22,7 @@ function permissionLines(p: PluginPermissions): { icon: typeof Globe; text: stri
   if (p.screensaver) lines.push({ icon: ImageIcon, text: "Poner fondos en el salvapantallas" });
   if (p.notify) lines.push({ icon: Bell, text: "Mostrar avisos" });
   if (p.location) lines.push({ icon: MapPin, text: "Saber tu ciudad (aproximada)" });
+  if (p.account) lines.push({ icon: KeyRound, text: "Iniciar sesión en tu cuenta del servicio (la sesión se guarda cifrada en este equipo)" });
   return lines;
 }
 
@@ -161,6 +162,173 @@ function LogDialog({ plugin, onClose }: { plugin: PluginInfo; onClose: () => voi
   );
 }
 
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+/**
+ * "Ve a twitch.tv/activate y escribe ABCD-1234", with a QR, while NOVA asks
+ * the plugin every few seconds whether the code has been typed.
+ */
+function SignInDialog({ plugin, onClose, onDone }: { plugin: PluginInfo; onClose: () => void; onDone: (user: PluginAccountUser | null) => void }) {
+  const [code, setCode] = useState<PluginSignIn | null>(null);
+  const [left, setLeft] = useState(0);
+  const [ended, setEnded] = useState<"denied" | "expired" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const done = useRef(onDone);
+  done.current = onDone;
+
+  useEffect(() => {
+    let alive = true;
+    let poll: number | undefined;
+    let tick: number | undefined;
+    setCode(null);
+    setEnded(null);
+    setError(null);
+    api.pluginsAccountStart(plugin.id).then(
+      (c) => {
+        if (!alive) return;
+        setCode(c);
+        const until = Date.now() + c.expiresIn * 1000;
+        setLeft(c.expiresIn);
+        tick = window.setInterval(() => setLeft(Math.max(0, Math.round((until - Date.now()) / 1000))), 1000);
+        const ask = () => {
+          api.pluginsAccountPoll(plugin.id).then(
+            (r) => {
+              if (!alive) return;
+              if (r.status === "done") return done.current(r.user);
+              if (r.status === "denied" || r.status === "expired" || Date.now() > until) {
+                window.clearInterval(tick);
+                return setEnded(r.status === "denied" ? "denied" : "expired");
+              }
+              poll = window.setTimeout(ask, c.interval * 1000);
+            },
+            (e) => alive && setError(errorText(e)),
+          );
+        };
+        poll = window.setTimeout(ask, c.interval * 1000);
+      },
+      (e) => alive && setError(errorText(e)),
+    );
+    return () => {
+      alive = false;
+      window.clearTimeout(poll);
+      window.clearInterval(tick);
+    };
+  }, [plugin.id, attempt]);
+
+  return (
+    <Modal title={`Iniciar sesión en ${plugin.name}`} subtitle="Con tu móvil u ordenador: sin escribir contraseñas en la tele." onClose={onClose} width="56rem">
+      {error ? (
+        <p role="alert" className="text-[1.05rem] text-danger">{error}</p>
+      ) : !code ? (
+        <p className="flex items-center gap-3 text-[1.05rem] text-ink-3">
+          <LoaderCircle className="size-5 animate-spin" /> Pidiendo un código…
+        </p>
+      ) : ended ? (
+        <div className="rounded-2xl bg-white/5 px-6 py-5">
+          <p className="text-[1.2rem] font-semibold">{ended === "denied" ? "Se ha rechazado el acceso" : "El código ha caducado"}</p>
+          <p className="mt-1 text-[1rem] text-ink-3">{ended === "denied" ? "Si fue sin querer, pide otro código y acéptalo." : "Pide otro y escríbelo antes de que pase el tiempo."}</p>
+        </div>
+      ) : (
+        <div className="grid items-center gap-8 sm:grid-cols-[auto_1fr]">
+          {code.qrSvg && (
+            <div className="grid size-[14rem] place-items-center overflow-hidden rounded-2xl bg-white p-3 shadow-[0_1rem_3rem_-1rem_rgb(110_108_255/0.6)]">
+              <div className="size-full [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: code.qrSvg }} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-[1.05rem] text-ink-2">
+              {code.qrSvg ? "Escanea el código QR con el móvil, o abre" : "Abre"} <span className="font-semibold text-ink">{code.url}</span> y escribe:
+            </p>
+            <p className="my-4 break-all font-mono text-[clamp(2rem,4vw,3.2rem)] font-bold tracking-[0.18em] text-ink" aria-label={`Código: ${code.code.split("").join(" ")}`}>
+              {code.code}
+            </p>
+            <p className="flex items-center gap-3 text-[0.98rem] text-ink-3">
+              <LoaderCircle className="size-4 animate-spin" /> Esperando a que lo escribas · caduca en {mmss(left)}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="mt-7 flex justify-end gap-3">
+        {(ended || error) && (
+          <button data-nav onClick={() => setAttempt((n) => n + 1)} className="focus-lift btn btn-primary">
+            <RefreshCw className="size-5" /> Pedir otro código
+          </button>
+        )}
+        <button data-nav data-autofocus onClick={onClose} className="focus-lift btn btn-ghost">
+          Cancelar
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** The plugin's account for the profile watching: who is signed in, or a way to sign in. */
+function AccountRow({ plugin }: { plugin: PluginInfo }) {
+  const toast = useToast();
+  const [user, setUser] = useState<PluginAccountUser | null | undefined>(undefined);
+  const [signingIn, setSigningIn] = useState(false);
+  const usable = plugin.enabled && !plugin.needsApproval;
+
+  const load = useCallback(() => {
+    if (!usable) return setUser(null);
+    api.pluginsAccount(plugin.id).then(setUser, () => setUser(null));
+  }, [plugin.id, usable]);
+  useEffect(load, [load]);
+
+  const signOut = () =>
+    api.pluginsAccountSignOut(plugin.id).then(
+      () => {
+        setUser(null);
+        toast.show("success", `Sesión cerrada en ${plugin.name}`);
+      },
+      (e) => toast.show("error", "No se pudo cerrar la sesión", errorText(e)),
+    );
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-line pt-4">
+      {user?.avatar ? (
+        <img src={user.avatar} alt="" className="size-12 shrink-0 rounded-full object-cover" />
+      ) : (
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white/8 text-ink-3">
+          <UserRound className="size-6" />
+        </span>
+      )}
+      <span className="min-w-[12rem] flex-1">
+        {user ? (
+          <>
+            <span className="block text-[1.05rem] font-semibold">Conectado como {user.name}</span>
+            <span className="block text-[0.95rem] text-ink-3">Solo en este perfil. La sesión se guarda cifrada en este equipo.</span>
+          </>
+        ) : (
+          <>
+            <span className="block text-[1.05rem] font-semibold">Tu cuenta</span>
+            <span className="block text-[0.95rem] text-ink-3">{usable ? "Inicia sesión para ver tu contenido. Cada perfil usa su propia cuenta." : "Activa el plugin para iniciar sesión."}</span>
+          </>
+        )}
+      </span>
+      {usable && user !== undefined && (
+        <button data-nav onClick={() => (user ? void signOut() : setSigningIn(true))} className={`focus-lift btn ${user ? "btn-ghost" : "btn-primary"}`}>
+          {user ? <LogOut className="size-5" /> : <LogIn className="size-5" />} {user ? "Cerrar sesión" : "Iniciar sesión"}
+        </button>
+      )}
+      <AnimatePresence>
+        {signingIn && (
+          <SignInDialog
+            plugin={plugin}
+            onClose={() => setSigningIn(false)}
+            onDone={(u) => {
+              setSigningIn(false);
+              setUser(u);
+              toast.show("success", u ? `Conectado como ${u.name}` : "Sesión iniciada", plugin.name);
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /** One of the plugin's options, saved as soon as it changes. */
 function SettingField({ plugin, setting, onSaved }: { plugin: PluginInfo; setting: PluginSetting; onSaved: () => void }) {
   const toast = useToast();
@@ -275,6 +443,8 @@ function PluginCard({ plugin, onChanged, onLog, onUninstall }: { plugin: PluginI
       <div className="mt-4 border-t border-line pt-4">
         <Permissions permissions={plugin.permissions} />
       </div>
+
+      {plugin.permissions.account && <AccountRow plugin={plugin} />}
 
       {plugin.settings.length > 0 && (
         <div className="mt-4 space-y-4 border-t border-line pt-4">

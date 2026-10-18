@@ -7,6 +7,7 @@
 
 use super::http;
 use super::manifest::{Manifest, API};
+use super::secrets::Secrets;
 use super::storage::Storage;
 use rquickjs::{Context, Ctx, Exception, Function, Object, Promise, Runtime};
 use serde::Serialize;
@@ -50,6 +51,8 @@ pub struct LogLine {
 pub struct Env {
     pub manifest: Manifest,
     pub storage: Storage,
+    /// Account sessions, per profile and encrypted (see secrets.rs).
+    pub secrets: Secrets,
     /// Values the user chose in Ajustes → Plugins (JSON by key).
     pub settings: Mutex<serde_json::Map<String, serde_json::Value>>,
     pub log: Mutex<VecDeque<LogLine>>,
@@ -66,6 +69,7 @@ impl Env {
     pub fn new(manifest: Manifest, storage: Storage) -> Self {
         Self {
             manifest,
+            secrets: Secrets::new(storage.dir().join("secrets")),
             storage,
             settings: Mutex::new(Default::default()),
             log: Mutex::new(VecDeque::new()),
@@ -307,6 +311,42 @@ fn install<'js>(ctx: &Ctx<'js>, env: &Arc<Env>) -> rquickjs::Result<()> {
         })?,
     )?;
 
+    // Secrets: only with the "account" permission, and always for the profile of the call.
+    let account_profile = |ctx: &Ctx<'js>, env: &Env| -> rquickjs::Result<String> {
+        if !env.manifest.permissions.account {
+            return Err(Exception::throw_message(ctx, "El plugin no tiene el permiso «account»"));
+        }
+        env.profile
+            .lock()
+            .ok()
+            .and_then(|p| p.clone())
+            .ok_or_else(|| Exception::throw_message(ctx, "secrets solo se puede usar dentro de una llamada de NOVA"))
+    };
+    let e = env.clone();
+    nova.set(
+        "secretGet",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, key: String| -> rquickjs::Result<Option<String>> {
+            let profile = account_profile(&ctx, &e)?;
+            Ok(e.secrets.get(&profile, &key))
+        })?,
+    )?;
+    let e = env.clone();
+    nova.set(
+        "secretSet",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, key: String, value: String| -> rquickjs::Result<()> {
+            let profile = account_profile(&ctx, &e)?;
+            e.secrets.set(&profile, &key, &value).map_err(|m| Exception::throw_message(&ctx, &m))
+        })?,
+    )?;
+    let e = env.clone();
+    nova.set(
+        "secretDelete",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, key: String| -> rquickjs::Result<()> {
+            let profile = account_profile(&ctx, &e)?;
+            e.secrets.delete(&profile, &key).map_err(|m| Exception::throw_message(&ctx, &m))
+        })?,
+    )?;
+
     let e = env.clone();
     nova.set(
         "setting",
@@ -435,6 +475,19 @@ mod tests {
         let out = p.call("rows", "load", serde_json::json!([]), None).unwrap();
         assert!(out[0].as_str().unwrap().contains("notify"), "{out}");
         assert!(out[1].as_str().unwrap().contains("location"), "{out}");
+    }
+
+    #[test]
+    fn secrets_need_the_account_permission() {
+        let p = plugin(
+            r#"globalThis.__novaPlugin = { rows: { async load() {
+                 try { __nova.secretSet("token", "x"); return "guardó"; }
+                 catch (e) { return e.message; }
+               } } };"#,
+        )
+        .unwrap();
+        let message = p.call("rows", "load", serde_json::json!([]), Some("p1".into())).unwrap();
+        assert!(message.as_str().unwrap().contains("account"), "{message}");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 {
   "name": "@novatv/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SDK de NOVA TV para crear plugins en TypeScript: canales, guía, filas, búsquedas y fondos de salvapantallas.",
   "license": "MIT",
   "author": "ivnovomi",

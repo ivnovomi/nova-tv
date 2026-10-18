@@ -16,6 +16,9 @@
  * ```
  */
 import type {
+  AccountUser,
+  SignInCode,
+  SignInStatus,
   Channel,
   Context,
   HttpRequest,
@@ -116,6 +119,8 @@ export interface TestNova {
   readonly notices: { title: string; detail?: string }[];
   /** Saved values: "plugin" and one map per profile id. */
   readonly storage: Map<string, Map<string, string>>;
+  /** Account sessions (`secrets`), one map per profile id. */
+  readonly secrets: Map<string, Map<string, string>>;
   /** Things NOVA would drop or complain about in the last answers. */
   readonly problems: string[];
   /** Change who is watching for the next calls. */
@@ -130,6 +135,21 @@ export interface TestNova {
   rows(): Promise<Row[]>;
   search(query: string): Promise<Item[]>;
   screensaver(): Promise<string[]>;
+
+  /** Signing in, as NOVA does it: the code, the polls, who is signed in, signing out. */
+  account: {
+    start(): Promise<SignInCode>;
+    poll(): Promise<SignInStatus>;
+    status(): Promise<AccountUser | null | undefined>;
+    /** Also deletes the profile's secrets, as NOVA does. */
+    signOut(): Promise<void>;
+  };
+
+  /**
+   * Moves the clock forward (Date.now() for the whole test file), to test
+   * what expires: sign-in codes, tokens, `memo`… without waiting.
+   */
+  advance(seconds: number): void;
 }
 
 // ───────────────────────── rules shared with NOVA ─────────────────────────
@@ -201,6 +221,16 @@ function itemProblems(item: Item, where: string): string[] {
   return out;
 }
 
+// ───────────────────────── the clock ─────────────────────────
+
+const realNow = Date.now;
+let offset = 0;
+/** Moves Date.now() forward for everything in this test file. */
+function shift(ms: number) {
+  offset += ms;
+  Date.now = () => realNow() + offset;
+}
+
 // ───────────────────────── the pretend NOVA ─────────────────────────
 
 /**
@@ -217,6 +247,7 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
   const notices: { title: string; detail?: string }[] = [];
   const sentAt: number[] = [];
   const storage = new Map<string, Map<string, string>>();
+  const secretMaps = new Map<string, Map<string, string>>();
   const problems: string[] = [];
   const userSettings: Record<string, unknown> = { ...options.settings };
   let profile = { id: "perfil-1", kids: false, ...options.profile };
@@ -226,6 +257,13 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
     const key = scope === "plugin" ? "plugin" : `profile:${profile.id}`;
     let map = storage.get(key);
     if (!map) storage.set(key, (map = new Map()));
+    return map;
+  };
+  /** The profile's secrets (only with the "account" permission, as in NOVA). */
+  const vault = () => {
+    if (!manifest.permissions.account) throw new Error("El plugin no tiene el permiso «account»");
+    let map = secretMaps.get(profile.id);
+    if (!map) secretMaps.set(profile.id, (map = new Map()));
     return map;
   };
   const used = () => [...storage.values()].reduce((n, m) => n + [...m].reduce((k, [a, b]) => k + a.length + b.length, 0), 0);
@@ -297,6 +335,15 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
       map.set(key, value);
     },
     storageDelete: (scope, key) => void bucket(scope).delete(key),
+    secretGet: (key) => vault().get(key),
+    secretSet(key, value) {
+      const map = vault();
+      if (!key || key.length > 100) throw new Error("La clave tiene que tener entre 1 y 100 caracteres");
+      const size = [...map].reduce((n, [k, v]) => n + (k === key ? 0 : k.length + v.length), key.length + value.length);
+      if (size > 64 * 1024) throw new Error("Los secretos son para sesiones (64 KB por perfil), no para datos: usa storage");
+      map.set(key, value);
+    },
+    secretDelete: (key) => void vault().delete(key),
     setting(key) {
       const value = key in userSettings ? userSettings[key] : manifest.settings?.find((s) => s.key === key)?.default;
       return value === undefined ? undefined : JSON.stringify(value);
@@ -356,12 +403,48 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
     for (const p of found) if (print) console.warn(`[NOVA] ${p}`);
   };
 
+  const signInProblems = (code: SignInCode) => {
+    const found: string[] = [];
+    if (!isHttps(code?.url)) found.push(`account.start(): «url» tiene que ser https:// (${String(code?.url)})`);
+    if (!text(code?.code) || code.code.length > 20) found.push("account.start(): falta «code» (o pasa de 20 caracteres)");
+    if (code?.urlComplete !== undefined && !isHttps(code.urlComplete)) found.push("account.start(): «urlComplete» tiene que ser https://");
+    if (!(code?.expiresIn > 0) || !(code?.interval > 0)) found.push("account.start(): «expiresIn» e «interval» son segundos (> 0)");
+    return found;
+  };
+
   return {
     requests,
     logs,
     notices,
     storage,
+    secrets: secretMaps,
     problems,
+    account: {
+      async start() {
+        const code = await call<SignInCode>("account", "start", [ctx()]);
+        report(signInProblems(code));
+        return code;
+      },
+      async poll() {
+        const answer = await call<SignInStatus>("account", "poll", [ctx()]);
+        const ok = ["pending", "done", "denied", "expired"].includes(answer?.status);
+        const found = ok ? [] : [`account.poll(): «status» desconocido (${String(answer?.status)}); NOVA lo toma como "pending"`];
+        if (answer?.status === "done" && !text(answer.user?.name)) found.push("account.poll(): con «done» va el usuario ({ name })");
+        report(found);
+        return answer;
+      },
+      async status() {
+        return call<AccountUser | null | undefined>("account", "status", [ctx()]);
+      },
+      async signOut() {
+        const def = await ready();
+        if (typeof def.account?.signOut === "function") await call("account", "signOut", [ctx()]);
+        secretMaps.delete(profile.id);
+      },
+    },
+    advance(seconds) {
+      shift(seconds * 1000);
+    },
     setProfile(p) {
       profile = { ...profile, ...p };
     },

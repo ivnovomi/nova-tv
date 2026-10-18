@@ -25,6 +25,8 @@ export interface Permissions {
   screensaver?: boolean;
   notify?: boolean;
   location?: boolean;
+  /** Signing in to the service with a code on the TV (the `account` part, `secrets`). */
+  account?: boolean;
 }
 
 export type Setting =

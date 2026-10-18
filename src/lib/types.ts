@@ -312,6 +312,27 @@ export interface PluginPermissions {
   screensaver?: boolean;
   notify?: boolean;
   location?: boolean;
+  account?: boolean;
+}
+
+/** Who is signed in with a plugin, for the profile watching. */
+export interface PluginAccountUser {
+  name: string;
+  avatar: string | null;
+}
+
+/** "Ve a <url> y escribe <code>". */
+export interface PluginSignIn {
+  url: string;
+  code: string;
+  qrSvg: string | null;
+  expiresIn: number;
+  interval: number;
+}
+
+export interface PluginSignInPoll {
+  status: "pending" | "done" | "denied" | "expired";
+  user: PluginAccountUser | null;
 }
 
 export interface PluginSetting {

@@ -1,0 +1,17 @@
+{
+  "$schema": "../../sdk/schema/nova-plugin.schema.json",
+  "id": "es.novatv.cuenta-ejemplo",
+  "name": "Cuenta de ejemplo",
+  "version": "1.0.0",
+  "api": 1,
+  "kind": ["provider"],
+  "main": "dist/index.js",
+  "description": "Ejemplo de inicio de sesión con código (deviceLogin): con tu cuenta, tu lista en «Para ti».",
+  "author": { "name": "NOVA TV" },
+  "audience": "everyone",
+  "permissions": {
+    "network": ["api.ejemplo.es", "auth.ejemplo.es"],
+    "rows": true,
+    "account": true
+  }
+}

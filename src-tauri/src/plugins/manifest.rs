@@ -73,6 +73,9 @@ pub struct Permissions {
     pub notify: bool,
     #[serde(default)]
     pub location: bool,
+    /// Signing in to the service with a code on the TV, and keeping the session.
+    #[serde(default)]
+    pub account: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

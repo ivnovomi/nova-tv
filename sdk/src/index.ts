@@ -19,8 +19,10 @@ import type { Duration, ProviderDefinition } from "./types";
 
 export * from "./types";
 export type { Manifest, Permissions, Setting } from "./manifest";
-export { http, HttpError, storage, settings, location, log, notify } from "./host";
+export { http, HttpError, storage, secrets, settings, location, log, notify } from "./host";
 export type { NovaHost } from "./host";
+export { deviceLogin } from "./auth";
+export type { DeviceLogin, DeviceLoginOptions } from "./auth";
 
 /** API version this SDK speaks. Goes in the manifest as `"api": 1`. */
 export const API_VERSION = 1;
@@ -30,7 +32,7 @@ declare global {
   var __novaPlugin: ProviderDefinition | undefined;
 }
 
-const PARTS = ["channels", "guide", "rows", "search", "screensaver"] as const;
+const PARTS = ["channels", "guide", "rows", "search", "screensaver", "account"] as const;
 
 /**
  * Declares what the plugin provides. Checks the shape right away, so mistakes
@@ -39,7 +41,7 @@ const PARTS = ["channels", "guide", "rows", "search", "screensaver"] as const;
 export function defineProvider<T extends ProviderDefinition>(definition: T): T {
   const unknown = Object.keys(definition).filter((k) => !(PARTS as readonly string[]).includes(k));
   if (unknown.length) throw new Error(`defineProvider: no existe ${unknown.map((k) => `"${k}"`).join(", ")}. Puede ser: ${PARTS.join(", ")}.`);
-  if (!PARTS.some((p) => definition[p])) throw new Error("defineProvider: el plugin no aporta nada (channels, guide, rows, search o screensaver).");
+  if (!PARTS.some((p) => definition[p])) throw new Error("defineProvider: el plugin no aporta nada (channels, guide, rows, search, screensaver o account).");
 
   const need = (part: string, fn: string) => {
     const value = (definition as unknown as Record<string, Record<string, unknown> | undefined>)[part];
@@ -50,6 +52,9 @@ export function defineProvider<T extends ProviderDefinition>(definition: T): T {
   need("rows", "load");
   need("search", "search");
   need("screensaver", "load");
+  need("account", "start");
+  need("account", "poll");
+  need("account", "status");
 
   for (const part of PARTS) {
     const refresh = (definition[part] as { refresh?: string } | undefined)?.refresh;

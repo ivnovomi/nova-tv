@@ -1,6 +1,6 @@
 {
   "name": "create-nova-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "npm create nova-plugin: empieza un plugin para NOVA TV.",
   "license": "MIT",
   "author": "ivnovomi",
@@ -12,6 +12,6 @@
   "files": ["index.mjs"],
   "engines": { "node": ">=22.12" },
   "dependencies": {
-    "@novatv/cli": "^0.1.0"
+    "@novatv/cli": "^0.2.0"
   }
 }

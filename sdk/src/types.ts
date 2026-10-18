@@ -152,6 +152,51 @@ export interface ScreensaverProvider {
   load(ctx: Context): Promise<string[]>;
 }
 
+// ───────────────────────── Accounts ─────────────────────────
+
+/** Who is signed in, as NOVA shows it ("Conectado como …"). */
+export interface AccountUser {
+  name: string;
+  /** HTTPS image. */
+  avatar?: string;
+}
+
+/** What NOVA shows to sign in: "Ve a <url> y escribe <code>", with a QR. */
+export interface SignInCode {
+  /** HTTPS, where to type the code ("https://www.twitch.tv/activate"). */
+  url: string;
+  code: string;
+  /** The address with the code already in it, if the service has one (for the QR). */
+  urlComplete?: string;
+  /** Seconds the code lasts. */
+  expiresIn: number;
+  /** Seconds between `poll()` calls. */
+  interval: number;
+}
+
+export type SignInStatus =
+  | { status: "pending" }
+  | { status: "done"; user: AccountUser }
+  | { status: "denied" }
+  | { status: "expired" };
+
+/**
+ * Signing in to the plugin's service, as on every TV: NOVA shows a code, the
+ * user types it on their phone. `deviceLogin()` implements it for any OAuth
+ * service; write your own only for services that do it differently.
+ * Each NOVA profile has its own account.
+ */
+export interface AccountProvider {
+  /** A new code to show. */
+  start(ctx: Context): Promise<SignInCode>;
+  /** Has the code been typed? NOVA asks every `interval` seconds while it's on screen. */
+  poll(ctx: Context): Promise<SignInStatus>;
+  /** Who is signed in now (undefined/null: nobody). */
+  status(ctx: Context): Promise<AccountUser | null | undefined>;
+  /** Tell the service (e.g. revoke the token). NOVA deletes the profile's `secrets` afterwards anyway. */
+  signOut?(ctx: Context): Promise<void>;
+}
+
 /** Everything a provider can offer. Each part needs its permission in the manifest. */
 export interface ProviderDefinition {
   channels?: ChannelsProvider;
@@ -159,6 +204,7 @@ export interface ProviderDefinition {
   rows?: RowsProvider;
   search?: SearchProvider;
   screensaver?: ScreensaverProvider;
+  account?: AccountProvider;
 }
 
 // ───────────────────────── Host services ─────────────────────────

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-account-poll"
+description = "Enables the plugins_account_poll command without any pre-configured scope."
+commands.allow = ["plugins_account_poll"]
+
+[[permission]]
+identifier = "deny-plugins-account-poll"
+description = "Denies the plugins_account_poll command without any pre-configured scope."
+commands.deny = ["plugins_account_poll"]

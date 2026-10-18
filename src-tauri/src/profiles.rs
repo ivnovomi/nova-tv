@@ -333,8 +333,10 @@ pub fn profile_delete(id: String, state: State<'_, AppState>, app: AppHandle) ->
         c.profiles.retain(|p| p.id != id);
         Ok(())
     })?;
-    // Its watch history goes with it, and so do its browser sign-ins and cache.
+    // Its watch history goes with it, and so do its browser sign-ins and cache,
+    // and what plugins kept for it (their values and account sessions).
     app.state::<crate::history::HistoryStore>().remove_profile(&id);
+    app.state::<crate::plugins::registry::Registry>().forget_profile(&id);
     let folder = crate::commands::streaming::profile_dir_name(&id);
     // "web" is the main profile's (it can't be deleted, but never touch it).
     if folder != "web" {

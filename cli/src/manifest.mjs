@@ -3,7 +3,7 @@
 // is refused there. NOVA rejects unknown fields, so they're errors here too.
 
 const FIELDS = ["$schema", "id", "name", "version", "api", "kind", "main", "app", "icon", "description", "author", "audience", "permissions", "settings"];
-const PERMISSIONS = ["network", "channels", "guide", "rows", "search", "screensaver", "notify", "location"];
+const PERMISSIONS = ["network", "channels", "guide", "rows", "search", "screensaver", "notify", "location", "account"];
 const SETTING_FIELDS = ["key", "type", "label", "help", "default", "options"];
 const SETTING_TYPES = ["text", "toggle", "number", "choice"];
 

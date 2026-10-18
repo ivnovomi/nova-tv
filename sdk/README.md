@@ -179,6 +179,7 @@ const lista = await http.json<Canal[]>("https://api.ejemplo.es/canales");       
 const html  = await http.text("https://ejemplo.es/pagina");                         // GET → texto
 const datos = await http.postJson("https://api.ejemplo.es/graphql", { query },      // POST JSON → JSON
                                   { headers: { "client-id": "…" } });
+const token = await http.postForm("https://auth.ejemplo.es/token", { a: 1 });      // POST de formulario → JSON (lo que piden los servidores OAuth)
 const res   = await http.request({ url, method: "GET", headers });                  // control total: nunca lanza por el código HTTP
 ```
 
@@ -231,6 +232,50 @@ notify("Empieza el partido", "Real Madrid – Barça, en el canal 5003");   // n
 ```
 
 Un aviso breve en NOVA, con el nombre de tu plugin. Como mucho **3 por minuto**: los demás se descartan. Úsalo para lo que importa ahora, no en cada refresco.
+
+### Iniciar sesión: `deviceLogin`
+
+Para ver lo **del usuario** (los canales que sigue, su lista, sus suscripciones), tu plugin necesita que inicie sesión en tu servicio. En una tele nadie quiere escribir contraseñas con el mando, así que se hace como en todas: **NOVA enseña un código y un QR**, el usuario lo escribe en el móvil, y listo. Es el estándar OAuth para teles (*device flow*, RFC 8628), el que usan Twitch, Google/YouTube, Trakt o Microsoft.
+
+```ts
+import { defineProvider, deviceLogin, http } from "@novatv/sdk";
+
+const cuenta = deviceLogin({
+  deviceUrl: "https://id.twitch.tv/oauth2/device",     // donde se piden los códigos
+  tokenUrl: "https://id.twitch.tv/oauth2/token",       // donde se canjean por un token
+  clientId: "tu-client-id",
+  scopes: ["user:read:follows"],
+  async user(token) {                                  // quién ha entrado («Conectado como …»)
+    const yo = await http.json<…>("https://api.twitch.tv/helix/users", { headers: { authorization: `Bearer ${token}`, "client-id": "tu-client-id" } });
+    return { name: yo.data[0].display_name, avatar: yo.data[0].profile_image_url };
+  },
+});
+
+export default defineProvider({
+  account: cuenta.account,                             // NOVA enseña «Iniciar sesión» en Ajustes → Plugins
+  rows: {
+    async load() {
+      const token = await cuenta.token();              // válido (renovado si caducaba) o undefined
+      if (!token) return [];
+      …
+    },
+  },
+});
+```
+
+Manifiesto: `"account": true` y los dominios del servicio en `network`.
+
+| | |
+|---|---|
+| `cuenta.token()` | Un token válido para el perfil que está viendo. Si caducaba, lo renueva solo. Si el servicio ya no acepta la sesión, la cierra y devuelve `undefined`. |
+| `cuenta.user()` | Quién ha entrado, sin preguntar al servicio. |
+| `cuenta.forget()` | Cierra la sesión (por ejemplo, si tu API responde 401). |
+| Opciones | `clientSecret` (solo si el servicio lo pide en teles, como Google), `deviceFields` y `tokenFields` (campos de más que pida el servicio), `revoke(token)` (para avisarle al cerrar sesión), `key`. |
+
+- **Cada perfil de NOVA tiene su cuenta.** Los perfiles infantiles no inician sesión.
+- La sesión se guarda en **`secrets`**: cifrada en el equipo (con la protección de datos de Windows), aparte de `storage`, y se borra al cerrar sesión, al borrar el perfil o al desinstalar el plugin con sus datos.
+- ¿Tu servicio no usa el estándar? Escribe tú la parte `account` (`start`, `poll`, `status` y, si quieres, `signOut`) y guarda lo que necesites con `secrets.set(...)`.
+- Para probarlo sin internet: `nova.account.start()`, `nova.account.poll()`… y `nova.advance(segundos)` para adelantar el reloj. Mira `plugins/cuenta-ejemplo/test`.
 
 ---
 
@@ -306,6 +351,7 @@ NOVA ya tiene Twitch y Pluto TV programados en Rust (`src-tauri/src/twitch.rs` y
 | Canales que se reproducen en el reproductor oficial | `stream: { type: "twitch", channel: login }` |
 | «¿Sigue en directo?» preguntando `user(login){stream{id}}` | `channels.check(id)` |
 | El título del directo como programa en la guía | `guide.load()` devolviendo un programa por canal |
+| **Nuevo:** los canales que sigue el usuario | `deviceLogin` con `id.twitch.tv/oauth2/device` · permiso `account` · `user:read:follows` |
 
 ### Pluto TV
 

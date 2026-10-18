@@ -17,14 +17,14 @@ import { bundle } from "./bundle.mjs";
 import { checkManifest } from "./manifest.mjs";
 import { c, CliError, loadProject } from "./project.mjs";
 
-const PARTS = ["channels", "guide", "rows", "search", "screensaver"];
+const PARTS = ["channels", "guide", "rows", "search", "screensaver", "account"];
 
 /** What the code provides, run with a host that refuses everything. */
 function probe(code) {
   const refuse = () => {
     throw new Error("al validar no hay red ni datos: no llames al SDK al cargar el plugin, solo dentro de sus funciones");
   };
-  const nova = { api: 1, http: refuse, storageGet: refuse, storageSet: refuse, storageDelete: refuse, setting: refuse, location: refuse, notify: refuse, log() {} };
+  const nova = { api: 1, http: refuse, storageGet: refuse, storageSet: refuse, storageDelete: refuse, secretGet: refuse, secretSet: refuse, secretDelete: refuse, setting: refuse, location: refuse, notify: refuse, log() {} };
   const sandbox = { __nova: nova, console: { log() {}, info() {}, warn() {}, error() {} } };
   vm.runInNewContext(code, sandbox, { timeout: 2000, filename: "plugin.js" });
   const plugin = sandbox.__novaPlugin;
@@ -66,10 +66,12 @@ export async function validate(dir, manifest, { print = true, types = true } = {
         if (!PARTS.includes(part)) continue;
         if (!perms[part]) errors.push(`aporta «${part}» pero no pide ese permiso (NOVA no lo arrancaría)`);
       }
-      for (const part of PARTS) if (perms[part] && !parts[part]) warnings.push(`pide el permiso «${part}» pero no lo usa: quítalo (pide solo lo que necesitas)`);
+      for (const part of PARTS) if (part !== "account" && perms[part] && !parts[part]) warnings.push(`pide el permiso «${part}» pero no lo usa: quítalo (pide solo lo que necesitas)`);
       // The minified bundle keeps only the SDK functions the plugin calls.
       if (code.includes("host().notify(") && !perms.notify) errors.push("usa notify() pero no pide el permiso «notify»");
       if (code.includes("host().location(") && !perms.location) errors.push("usa location.get() pero no pide el permiso «location»");
+      if (/host\(\)\.secret(Get|Set|Delete)\(/.test(code) && !perms.account) errors.push("usa secrets (o deviceLogin) pero no pide el permiso «account»");
+      if (perms.account && !parts.account) errors.push("pide «account» pero no tiene la parte account (con deviceLogin: account: miLogin.account)");
       if (code.includes("host().http(") && !perms.network?.length) errors.push("usa http pero «permissions.network» no tiene ningún dominio");
       if (perms.network?.length && !code.includes("host().http(") && !code.includes("https://")) warnings.push("pide red («network») pero no parece usarla");
       if (perms.guide && !perms.channels) warnings.push("tiene guía sin canales: la guía solo sale para los canales del propio plugin");

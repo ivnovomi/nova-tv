@@ -8,6 +8,7 @@
 use super::manifest::{Audience, Kind, Manifest, Permissions, Setting};
 use super::package;
 use super::runtime::{Env, LogLine, Plugin};
+use super::secrets::Secrets;
 use super::storage::Storage;
 use crate::config::PluginState;
 use crate::profiles::require_adult;
@@ -21,10 +22,11 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// The parts a plugin can provide, and the permission each one needs.
-const PARTS: &[&str] = &["channels", "guide", "rows", "search", "screensaver"];
+const PARTS: &[&str] = &["channels", "guide", "rows", "search", "screensaver", "account"];
 
 fn has_permission(p: &Permissions, part: &str) -> bool {
     match part {
+        "account" => p.account,
         "channels" => p.channels,
         "guide" => p.guide,
         "rows" => p.rows,
@@ -132,6 +134,27 @@ impl Registry {
         }
     }
 
+    /// The plugin's data folder. A plugin under `nova dev` keeps its data apart
+    /// (removed when `nova dev` ends) and copies its log to the developer's terminal.
+    fn data_of(&self, id: &str) -> PathBuf {
+        if self.is_dev(id) { super::dev::data_dir(&self.dev_dir, id) } else { self.data_dir.join(id) }
+    }
+
+    /// A NOVA profile was deleted: every plugin forgets what it kept for it
+    /// (its saved values and its account sessions).
+    pub fn forget_profile(&self, profile: &str) {
+        let Ok(entries) = std::fs::read_dir(&self.data_dir) else { return };
+        for entry in entries.flatten() {
+            let plugin = entry.file_name().to_string_lossy().into_owned();
+            let seen_as = opaque(&plugin, profile);
+            Storage::new(entry.path()).forget_profile(&seen_as);
+            Secrets::new(entry.path().join("secrets")).clear(&seen_as);
+        }
+        if let Ok(mut rows) = self.rows.lock() {
+            rows.clear();
+        }
+    }
+
     /// Whether `id` is being run by `nova dev`.
     pub(crate) fn is_dev(&self, id: &str) -> bool {
         self.dev.lock().is_ok_and(|d| d.iter().any(|(m, _)| m.id == id))
@@ -160,12 +183,8 @@ impl Registry {
             return Err("Este plugin no tiene código que ejecutar".into());
         }
         let source = std::fs::read_to_string(dir.join(&manifest.main)).map_err(|e| format!("No se pudo leer el código del plugin: {e}"))?;
-        // A plugin under `nova dev` keeps its data apart (removed when `nova dev`
-        // ends) and copies its log to the developer's terminal.
-        let dev = self.is_dev(id);
-        let data = if dev { super::dev::data_dir(&self.dev_dir, id) } else { self.data_dir.join(id) };
-        let mut env = Env::new(manifest.clone(), Storage::new(data));
-        if dev {
+        let mut env = Env::new(manifest.clone(), Storage::new(self.data_of(id)));
+        if self.is_dev(id) {
             env.tee = Some(super::dev::log_file(&self.dev_dir, id));
         }
         *env.settings.lock().map_err(|e| e.to_string())? = state.settings.clone();
@@ -771,6 +790,144 @@ pub fn plugins_rollback(id: String, app: AppHandle) -> Result<(), String> {
     let (manifest, _) = registry.find(&id)?;
     // It was approved when it was installed.
     update_state(&app, &id, |s| s.granted = serde_json::to_value(&manifest.permissions).unwrap_or_default())
+}
+
+// ───────────────────────── Accounts (sign in with a code) ─────────────────────────
+//
+// The plugin's `account` part speaks to its service (OAuth's device flow, as on
+// every TV: a code on screen, typed on the phone); NOVA shows the code and a QR
+// and keeps the session in the plugin's secrets. Each NOVA profile has its own
+// account; children's profiles don't sign in.
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountUser {
+    name: String,
+    avatar: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignIn {
+    /// Where to go ("twitch.tv/activate"), shown as text.
+    url: String,
+    code: String,
+    /// QR of the address with the code already in it, when the service gives one.
+    qr_svg: Option<String>,
+    expires_in: u64,
+    interval: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignInPoll {
+    /// "pending", "done", "denied" or "expired".
+    status: &'static str,
+    user: Option<AccountUser>,
+}
+
+fn account_user(v: &serde_json::Value) -> Option<AccountUser> {
+    Some(AccountUser { name: text(&v["name"], 60)?, avatar: https(&v["avatar"]) })
+}
+
+/// Calls `account.<func>()` for the profile watching.
+fn account_call(app: &AppHandle, id: &str, func: &str) -> Result<serde_json::Value, String> {
+    let config = app.state::<AppState>().config.snapshot();
+    let registry = app.state::<Registry>();
+    let (manifest, _) = registry.find(id)?;
+    if !manifest.permissions.account {
+        return Err("Este plugin no tiene inicio de sesión".into());
+    }
+    let state = config.plugins.installed.get(id).ok_or("Ese plugin no está instalado")?;
+    if !state.enabled || !approved(&manifest, state) {
+        return Err("Activa el plugin para iniciar sesión".into());
+    }
+    let plugin = registry.plugin(id, state)?;
+    if !plugin.has("account", func) {
+        return Err(format!("El plugin no tiene account.{func}()"));
+    }
+    let (ctx, opaque) = context(id, &crate::profiles::active(&config));
+    plugin.call("account", func, serde_json::json!([ctx]), Some(opaque))
+}
+
+/// Who is signed in with the plugin, for the profile watching (None: nobody).
+#[tauri::command]
+pub async fn plugins_account(id: String, app: AppHandle) -> Result<Option<AccountUser>, String> {
+    tauri::async_runtime::spawn_blocking(move || account_call(&app, &id, "status").map(|v| account_user(&v))).await.map_err(|e| e.to_string())?
+}
+
+/// Starts signing in: the code to type and where.
+#[tauri::command]
+pub async fn plugins_account_start(id: String, app: AppHandle) -> Result<SignIn, String> {
+    let state = app.state::<AppState>();
+    if crate::profiles::active(&state.config.snapshot()).kids {
+        return Err("Los perfiles infantiles no inician sesión en plugins".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let v = account_call(&app, &id, "start")?;
+        let url = https(&v["url"]).ok_or("El plugin no dio una dirección https:// para iniciar sesión")?;
+        let code = text(&v["code"], 20).ok_or("El plugin no dio un código")?;
+        let target = https(&v["urlComplete"]).unwrap_or_else(|| url.clone());
+        let qr_svg = qrcode::QrCode::new(target.as_bytes()).ok().map(|qr| {
+            qr.render::<qrcode::render::svg::Color>()
+                .min_dimensions(220, 220)
+                .quiet_zone(true)
+                .dark_color(qrcode::render::svg::Color("#070b18"))
+                .light_color(qrcode::render::svg::Color("#ffffff"))
+                .build()
+        });
+        Ok(SignIn {
+            url: url.trim_start_matches("https://").trim_end_matches('/').to_string(),
+            code,
+            qr_svg,
+            expires_in: v["expiresIn"].as_u64().unwrap_or(600).clamp(60, 1800),
+            interval: v["interval"].as_u64().unwrap_or(5).clamp(2, 30),
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Asks whether the code has been typed yet. Called every `interval` seconds.
+#[tauri::command]
+pub async fn plugins_account_poll(id: String, app: AppHandle) -> Result<SignInPoll, String> {
+    let handle = app.clone();
+    let id_for = id.clone();
+    let poll = tauri::async_runtime::spawn_blocking(move || account_call(&handle, &id_for, "poll")).await.map_err(|e| e.to_string())??;
+    let status = match poll["status"].as_str() {
+        Some("done") => "done",
+        Some("denied") => "denied",
+        Some("expired") => "expired",
+        _ => "pending",
+    };
+    if status == "done" {
+        // Its rows, channels… may change with the account: ask again.
+        app.state::<Registry>().stop(&id);
+        changed(&app, &id);
+    }
+    Ok(SignInPoll { status, user: account_user(&poll["user"]) })
+}
+
+/// Signs the profile watching out: the plugin may tell its service, and its
+/// session is deleted either way.
+#[tauri::command]
+pub async fn plugins_account_sign_out(id: String, app: AppHandle) -> Result<(), String> {
+    let handle = app.clone();
+    let id_for = id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let registry = handle.state::<Registry>();
+        let has_sign_out = registry.running.lock().ok().and_then(|r| r.get(&id_for).cloned()).is_none_or(|p| p.has("account", "signOut"));
+        if has_sign_out {
+            let _ = account_call(&handle, &id_for, "signOut");
+        }
+        let profile = crate::profiles::active(&handle.state::<AppState>().config.snapshot());
+        Secrets::new(registry.data_of(&id_for).join("secrets")).clear(&opaque(&id_for, &profile.id));
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    app.state::<Registry>().stop(&id);
+    changed(&app, &id);
+    Ok(())
 }
 
 /// What the plugin has written to its log (while it's been running).

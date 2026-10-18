@@ -15,6 +15,10 @@ export interface NovaHost {
   storageGet(scope: "plugin" | "profile", key: string): string | null | undefined;
   storageSet(scope: "plugin" | "profile", key: string, value: string): void;
   storageDelete(scope: "plugin" | "profile", key: string): void;
+  /** The profile's secrets (needs "account"). */
+  secretGet(key: string): string | null | undefined;
+  secretSet(key: string, value: string): void;
+  secretDelete(key: string): void;
   setting(key: string): string | null | undefined;
   location(): string | null | undefined;
   notify(title: string, detail?: string): void;
@@ -79,7 +83,25 @@ export const http = {
     const res = await ok({ ...options, url, method: "POST", headers, body: JSON.stringify(body) });
     return JSON.parse(res.body) as T;
   },
+  /**
+   * POST a form (`a=1&b=2`, what OAuth servers expect), response parsed as
+   * JSON (throws `HttpError` if not 2xx). Fields left undefined aren't sent.
+   */
+  async postForm<T = unknown>(url: string, fields: Record<string, string | number | undefined>, options?: Options): Promise<T> {
+    const res = await ok(formRequest(url, fields, options));
+    return JSON.parse(res.body) as T;
+  },
 };
+
+/** The request `postForm` sends (also for `http.request`, which never throws for a status). */
+export function formRequest(url: string, fields: Record<string, string | number | undefined>, options?: Options): HttpRequest {
+  const body = Object.entries(fields)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join("&");
+  const headers = { "content-type": "application/x-www-form-urlencoded", accept: "application/json", ...options?.headers };
+  return { ...options, url, method: "POST", headers, body };
+}
 
 // ───────────────────────── storage ─────────────────────────
 
@@ -104,6 +126,24 @@ function scoped(scope: "plugin" | "profile") {
  * deleted when the plugin is uninstalled.
  */
 export const storage = Object.assign(scoped("plugin"), { profile: scoped("profile") });
+
+/**
+ * Account sessions (tokens) of the profile watching, encrypted on the TV
+ * (needs the `account` permission). Separate from `storage`, 64 KB per
+ * profile, deleted when the user signs out. `deviceLogin()` uses it for you.
+ */
+export const secrets = {
+  get<T = unknown>(key: string): T | undefined {
+    const raw = host().secretGet(key);
+    return raw == null ? undefined : (JSON.parse(raw) as T);
+  },
+  set(key: string, value: unknown): void {
+    host().secretSet(key, JSON.stringify(value));
+  },
+  remove(key: string): void {
+    host().secretDelete(key);
+  },
+};
 
 // ───────────────────────── settings, location, log ─────────────────────────
 

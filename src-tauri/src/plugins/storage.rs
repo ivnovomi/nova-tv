@@ -23,13 +23,24 @@ fn size(values: &Values) -> usize {
 }
 
 /// File-name-safe version of an opaque profile id.
-fn file_name(profile: &str) -> String {
+pub(crate) fn file_name(profile: &str) -> String {
     profile.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').take(64).collect()
 }
 
 impl Storage {
     pub fn new(dir: PathBuf) -> Self {
         Self { dir }
+    }
+
+    /// The plugin's data folder.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// Forgets what the plugin saved for one profile (the profile was deleted).
+    pub fn forget_profile(&self, profile: &str) {
+        let _ = std::fs::remove_file(self.path(Some(profile)));
+        let _ = std::fs::remove_dir(self.dir.join("profiles"));
     }
 
     fn path(&self, profile: Option<&str>) -> PathBuf {
