@@ -58,6 +58,8 @@ pub struct Env {
     profile: Mutex<Option<String>>,
     /// When its last notices were shown (for the limit).
     notices: Mutex<VecDeque<Instant>>,
+    /// Under `nova dev`: the file its log is copied to (the developer's terminal reads it).
+    pub tee: Option<std::path::PathBuf>,
 }
 
 impl Env {
@@ -70,6 +72,7 @@ impl Env {
             deadline: Mutex::new(Instant::now() + JS_TIME),
             profile: Mutex::new(None),
             notices: Mutex::new(VecDeque::new()),
+            tee: None,
         }
     }
 
@@ -90,6 +93,9 @@ impl Env {
         let line = LogLine { at: crate::config::now_secs(), level: level.to_string(), message: message.chars().take(2000).collect() };
         if cfg!(debug_assertions) {
             eprintln!("[plugin {}] {}: {}", self.manifest.id, line.level, line.message);
+        }
+        if let Some(path) = &self.tee {
+            super::dev::append_to(path, &line.level, &line.message);
         }
         let mut log = self.log.lock().unwrap_or_else(|p| p.into_inner());
         if log.len() >= LOG_LINES {

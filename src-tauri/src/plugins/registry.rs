@@ -37,6 +37,11 @@ fn has_permission(p: &Permissions, part: &str) -> bool {
 pub struct Registry {
     plugins_dir: PathBuf,
     data_dir: PathBuf,
+    /// Where `nova dev` links plugins being written (see dev.rs).
+    pub(crate) dev_dir: PathBuf,
+    /// Plugins loaded by `nova dev` (only in developer mode): they take the
+    /// place of an installed plugin with the same id while they're linked.
+    pub(crate) dev: Mutex<Vec<(Manifest, PathBuf)>>,
     running: Mutex<HashMap<String, Arc<Plugin>>>,
     /// Last start or call error per plugin, for Ajustes.
     errors: Mutex<HashMap<String, String>>,
@@ -52,6 +57,8 @@ impl Registry {
         let registry = Self {
             plugins_dir: base.join("plugins"),
             data_dir: base.join("plugin-data"),
+            dev_dir: base.join("plugins-dev"),
+            dev: Mutex::new(Vec::new()),
             running: Mutex::new(HashMap::new()),
             errors: Mutex::new(HashMap::new()),
             rows: Mutex::new(HashMap::new()),
@@ -77,19 +84,17 @@ impl Registry {
     }
 
     fn installed(&self) -> Vec<(Manifest, PathBuf)> {
-        let Ok(entries) = std::fs::read_dir(&self.plugins_dir) else { return vec![] };
-        let mut out: Vec<_> = entries
-            .flatten()
-            .filter_map(|e| {
-                let id = e.file_name().to_string_lossy().into_owned();
-                if id.starts_with('.') {
-                    return None;
-                }
-                let (_, dir) = package::current(&self.plugins_dir, &id)?;
-                let manifest = Manifest::read(&dir).ok().filter(|m| m.id == id)?;
-                Some((manifest, dir))
-            })
-            .collect();
+        let dev = self.dev.lock().map(|d| d.clone()).unwrap_or_default();
+        let packaged = std::fs::read_dir(&self.plugins_dir).into_iter().flatten().flatten().filter_map(|e| {
+            let id = e.file_name().to_string_lossy().into_owned();
+            if id.starts_with('.') || dev.iter().any(|(m, _)| m.id == id) {
+                return None;
+            }
+            let (_, dir) = package::current(&self.plugins_dir, &id)?;
+            let manifest = Manifest::read(&dir).ok().filter(|m| m.id == id)?;
+            Some((manifest, dir))
+        });
+        let mut out: Vec<_> = packaged.chain(dev.iter().cloned()).collect();
         out.sort_by(|a, b| a.0.name.to_lowercase().cmp(&b.0.name.to_lowercase()));
         out
     }
@@ -98,7 +103,8 @@ impl Registry {
         self.installed().into_iter().find(|(m, _)| m.id == id).ok_or_else(|| "Ese plugin no está instalado".to_string())
     }
 
-    fn stop(&self, id: &str) {
+    /// Stops a plugin and forgets what it returned: its next use starts it again.
+    pub(crate) fn stop(&self, id: &str) {
         if let Ok(mut running) = self.running.lock() {
             running.remove(id);
         }
@@ -118,6 +124,14 @@ impl Registry {
         if let Ok(mut errors) = self.errors.lock() {
             errors.insert(id.to_string(), error.to_string());
         }
+        if self.is_dev(id) {
+            super::dev::append(&self.dev_dir, id, "error", error);
+        }
+    }
+
+    /// Whether `id` is being run by `nova dev`.
+    pub(crate) fn is_dev(&self, id: &str) -> bool {
+        self.dev.lock().is_ok_and(|d| d.iter().any(|(m, _)| m.id == id))
     }
 
     /// The running plugin, started now if it wasn't.
@@ -143,7 +157,14 @@ impl Registry {
             return Err("Este plugin no tiene código que ejecutar".into());
         }
         let source = std::fs::read_to_string(dir.join(&manifest.main)).map_err(|e| format!("No se pudo leer el código del plugin: {e}"))?;
-        let env = Env::new(manifest.clone(), Storage::new(self.data_dir.join(id)));
+        // A plugin under `nova dev` keeps its data apart (removed when `nova dev`
+        // ends) and copies its log to the developer's terminal.
+        let dev = self.is_dev(id);
+        let data = if dev { super::dev::data_dir(&self.dev_dir, id) } else { self.data_dir.join(id) };
+        let mut env = Env::new(manifest.clone(), Storage::new(data));
+        if dev {
+            env.tee = Some(super::dev::log_file(&self.dev_dir, id));
+        }
         *env.settings.lock().map_err(|e| e.to_string())? = state.settings.clone();
         let plugin = Plugin::start(Arc::new(env), source)?;
         if let Some(part) = plugin.parts.keys().find(|p| PARTS.contains(&p.as_str()) && !has_permission(&manifest.permissions, p)) {
@@ -484,6 +505,8 @@ pub struct PluginInfo {
     needs_approval: bool,
     icon: Option<String>,
     error: Option<String>,
+    /// Loaded by `nova dev` from the developer's folder (not installed).
+    dev: bool,
 }
 
 #[derive(Serialize)]
@@ -523,8 +546,10 @@ fn info(registry: &Registry, config: &crate::config::Config) -> PluginsInfo {
         .into_iter()
         .map(|(m, dir)| {
             let state = config.plugins.installed.get(&m.id).cloned();
+            let dev = registry.is_dev(&m.id);
             PluginInfo {
-                previous: previous_version(&registry.plugins_dir, &m.id, &m.version),
+                dev,
+                previous: if dev { None } else { previous_version(&registry.plugins_dir, &m.id, &m.version) },
                 icon: icon(&dir, &m),
                 error: errors.get(&m.id).cloned(),
                 needs_approval: !state.as_ref().is_some_and(|s| approved(&m, s)),
@@ -655,11 +680,16 @@ pub async fn plugins_install(path: String, app: AppHandle) -> Result<(), String>
     Ok(())
 }
 
+const DEV_BUSY: &str = "Este plugin lo está ejecutando nova dev: ciérralo (Ctrl+C) para volver a la versión instalada";
+
 #[tauri::command]
 pub async fn plugins_uninstall(id: String, delete_data: bool, app: AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
     require_adult(&state)?;
     let registry = app.state::<Registry>();
+    if registry.is_dev(&id) {
+        return Err(DEV_BUSY.into());
+    }
     registry.stop(&id);
     package::uninstall(&registry.plugins_dir, &registry.data_dir, &id, delete_data)?;
     state.config.update(|c| {
@@ -674,7 +704,7 @@ pub async fn plugins_uninstall(id: String, delete_data: bool, app: AppHandle) ->
 
 /// Tells the interface a plugin changed, so live TV and "Para ti" reload what
 /// it brings (only that plugin is asked again; every other source stays cached).
-fn changed(app: &AppHandle, id: &str) {
+pub(crate) fn changed(app: &AppHandle, id: &str) {
     let _ = app.emit("plugins-changed", id);
 }
 
@@ -730,6 +760,9 @@ pub fn plugins_set_setting(id: String, key: String, value: serde_json::Value, ap
 pub fn plugins_rollback(id: String, app: AppHandle) -> Result<(), String> {
     require_adult(&app.state::<AppState>())?;
     let registry = app.state::<Registry>();
+    if registry.is_dev(&id) {
+        return Err(DEV_BUSY.into());
+    }
     registry.stop(&id);
     package::rollback(&registry.plugins_dir, &id)?;
     let (manifest, _) = registry.find(&id)?;

@@ -219,7 +219,24 @@ Un aviso breve en NOVA, con el nombre de tu plugin. Como mucho **3 por minuto**:
 
 ---
 
-## 8. Probar tu plugin sin abrir NOVA
+## 8. `nova dev`: tu plugin dentro de NOVA mientras lo escribes
+
+```
+npm run plugin:dev -- plugins/mi-plugin
+```
+
+Con NOVA abierto y el **modo desarrollador** activado (Ajustes → Plugins):
+
+- Tu plugin aparece en NOVA **sin empaquetar ni instalar**, con la etiqueta «En desarrollo». Sus canales salen en la TV, sus filas en «Para ti», etc.
+- **Cada vez que guardas**, se recompila y NOVA lo recarga al momento, también si cambias el manifiesto. Los permisos nuevos se aprueban solos: eres tú quien lo está ejecutando.
+- Su **registro sale en la terminal**: tus `log.info(...)`, los errores y lo que NOVA te cuenta («cargado: channels, guide»).
+- **Ctrl+C** y NOVA vuelve a como estaba. Se borran los datos que guardó durante la prueba, y si ya tenías ese plugin instalado, vuelve la versión instalada con sus opciones. Si cierras la terminal de golpe, NOVA lo deshace solo a los 20 segundos.
+
+Los datos de `storage` en desarrollo van aparte, así que no tocan los de la versión instalada.
+
+---
+
+## 9. Probar tu plugin sin abrir NOVA
 
 `@novatv/sdk/testing` monta un **NOVA de mentira** en Node con las mismas reglas que el de verdad (solo HTTPS a tus dominios, sin redirecciones, 5 MB, permisos, 3 avisos por minuto…) y **revisa lo que devuelves** como lo haría NOVA: lo que NOVA descartaría o no podría mostrar aparece en `nova.problems`.
 

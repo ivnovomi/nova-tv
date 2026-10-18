@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
-import { Baby, FileWarning, Globe, Image as ImageIcon, LayoutList, ListVideo, MapPin, Bell, PackagePlus, Puzzle, RotateCcw, ScrollText, Search, Trash2, TriangleAlert, Tv } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
+import { Baby, Code, FileWarning, Globe, Image as ImageIcon, LayoutList, ListVideo, MapPin, Bell, PackagePlus, Puzzle, RotateCcw, ScrollText, Search, Trash2, TriangleAlert, Tv } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toasts";
 import { api, inTauri, pickPluginPackage } from "../lib/api";
@@ -238,6 +239,11 @@ function PluginCard({ plugin, onChanged, onLog, onUninstall }: { plugin: PluginI
         <div className="min-w-0 flex-1">
           <p className="text-[1.3rem] font-semibold">
             {plugin.name} <span className="text-[0.95rem] font-normal text-ink-3">{plugin.version}</span>
+            {plugin.dev && (
+              <span className="ml-3 inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-0.5 align-middle text-[0.85rem] font-semibold text-accent">
+                <Code className="size-3.5" /> En desarrollo
+              </span>
+            )}
           </p>
           <p className="text-[0.95rem] text-ink-3">
             de {plugin.author} · {plugin.audience === "adults" ? "Solo adultos" : "Para todos"}
@@ -297,9 +303,13 @@ function PluginCard({ plugin, onChanged, onLog, onUninstall }: { plugin: PluginI
             <RotateCcw className="size-5" /> Volver a la {plugin.previous}
           </button>
         )}
-        <button data-nav onClick={onUninstall} className="focus-lift btn btn-danger ml-auto">
-          <Trash2 className="size-5" /> Desinstalar
-        </button>
+        {plugin.dev ? (
+          <span className="ml-auto self-center text-[0.95rem] text-ink-3">Lo ejecuta nova dev desde tu carpeta: al cerrarlo, NOVA vuelve a como estaba.</span>
+        ) : (
+          <button data-nav onClick={onUninstall} className="focus-lift btn btn-danger ml-auto">
+            <Trash2 className="size-5" /> Desinstalar
+          </button>
+        )}
       </div>
     </div>
   );
@@ -317,6 +327,12 @@ export function PluginsSettings({ Toggle }: { Toggle: ToggleComponent }) {
     api.pluginsList().then(setInfo, (e) => toast.show("error", "No se pudieron cargar los plugins", errorText(e)));
   }, [toast]);
   useEffect(reload, [reload]);
+  // `nova dev` loads, reloads and removes plugins from outside this screen.
+  useEffect(() => {
+    if (!inTauri) return;
+    const off = listen("plugins-changed", reload);
+    return () => void off.then((f) => f());
+  }, [reload]);
 
   const pick = async () => {
     try {

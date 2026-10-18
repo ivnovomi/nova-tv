@@ -342,6 +342,8 @@ export interface PluginInfo {
   /** data: URL. */
   icon: string | null;
   error: string | null;
+  /** Loaded by `nova dev` from the developer's folder (not installed). */
+  dev: boolean;
 }
 
 export interface PluginsInfo {

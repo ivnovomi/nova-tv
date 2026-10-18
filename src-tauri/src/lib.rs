@@ -82,6 +82,7 @@ pub fn run() {
             remote::start(app.handle());
             app.manage(plugins::registry::Registry::new(app.handle()));
             plugins::tv::init(app.handle());
+            plugins::dev::spawn(app.handle().clone());
             osd::spawn(app.handle().clone());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
