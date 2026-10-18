@@ -11,11 +11,12 @@ export interface NovaHost {
   /** API version of the host (1). */
   readonly api: number;
   http(request: string): Promise<string>;
-  storageGet(scope: "plugin" | "profile", key: string): string | null;
+  /** null or undefined when there's nothing (hosts may return either). */
+  storageGet(scope: "plugin" | "profile", key: string): string | null | undefined;
   storageSet(scope: "plugin" | "profile", key: string, value: string): void;
   storageDelete(scope: "plugin" | "profile", key: string): void;
-  setting(key: string): string | null;
-  location(): string | null;
+  setting(key: string): string | null | undefined;
+  location(): string | null | undefined;
   log(level: "info" | "warn" | "error", message: string): void;
 }
 
@@ -85,7 +86,7 @@ function scoped(scope: "plugin" | "profile") {
   return {
     get<T = unknown>(key: string): T | undefined {
       const raw = host().storageGet(scope, key);
-      return raw === null ? undefined : (JSON.parse(raw) as T);
+      return raw == null ? undefined : (JSON.parse(raw) as T);
     },
     set(key: string, value: unknown): void {
       host().storageSet(scope, key, JSON.stringify(value));
@@ -109,7 +110,7 @@ export const storage = Object.assign(scoped("plugin"), { profile: scoped("profil
 export const settings = {
   get<T = string>(key: string): T | undefined {
     const raw = host().setting(key);
-    return raw === null ? undefined : (JSON.parse(raw) as T);
+    return raw == null ? undefined : (JSON.parse(raw) as T);
   },
 };
 
@@ -117,7 +118,7 @@ export const settings = {
 export const location = {
   get(): Location | undefined {
     const raw = host().location();
-    return raw === null ? undefined : (JSON.parse(raw) as Location);
+    return raw == null ? undefined : (JSON.parse(raw) as Location);
   },
 };
 

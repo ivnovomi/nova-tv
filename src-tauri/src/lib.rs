@@ -8,6 +8,7 @@ mod metadata;
 mod net;
 mod nowplaying;
 mod playtime;
+mod plugins;
 mod pluto;
 mod power;
 mod profiles;

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../sdk/schema/nova-plugin.schema.json",
+  "id": "es.novatv.ejemplo",
+  "name": "Ejemplo",
+  "version": "1.0.0",
+  "api": 1,
+  "kind": ["provider"],
+  "main": "dist/index.js",
+  "description": "Plugin de ejemplo: una fila en Para ti que saluda y cuenta tus visitas.",
+  "author": { "name": "NOVA TV" },
+  "audience": "everyone",
+  "permissions": {
+    "rows": true
+  },
+  "settings": [
+    { "key": "saludo", "type": "text", "label": "Saludo", "default": "¡Hola!" }
+  ]
+}
