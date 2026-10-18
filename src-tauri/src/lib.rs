@@ -78,6 +78,7 @@ pub fn run() {
             nowplaying::spawn_watcher(app.handle().clone());
             history::spawn_flusher(app.handle().clone());
             remote::start(app.handle());
+            app.manage(plugins::registry::Registry::new(app.handle()));
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
             updates::clean_leftovers(app.handle());
@@ -121,6 +122,17 @@ pub fn run() {
             history::play_youtube,
             sources::sources_status,
             sources::sources_probe,
+            plugins::registry::plugins_list,
+            plugins::registry::plugins_rows,
+            plugins::registry::plugins_set_developer,
+            plugins::registry::plugins_inspect,
+            plugins::registry::plugins_install,
+            plugins::registry::plugins_uninstall,
+            plugins::registry::plugins_set_enabled,
+            plugins::registry::plugins_set_kids,
+            plugins::registry::plugins_set_setting,
+            plugins::registry::plugins_rollback,
+            plugins::registry::plugins_log,
             splash::splash_step,
             splash::splash_done,
             power::power_info,

@@ -27,6 +27,10 @@ import type {
   ShortcutKind,
   SystemInfo,
   SystemStats,
+  PackageInfo,
+  PluginLogLine,
+  PluginRows,
+  PluginsInfo,
   PowerAction,
   PowerInfo,
   UpdateStatus,
@@ -103,6 +107,19 @@ export const api = {
   twitchLive: () => call<TwitchLive[]>("twitch_live"),
   twitchPlay: (login: string, name: string) => call<void>("twitch_play", { login, name }),
 
+  pluginsList: () => call<PluginsInfo>("plugins_list"),
+  pluginsRows: () => call<PluginRows[]>("plugins_rows"),
+  pluginsSetDeveloper: (enabled: boolean) => call<void>("plugins_set_developer", { enabled }),
+  /** What a .novapkg is and asks for, before installing it. */
+  pluginsInspect: (path: string) => call<PackageInfo>("plugins_inspect", { path }),
+  pluginsInstall: (path: string) => call<void>("plugins_install", { path }),
+  pluginsUninstall: (id: string, deleteData: boolean) => call<void>("plugins_uninstall", { id, deleteData }),
+  pluginsSetEnabled: (id: string, enabled: boolean) => call<void>("plugins_set_enabled", { id, enabled }),
+  pluginsSetKids: (id: string, allowed: boolean) => call<void>("plugins_set_kids", { id, allowed }),
+  pluginsSetSetting: (id: string, key: string, value: unknown) => call<void>("plugins_set_setting", { id, key, value }),
+  pluginsRollback: (id: string) => call<void>("plugins_rollback", { id }),
+  pluginsLog: (id: string) => call<PluginLogLine[]>("plugins_log", { id }),
+
   /** Start-up window: one step ("profiles" | "channels" | "library"), then open NOVA. */
   splashStep: (step: string) => call<string>("splash_step", { step }),
   splashDone: () => call<void>("splash_done"),
@@ -134,6 +151,12 @@ export const api = {
 export async function pickExecutable(): Promise<string | null> {
   if (!inTauri) return null;
   const picked = await open({ multiple: false, directory: false, filters: [{ name: "Programas", extensions: ["exe"] }] });
+  return typeof picked === "string" ? picked : null;
+}
+
+export async function pickPluginPackage(): Promise<string | null> {
+  if (!inTauri) return null;
+  const picked = await open({ multiple: false, directory: false, filters: [{ name: "Plugin de NOVA", extensions: ["novapkg"] }] });
   return typeof picked === "string" ? picked : null;
 }
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-inspect"
+description = "Enables the plugins_inspect command without any pre-configured scope."
+commands.allow = ["plugins_inspect"]
+
+[[permission]]
+identifier = "deny-plugins-inspect"
+description = "Denies the plugins_inspect command without any pre-configured scope."
+commands.deny = ["plugins_inspect"]

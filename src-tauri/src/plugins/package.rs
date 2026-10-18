@@ -46,6 +46,12 @@ pub struct Inspected {
     pub unpacked: u64,
 }
 
+impl Inspected {
+    pub fn file_count(&self) -> usize {
+        self.files.len()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Installed {
     pub id: String,

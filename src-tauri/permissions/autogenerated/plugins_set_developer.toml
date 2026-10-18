@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-set-developer"
+description = "Enables the plugins_set_developer command without any pre-configured scope."
+commands.allow = ["plugins_set_developer"]
+
+[[permission]]
+identifier = "deny-plugins-set-developer"
+description = "Denies the plugins_set_developer command without any pre-configured scope."
+commands.deny = ["plugins_set_developer"]

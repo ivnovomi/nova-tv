@@ -12,6 +12,7 @@ import { platformLabel, playable, useGameMeta } from "./gaming/useGameMeta";
 import { LiveTvRow } from "./livetv/LiveTvRow";
 import { isAvailable, liveTv, onAir, useLiveTv } from "./livetv/store";
 import { preview, TWITCH_BG, TwitchTile, useTwitchLive, viewers } from "./TwitchRow";
+import { PluginRowsSection } from "./PluginRows";
 import type { TwitchLive } from "../lib/types";
 
 /** What the top of Home shows (and the ambient backdrop uses) for the focused item. */
@@ -295,6 +296,8 @@ export function HomeScreen() {
           ))}
         </Row>
       )}
+
+      <PluginRowsSection />
 
       <Row title="Streaming" action={{ label: "Ver todo", onClick: () => nova.navigate("streaming") }}>
         {streaming.slice(0, 12).map((s) => (

@@ -1,9 +1,10 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as autostartEnabled } from "@tauri-apps/plugin-autostart";
-import { Activity, ArrowDownToLine, Info, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
+import { Activity, ArrowDownToLine, Info, Puzzle, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
 import { SourcesStatus } from "./SourcesStatus";
 import { UpdatesSettings } from "./Updates";
+import { PluginsSettings } from "./PluginsSettings";
 import { SCREENSAVER_CHOICES, screensaverMinutes, setScreensaverMinutes } from "../app/power";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
 import { KidsLock, ProfilesSettings, UnlockedBanner } from "./ProfilesSettings";
@@ -26,7 +27,7 @@ export function startsOnTv() {
   return readPref(START_TV_PREF, true);
 }
 
-type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "sources" | "privacy" | "system" | "updates" | "about";
+type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "sources" | "privacy" | "system" | "plugins" | "updates" | "about";
 
 const SECTIONS: { id: SectionId; label: string; icon: ComponentType<LucideProps> }[] = [
   { id: "profiles", label: "Perfiles y control parental", icon: Users },
@@ -37,6 +38,7 @@ const SECTIONS: { id: SectionId; label: string; icon: ComponentType<LucideProps>
   { id: "sources", label: "Estado de las fuentes", icon: Activity },
   { id: "privacy", label: "Privacidad y datos", icon: Shield },
   { id: "system", label: "Este equipo", icon: Monitor },
+  { id: "plugins", label: "Plugins", icon: Puzzle },
   { id: "updates", label: "Actualizaciones", icon: ArrowDownToLine },
   { id: "about", label: "Acerca de NOVA", icon: Info },
 ];
@@ -435,6 +437,11 @@ export function SettingsScreen() {
           {section === "system" && (
             <Section key="y" title="Este equipo" description="Datos reales de Windows, volumen y accesos a su configuración.">
               <SystemPanel />
+            </Section>
+          )}
+          {section === "plugins" && (
+            <Section key="pl" title="Plugins" description="Canales, filas y más, creados con el SDK de NOVA. Cada uno solo puede hacer lo que tú apruebes.">
+              <PluginsSettings Toggle={Toggle} />
             </Section>
           )}
           {section === "updates" && (

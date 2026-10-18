@@ -301,6 +301,108 @@ export interface FeedItem {
   thumbnail: string;
 }
 
+// ───────────────────────── Plugins ─────────────────────────
+
+export interface PluginPermissions {
+  network?: string[];
+  channels?: boolean;
+  guide?: boolean;
+  rows?: boolean;
+  search?: boolean;
+  screensaver?: boolean;
+  notify?: boolean;
+  location?: boolean;
+}
+
+export interface PluginSetting {
+  key: string;
+  type: "text" | "toggle" | "number" | "choice";
+  label: string;
+  help?: string | null;
+  default?: unknown;
+  options?: { value: string; label: string }[];
+}
+
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  /** The version installed before (to go back to). */
+  previous: string | null;
+  description: string;
+  author: string;
+  audience: "everyone" | "adults";
+  kind: ("provider" | "app")[];
+  permissions: PluginPermissions;
+  settings: PluginSetting[];
+  values: Record<string, unknown>;
+  enabled: boolean;
+  kidsAllowed: boolean;
+  needsApproval: boolean;
+  /** data: URL. */
+  icon: string | null;
+  error: string | null;
+}
+
+export interface PluginsInfo {
+  developerMode: boolean;
+  plugins: PluginInfo[];
+}
+
+/** A .novapkg before installing it (the permissions screen). */
+export interface PackageInfo {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  audience: "everyone" | "adults";
+  permissions: PluginPermissions;
+  files: number;
+  size: number;
+  installed: string | null;
+  permissionsChanged: boolean;
+}
+
+export type PluginStream =
+  | { type: "hls"; url: string; proxy: boolean }
+  | { type: "twitch"; channel: string }
+  | { type: "youtube"; video: string }
+  | { type: "youtube"; channel: string };
+
+export type PluginAction =
+  | { type: "detail"; title: string | null; text: string; image: string | null }
+  | { type: "play"; stream: PluginStream; title: string | null }
+  | { type: "tune"; channel: string }
+  | { type: "app"; path: string | null };
+
+export interface PluginItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image: string | null;
+  badge: string | null;
+  action: PluginAction;
+}
+
+export interface PluginRow {
+  title: string;
+  style: "landscape" | "poster" | "square";
+  items: PluginItem[];
+}
+
+export interface PluginRows {
+  plugin: string;
+  name: string;
+  rows: PluginRow[];
+}
+
+export interface PluginLogLine {
+  at: number;
+  level: "info" | "warn" | "error";
+  message: string;
+}
+
 export interface PowerInfo {
   /** "Windows" | "macOS" | "Linux": for "Salir a …". */
   os: string;

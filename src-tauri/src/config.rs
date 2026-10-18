@@ -140,6 +140,37 @@ pub struct Config {
     pub parental: ParentalConfig,
     #[serde(default)]
     pub updates: UpdatesConfig,
+    #[serde(default)]
+    pub plugins: PluginsConfig,
+}
+
+/// Ajustes → Plugins: what the user decided about each installed plugin.
+/// (The plugins themselves live in their own folders; see plugins/package.rs.)
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginsConfig {
+    /// Allows installing packages the store hasn't reviewed (adults only).
+    #[serde(default)]
+    pub developer_mode: bool,
+    #[serde(default)]
+    pub installed: std::collections::BTreeMap<String, PluginState>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginState {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// The permissions the user approved (the manifest's, at install). If the
+    /// installed manifest asks for anything else, the plugin doesn't run.
+    #[serde(default)]
+    pub granted: serde_json::Value,
+    /// Children's profiles see it (only for plugins for everyone).
+    #[serde(default)]
+    pub kids_allowed: bool,
+    /// Its options, as chosen in Ajustes → Plugins.
+    #[serde(default)]
+    pub settings: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Ajustes → Actualizaciones. NOVA looks for new versions by itself unless

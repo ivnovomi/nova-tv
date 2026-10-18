@@ -108,21 +108,24 @@ struct Job {
 pub struct Plugin {
     tx: Mutex<mpsc::Sender<Job>>,
     pub env: Arc<Env>,
+    /// What it provides ("rows", "channels"…) and each part's `refresh`, if it set one.
+    pub parts: std::collections::HashMap<String, Option<String>>,
 }
 
 impl Plugin {
     /// Starts the engine and runs the plugin's code (its `defineProvider`).
     pub fn start(env: Arc<Env>, source: String) -> Result<Plugin, String> {
         let (tx, rx) = mpsc::channel::<Job>();
-        let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
+        let (ready_tx, ready_rx) = mpsc::channel::<Result<String, String>>();
         let thread_env = env.clone();
         std::thread::Builder::new()
             .name(format!("plugin {}", env.manifest.id))
             .stack_size(4 * 1024 * 1024)
             .spawn(move || run(thread_env, source, rx, ready_tx))
             .map_err(|e| e.to_string())?;
-        ready_rx.recv_timeout(Duration::from_secs(15)).map_err(|_| "El plugin no arrancó a tiempo".to_string())??;
-        Ok(Plugin { tx: Mutex::new(tx), env })
+        let described = ready_rx.recv_timeout(Duration::from_secs(15)).map_err(|_| "El plugin no arrancó a tiempo".to_string())??;
+        let parts = serde_json::from_str(&described).map_err(|e| format!("El plugin no se describe bien: {e}"))?;
+        Ok(Plugin { tx: Mutex::new(tx), env, parts })
     }
 
     /// Calls `part.func(...args)` in the plugin and waits for its (JSON) result.
@@ -135,7 +138,12 @@ impl Plugin {
     }
 }
 
-fn run(env: Arc<Env>, source: String, jobs: mpsc::Receiver<Job>, ready: mpsc::Sender<Result<(), String>>) {
+/// `{ "rows": "30m", "channels": null, … }`: the parts the plugin defined and their refresh.
+const DESCRIBE: &str = r#"JSON.stringify(Object.fromEntries(Object.entries(globalThis.__novaPlugin)
+  .filter(([, v]) => v && typeof v === "object")
+  .map(([k, v]) => [k, typeof v.refresh === "string" ? v.refresh : null])))"#;
+
+fn run(env: Arc<Env>, source: String, jobs: mpsc::Receiver<Job>, ready: mpsc::Sender<Result<String, String>>) {
     let runtime = match Runtime::new() {
         Ok(r) => r,
         Err(e) => {
@@ -164,7 +172,7 @@ fn run(env: Arc<Env>, source: String, jobs: mpsc::Receiver<Job>, ready: mpsc::Se
         if !defined {
             return Err("El plugin no llama a defineProvider()".to_string());
         }
-        Ok(())
+        ctx.eval::<String, _>(DESCRIBE).map_err(|e| describe(&ctx, &env, e))
     });
     let ok = loaded.is_ok();
     let _ = ready.send(loaded);
