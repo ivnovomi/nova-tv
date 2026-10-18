@@ -331,8 +331,18 @@ pub fn profile_delete(id: String, state: State<'_, AppState>, app: AppHandle) ->
         c.profiles.retain(|p| p.id != id);
         Ok(())
     })?;
-    // Its watch history goes with it.
+    // Its watch history goes with it, and so do its browser sign-ins and cache.
     app.state::<crate::history::HistoryStore>().remove_profile(&id);
+    let folder = crate::commands::streaming::profile_dir_name(&id);
+    // "web" is the main profile's (it can't be deleted, but never touch it).
+    if folder != "web" {
+        if let Ok(dir) = app.path().app_local_data_dir() {
+            let dir = dir.join("browser").join(folder);
+            std::thread::spawn(move || {
+                let _ = std::fs::remove_dir_all(dir);
+            });
+        }
+    }
     Ok(info(&state))
 }
 

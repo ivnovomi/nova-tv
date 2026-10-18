@@ -124,6 +124,29 @@ async fn check(app: &AppHandle) {
     announce(app);
 }
 
+/// The updater leaves each downloaded installer in %TEMP% ("NOVA TV-<version>-updater-XXXX",
+/// kept on purpose so it can run after NOVA quits). Once a new NOVA is running they're junk:
+/// remove them, and only them. Ones a few minutes old are left for next time, in case the
+/// installer that just ran is still closing.
+pub fn clean_leftovers(app: &AppHandle) {
+    let prefix = format!("{}-", app.package_info().name);
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(20));
+        let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !name.starts_with(&prefix) || !name.contains("-updater-") {
+                continue;
+            }
+            let Ok(meta) = entry.metadata() else { continue };
+            let old = meta.modified().ok().and_then(|m| m.elapsed().ok()).is_some_and(|age| age > Duration::from_secs(5 * 60));
+            if meta.is_dir() && old {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+    });
+}
+
 /// Looks by itself in the background, unless turned off in Ajustes.
 /// Not while developing (`tauri dev`): there's no installed copy to update.
 pub fn spawn_checker(app: AppHandle) {

@@ -79,6 +79,7 @@ pub fn run() {
             remote::start(app.handle());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
+            updates::clean_leftovers(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
