@@ -1,0 +1,21 @@
+{
+  "name": "@novatv/cli",
+  "version": "0.1.0",
+  "description": "La línea de comandos de los plugins de NOVA TV: nova create, dev, test, validate y pack.",
+  "license": "MIT",
+  "author": "ivnovomi",
+  "homepage": "https://github.com/ivnovomi/nova-plugins",
+  "repository": { "type": "git", "url": "git+https://github.com/ivnovomi/nova-plugins.git" },
+  "keywords": ["nova-tv", "smart-tv", "plugins", "cli"],
+  "type": "module",
+  "bin": { "nova": "bin/nova.mjs" },
+  "exports": {
+    "./create": "./src/create.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["bin", "src", "README.md", "LICENSE"],
+  "engines": { "node": ">=22.12" },
+  "dependencies": {
+    "rolldown": "^1.2.14"
+  }
+}

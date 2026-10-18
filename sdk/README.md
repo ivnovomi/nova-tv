@@ -4,6 +4,21 @@ Crea plugins para **NOVA TV** en TypeScript: canales en directo, guía de progra
 
 Un plugin **no pinta pantallas**: devuelve datos y NOVA los muestra con su propio diseño. Por eso todo se maneja igual con el mando, venga de donde venga.
 
+## Empezar
+
+```
+npm create nova-plugin
+```
+
+Te pregunta el nombre y qué aporta, y te deja un plugin que funciona, con sus pruebas. Luego, con [`@novatv/cli`](https://www.npmjs.com/package/@novatv/cli):
+
+| | |
+|---|---|
+| `npx nova dev` | Lo carga en tu NOVA y lo recarga cada vez que guardas ([§8](#8-nova-dev-tu-plugin-dentro-de-nova-mientras-lo-escribes)). |
+| `npx nova test` | Pasa sus pruebas sin abrir NOVA ([§9](#9-probar-tu-plugin-sin-abrir-nova)). |
+| `npx nova validate` | Comprueba lo que NOVA y la tienda revisan. |
+| `npx nova pack` | Lo empaqueta como `.novapkg`, listo para instalar. |
+
 ---
 
 ## 1. Cómo es un plugin
@@ -222,7 +237,7 @@ Un aviso breve en NOVA, con el nombre de tu plugin. Como mucho **3 por minuto**:
 ## 8. `nova dev`: tu plugin dentro de NOVA mientras lo escribes
 
 ```
-npm run plugin:dev -- plugins/mi-plugin
+npx nova dev
 ```
 
 Con NOVA abierto y el **modo desarrollador** activado (Ajustes → Plugins):
@@ -263,7 +278,7 @@ test("da sus canales sin problemas", async () => {
 ```
 
 ```
-npm run plugin:test -- plugins/mi-plugin
+npx nova test
 ```
 
 | `testPlugin(...)` te da | Para qué |

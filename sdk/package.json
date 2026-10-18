@@ -1,7 +1,6 @@
 {
   "name": "@novatv/sdk",
-  "version": "0.1.0-dev",
-  "private": true,
+  "version": "0.1.0",
   "description": "SDK de NOVA TV para crear plugins en TypeScript: canales, guía, filas, búsquedas y fondos de salvapantallas.",
   "license": "MIT",
   "author": "ivnovomi",
@@ -19,6 +18,7 @@
   "files": ["dist", "schema", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "tsc -p tsconfig.json"
   }
 }

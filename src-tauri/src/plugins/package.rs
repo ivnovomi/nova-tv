@@ -302,6 +302,17 @@ mod tests {
     }
 
     /// Writes a .novapkg with these (path, contents) entries.
+    /// A package made by `nova pack` (`npm run plugin:build -- plugins/canales-prueba`).
+    #[test]
+    #[ignore = "needs the channels example packed with npm"]
+    fn accepts_what_nova_pack_makes() {
+        let dist = Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/canales-prueba/dist");
+        let pkg = fs::read_dir(&dist).unwrap().flatten().map(|e| e.path()).find(|p| p.extension().is_some_and(|e| e == "novapkg")).unwrap();
+        let inspected = inspect(&pkg).unwrap();
+        assert_eq!(inspected.manifest.id, "es.novatv.canales-prueba");
+        assert_eq!(inspected.file_count(), 2);
+    }
+
     fn package(dir: &Path, name: &str, files: &[(&str, Vec<u8>)]) -> PathBuf {
         let path = dir.join(name);
         let mut zip = zip::ZipWriter::new(fs::File::create(&path).unwrap());

@@ -1,4 +1,4 @@
-// Pruebas del plugin sin abrir NOVA:  npm run plugin:test -- plugins/canales-prueba
+// Pruebas del plugin sin abrir NOVA:  npm run nova -- test plugins/canales-prueba
 //
 // testPlugin() monta un NOVA de mentira con las mismas reglas que el de verdad
 // y revisa lo que devuelve el plugin: lo que NOVA descartaría sale en `problems`.

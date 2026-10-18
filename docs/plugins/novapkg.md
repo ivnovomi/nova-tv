@@ -1,6 +1,6 @@
 # `.novapkg` — formato de paquete de NOVA TV
 
-Versión del formato: **1** (mínimo viable). Implementación: [`src-tauri/src/plugins/package.rs`](../../src-tauri/src/plugins/package.rs). Empaquetado: `npm run plugin:build -- plugins/<carpeta>` ([`scripts/build-plugin.mjs`](../../scripts/build-plugin.mjs)).
+Versión del formato: **1** (mínimo viable). Implementación: [`src-tauri/src/plugins/package.rs`](../../src-tauri/src/plugins/package.rs). Empaquetado: `nova pack` ([`cli/src/pack.mjs`](../../cli/src/pack.mjs)).
 
 ## Qué es
 
@@ -76,5 +76,5 @@ Firma, integridad, permisos y aislamiento son mecanismos complementarios: ningun
 ## Pendiente
 
 - Firma y verificación de procedencia (con la tienda, fase 5).
-- `nova validate` y `nova pack` en `@novatv/cli` (hoy: `npm run plugin:check` y `npm run plugin:build`).
+- ~~`nova validate` y `nova pack` en `@novatv/cli`~~ Hecho ([`cli/`](../../cli/README.md)).
 - Instalar desde la interfaz de NOVA (Ajustes → Plugins) con la pantalla de permisos.

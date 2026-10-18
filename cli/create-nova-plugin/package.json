@@ -1,0 +1,17 @@
+{
+  "name": "create-nova-plugin",
+  "version": "0.1.0",
+  "description": "npm create nova-plugin: empieza un plugin para NOVA TV.",
+  "license": "MIT",
+  "author": "ivnovomi",
+  "homepage": "https://github.com/ivnovomi/nova-plugins",
+  "repository": { "type": "git", "url": "git+https://github.com/ivnovomi/nova-plugins.git" },
+  "keywords": ["nova-tv", "plugins", "create"],
+  "type": "module",
+  "bin": { "create-nova-plugin": "index.mjs" },
+  "files": ["index.mjs"],
+  "engines": { "node": ">=22.12" },
+  "dependencies": {
+    "@novatv/cli": "^0.1.0"
+  }
+}
