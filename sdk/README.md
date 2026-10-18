@@ -108,7 +108,7 @@ channels: {
 | `id` | Único dentro de tu plugin. NOVA le añade el tuyo delante. |
 | `number` | Posición preferida dentro de tu rango. NOVA mantiene los números fijos aunque cambie la lista. |
 | `group` | Cómo se agrupa en la guía. |
-| `categories` | Temas comunes de NOVA (`"Infantil"`, `"Cine"`…), para que tu canal salga en esas pestañas. |
+| `categories` | Temas comunes de NOVA (`"Infantil"`, `"Cine"`…), para que tu canal salga en esas pestañas. **En los perfiles infantiles solo salen los canales con `"Infantil"`** (y solo si un adulto permite tu plugin para niños). |
 | `stream` | Cómo se reproduce, **si la dirección no cambia nunca**. |
 
 ### Emisiones (`Stream`)
@@ -339,7 +339,7 @@ Opciones: `settings`, `location`, `profile`, `locale`, `mock`, `offline` (sin mo
 
 ## Ejercicio: Twitch y Pluto TV
 
-NOVA ya tiene Twitch y Pluto TV programados en Rust (`src-tauri/src/twitch.rs` y `src-tauri/src/pluto.rs`). Tu reto es reescribirlos como plugins con este SDK y que funcionen **igual**. Aquí tienes qué pieza del SDK resuelve cada cosa; el código es tuyo.
+NOVA tenía Twitch y Pluto TV programados en Rust. **Pluto TV ya es un plugin**: NOVA no lo trae de serie (la versión en Rust está en el historial de git, en `src-tauri/src/pluto.rs`). Twitch sigue en `src-tauri/src/twitch.rs`. Aquí tienes qué pieza del SDK resuelve cada cosa.
 
 ### Twitch
 
