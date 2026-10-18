@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-location-get"
+description = "Enables the location_get command without any pre-configured scope."
+commands.allow = ["location_get"]
+
+[[permission]]
+identifier = "deny-location-get"
+description = "Denies the location_get command without any pre-configured scope."
+commands.deny = ["location_get"]

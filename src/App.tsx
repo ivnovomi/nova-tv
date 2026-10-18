@@ -375,11 +375,17 @@ function Shell() {
   // rest of live TV stays cached in Rust, so this is quick).
   useEffect(() => {
     if (!inTauri) return;
-    const off = listen("plugins-changed", () => {
-      if (liveTv.loaded()) void liveTv.load(true);
-    });
-    return () => void off.then((f) => f());
-  }, []);
+    const offs = [
+      listen("plugins-changed", () => {
+        if (liveTv.loaded()) void liveTv.load(true);
+      }),
+      // A plugin's notice (permission "notify", at most 3 a minute, enforced in Rust).
+      listen<{ plugin: string; title: string; detail: string | null }>("plugin-notify", ({ payload }) =>
+        toast.show("info", payload.title, payload.detail ? `${payload.detail} · ${payload.plugin}` : payload.plugin),
+      ),
+    ];
+    return () => offs.forEach((o) => void o.then((f) => f()));
+  }, [toast]);
 
   // Another profile: everything it sees comes again from Rust, already filtered.
   useEffect(() => {

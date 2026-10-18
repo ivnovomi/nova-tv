@@ -17,6 +17,7 @@ export interface NovaHost {
   storageDelete(scope: "plugin" | "profile", key: string): void;
   setting(key: string): string | null | undefined;
   location(): string | null | undefined;
+  notify(title: string, detail?: string): void;
   log(level: "info" | "warn" | "error", message: string): void;
 }
 
@@ -121,6 +122,15 @@ export const location = {
     return raw == null ? undefined : (JSON.parse(raw) as Location);
   },
 };
+
+/**
+ * A short notice in NOVA, with the plugin's name (needs the `notify` permission).
+ * At most 3 a minute: more are dropped. For things that matter now
+ * ("Empieza el partido"), not for every refresh.
+ */
+export function notify(title: string, detail?: string): void {
+  host().notify(title, detail);
+}
 
 const text = (parts: unknown[]) => parts.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ");
 

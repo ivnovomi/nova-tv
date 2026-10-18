@@ -384,6 +384,11 @@ pub fn init(app: &AppHandle) {
     let _ = APP.set(app.clone());
 }
 
+/// NOVA, for plugin services that need it (notices, location).
+pub fn app() -> Option<&'static AppHandle> {
+    APP.get()
+}
+
 pub enum Probe {
     /// The plugin answered (its `check()`, or its proxied playlist loaded or not).
     Answer(bool),

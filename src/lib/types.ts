@@ -397,6 +397,21 @@ export interface PluginRows {
   rows: PluginRow[];
 }
 
+export interface PluginResults {
+  plugin: string;
+  name: string;
+  items: PluginItem[];
+}
+
+/** A city (Ajustes → Privacidad y datos), for plugins with `location`. */
+export interface Place {
+  city: string;
+  country: string;
+  region?: string | null;
+  latitude: number;
+  longitude: number;
+}
+
 export interface PluginLogLine {
   at: number;
   level: "info" | "warn" | "error";

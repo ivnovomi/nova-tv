@@ -24,7 +24,8 @@ import { ContinueTile } from "../components/VideoTiles";
 import { useToast } from "../components/Toasts";
 import { useGameMeta } from "./gaming/useGameMeta";
 import { api } from "../lib/api";
-import type { Channel, FileHit, SettingsPage, Shortcut, YtResult } from "../lib/types";
+import type { Channel, FileHit, PluginResults, SettingsPage, Shortcut, YtResult } from "../lib/types";
+import { PluginTile, useRunAction } from "./PluginRows";
 import { ChannelLogo } from "./livetv/TvMode";
 import { groupLabel, liveTv, useLiveTv } from "./livetv/store";
 
@@ -146,6 +147,8 @@ export function SearchScreen() {
   const [videosError, setVideosError] = useState<string | null>(null);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [files, setFiles] = useState<FileHit[]>([]);
+  const [pluginResults, setPluginResults] = useState<PluginResults[]>([]);
+  const { run: runPluginItem, modal: pluginModal } = useRunAction();
   const request = useRef(0);
 
   const words = useMemo(() => fold(query).split(/\s+/).filter(Boolean), [query]);
@@ -158,12 +161,17 @@ export function SearchScreen() {
     if (!active) {
       setVideos(null);
       setFiles([]);
+      setPluginResults([]);
       setLoadingVideos(false);
       return;
     }
     const filesTimer = window.setTimeout(() => {
       api.searchFiles(query).then((f) => id === request.current && setFiles(f), () => {});
     }, 250);
+    // Plugins with `search` (NOVA waits at most 5 s for them).
+    const pluginsTimer = window.setTimeout(() => {
+      api.pluginsSearch(query).then((r) => id === request.current && setPluginResults(r), () => {});
+    }, 500);
     setLoadingVideos(true);
     const ytTimer = window.setTimeout(() => {
       api.youtubeSearch(query).then(
@@ -181,6 +189,7 @@ export function SearchScreen() {
     }, 650);
     return () => {
       window.clearTimeout(filesTimer);
+      window.clearTimeout(pluginsTimer);
       window.clearTimeout(ytTimer);
     };
   }, [query, active]);
@@ -215,7 +224,7 @@ export function SearchScreen() {
     return [...byName, ...byGroup].slice(0, 40);
   }, [active, tv.data, words]);
   const nothing =
-    active && !loadingVideos && !games.length && !apps.length && !streaming.length && !watched.length && !files.length && !matchingSettings.length && !videos?.length && !tvChannels.length;
+    active && !loadingVideos && !games.length && !apps.length && !streaming.length && !watched.length && !files.length && !matchingSettings.length && !videos?.length && !tvChannels.length && !pluginResults.length;
 
   const remember = () => {
     saveRecent(query);
@@ -354,6 +363,13 @@ export function SearchScreen() {
                 ))}
               </Group>
             )}
+            {pluginResults.map((r) => (
+              <Group key={r.plugin} title={r.name} count={r.items.length}>
+                {r.items.map((item) => (
+                  <PluginTile key={item.id} item={item} style="landscape" onActivate={() => { remember(); runPluginItem(item); }} />
+                ))}
+              </Group>
+            ))}
             <Group title="YouTube">
               {loadingVideos && !videos ? (
                 <p className="flex items-center gap-3 py-6 text-[1.1rem] text-ink-3">
@@ -405,6 +421,7 @@ export function SearchScreen() {
           </>
         )}
       </div>
+      {pluginModal}
     </div>
   );
 }

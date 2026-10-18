@@ -56,6 +56,8 @@ pub struct Env {
     deadline: Mutex<Instant>,
     /// The (opaque) profile of the call in progress, for `storage.profile`.
     profile: Mutex<Option<String>>,
+    /// When its last notices were shown (for the limit).
+    notices: Mutex<VecDeque<Instant>>,
 }
 
 impl Env {
@@ -67,6 +69,7 @@ impl Env {
             log: Mutex::new(VecDeque::new()),
             deadline: Mutex::new(Instant::now() + JS_TIME),
             profile: Mutex::new(None),
+            notices: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -314,8 +317,45 @@ fn install<'js>(ctx: &Ctx<'js>, env: &Arc<Env>) -> rquickjs::Result<()> {
             if !e.manifest.permissions.location {
                 return Err(Exception::throw_message(&ctx, "El plugin no tiene el permiso «location»"));
             }
-            // NOVA doesn't ask for a city yet: no location to give.
-            Ok(None)
+            // The city the user chose in NOVA, never GPS or IP; coordinates rounded to about 10 km.
+            let place = super::tv::app().and_then(|app| {
+                use tauri::Manager;
+                app.state::<crate::AppState>().config.snapshot().location
+            });
+            let round = |x: f64| (x * 10.0).round() / 10.0;
+            Ok(place.map(|p| serde_json::json!({ "city": p.city, "country": p.country, "latitude": round(p.latitude), "longitude": round(p.longitude) }).to_string()))
+        })?,
+    )?;
+
+    let e = env.clone();
+    nova.set(
+        "notify",
+        // `Opt`: the detail can be left out (a plain Option would still be required).
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, title: String, detail: rquickjs::function::Opt<String>| -> rquickjs::Result<()> {
+            let detail = detail.0;
+            if !e.manifest.permissions.notify {
+                return Err(Exception::throw_message(&ctx, "El plugin no tiene el permiso «notify»"));
+            }
+            // At most 3 notices a minute per plugin: more are dropped, not queued.
+            let now = Instant::now();
+            let mut sent = e.notices.lock().unwrap_or_else(|p| p.into_inner());
+            sent.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
+            if sent.len() >= 3 {
+                e.push_log("warn", "Aviso descartado: máximo 3 por minuto");
+                return Ok(());
+            }
+            sent.push_back(now);
+            let clean = |s: &str, max: usize| s.trim().chars().filter(|c| !c.is_control()).take(max).collect::<String>();
+            let title = clean(&title, 80);
+            if title.is_empty() {
+                return Err(Exception::throw_message(&ctx, "El aviso necesita un título"));
+            }
+            if let Some(app) = super::tv::app() {
+                use tauri::Emitter;
+                let detail = detail.map(|d| clean(&d, 200)).filter(|d| !d.is_empty());
+                let _ = app.emit("plugin-notify", serde_json::json!({ "plugin": e.manifest.name, "title": title, "detail": detail }));
+            }
+            Ok(())
         })?,
     )?;
 
@@ -372,6 +412,23 @@ mod tests {
         assert!(p.call("rows", "nada", serde_json::json!([]), None).unwrap_err().contains("rows.nada"));
         assert!(plugin("const x = 1;").err().unwrap().contains("defineProvider"));
         assert!(plugin("esto no es JavaScript (").is_err());
+    }
+
+    #[test]
+    fn notices_and_location_need_their_permission() {
+        let p = plugin(
+            r#"globalThis.__novaPlugin = { rows: { async load() {
+                 const out = [];
+                 for (const f of [() => __nova.notify("Hola"), () => __nova.location()]) {
+                   try { f(); out.push("permitido"); } catch (e) { out.push(e.message); }
+                 }
+                 return out;
+               } } };"#,
+        )
+        .unwrap();
+        let out = p.call("rows", "load", serde_json::json!([]), None).unwrap();
+        assert!(out[0].as_str().unwrap().contains("notify"), "{out}");
+        assert!(out[1].as_str().unwrap().contains("location"), "{out}");
     }
 
     #[test]

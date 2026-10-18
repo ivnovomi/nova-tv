@@ -29,6 +29,8 @@ import type {
   SystemStats,
   PackageInfo,
   PluginLogLine,
+  Place,
+  PluginResults,
   PluginRows,
   PluginsInfo,
   PowerAction,
@@ -119,6 +121,13 @@ export const api = {
   pluginsSetSetting: (id: string, key: string, value: unknown) => call<void>("plugins_set_setting", { id, key, value }),
   pluginsRollback: (id: string) => call<void>("plugins_rollback", { id }),
   pluginsLog: (id: string) => call<PluginLogLine[]>("plugins_log", { id }),
+  /** Results from plugins with `search` (whatever answers within 5 s). */
+  pluginsSearch: (query: string) => call<PluginResults[]>("plugins_search", { query }),
+  /** Background images from plugins with `screensaver`. */
+  pluginsScreensaver: () => call<string[]>("plugins_screensaver"),
+  locationSearch: (query: string) => call<Place[]>("location_search", { query }),
+  locationGet: () => call<Place | null>("location_get"),
+  locationSet: (place: Place | null) => call<void>("location_set", { place }),
   /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
   pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
   /** A proxied playlist of a plugin stream (only its domains, with its headers). */

@@ -24,22 +24,25 @@ const SPOTS = [
 function useArtwork(): string[] {
   const nova = useNova();
   const [games, setGames] = useState<string[]>([]);
+  const [plugins, setPlugins] = useState<string[]>([]);
   useEffect(() => {
     api.gameMetadata().then(
       (meta) => setGames(Object.values(meta).flatMap((m) => (m.hero ? [m.hero] : []))),
       () => {},
     );
+    // Plugins with `screensaver` add their own backgrounds.
+    api.pluginsScreensaver().then(setPlugins, () => {});
   }, []);
   return useMemo(() => {
     const videos = nova.feed.map((f) => f.thumbnail).concat(nova.history.flatMap((h) => (h.thumbnail ? [h.thumbnail] : [])));
-    const all = [...new Set([...games, ...videos])];
+    const all = [...new Set([...plugins, ...games, ...videos])];
     // Shuffled once per screensaver.
     for (let i = all.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [all[i], all[j]] = [all[j], all[i]];
     }
     return all.slice(0, 40);
-  }, [games, nova.feed, nova.history]);
+  }, [plugins, games, nova.feed, nova.history]);
 }
 
 function Slides({ images }: { images: string[] }) {

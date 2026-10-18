@@ -42,6 +42,8 @@ pub struct Registry {
     errors: Mutex<HashMap<String, String>>,
     /// Rows per (plugin, profile), with when they were loaded.
     rows: Mutex<HashMap<(String, String), (Instant, Vec<Row>)>>,
+    /// Screensaver images per plugin, with when they were loaded.
+    art: Mutex<HashMap<String, (Instant, Vec<String>)>>,
 }
 
 impl Registry {
@@ -53,6 +55,7 @@ impl Registry {
             running: Mutex::new(HashMap::new()),
             errors: Mutex::new(HashMap::new()),
             rows: Mutex::new(HashMap::new()),
+            art: Mutex::new(HashMap::new()),
         };
         registry.clean_staging();
         registry
@@ -100,6 +103,9 @@ impl Registry {
             running.remove(id);
         }
         super::tv::forget(id);
+        if let Ok(mut art) = self.art.lock() {
+            art.remove(id);
+        }
         if let Ok(mut rows) = self.rows.lock() {
             rows.retain(|(plugin, _), _| plugin != id);
         }
@@ -239,6 +245,18 @@ fn action(v: &serde_json::Value) -> Option<serde_json::Value> {
     }
 }
 
+/// One item (a tile), or None if it isn't valid.
+fn clean_item(item: &serde_json::Value) -> Option<Item> {
+    Some(Item {
+        id: text(&item["id"], 100)?,
+        title: text(&item["title"], 120)?,
+        subtitle: text(&item["subtitle"], 120),
+        image: https(&item["image"]),
+        badge: text(&item["badge"], 20),
+        action: action(&item["action"])?,
+    })
+}
+
 /// A plugin's rows, keeping only what's valid (and within sensible sizes).
 fn clean_rows(value: &serde_json::Value) -> Vec<Row> {
     value
@@ -247,22 +265,7 @@ fn clean_rows(value: &serde_json::Value) -> Vec<Row> {
         .flatten()
         .take(5)
         .filter_map(|row| {
-            let items: Vec<Item> = row["items"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .take(40)
-                .filter_map(|item| {
-                    Some(Item {
-                        id: text(&item["id"], 100)?,
-                        title: text(&item["title"], 120)?,
-                        subtitle: text(&item["subtitle"], 120),
-                        image: https(&item["image"]),
-                        badge: text(&item["badge"], 20),
-                        action: action(&item["action"])?,
-                    })
-                })
-                .collect();
+            let items: Vec<Item> = row["items"].as_array().into_iter().flatten().take(40).filter_map(clean_item).collect();
             let style = match row["style"].as_str() {
                 Some("poster") => "poster",
                 Some("square") => "square",
@@ -340,6 +343,122 @@ fn rows_for(app: &AppHandle) -> Vec<PluginRows> {
 #[tauri::command]
 pub async fn plugins_rows(app: AppHandle) -> Vec<PluginRows> {
     tauri::async_runtime::spawn_blocking(move || rows_for(&app)).await.unwrap_or_default()
+}
+
+/// The plugins this profile gets that have `permission`.
+fn with_permission(app: &AppHandle, permission: fn(&Permissions) -> bool) -> Vec<(Manifest, PluginState)> {
+    let config = app.state::<AppState>().config.snapshot();
+    let kids = crate::profiles::active(&config).kids;
+    app.state::<Registry>()
+        .installed()
+        .into_iter()
+        .filter_map(|(m, _)| {
+            let state = config.plugins.installed.get(&m.id)?.clone();
+            (permission(&m.permissions) && visible(&m, &state, kids)).then_some((m, state))
+        })
+        .collect()
+}
+
+// ───────────────────────── Search ─────────────────────────
+
+/// How long a search waits for plugins: the slow ones are left out of this search.
+const SEARCH_WAIT: Duration = Duration::from_secs(5);
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginResults {
+    plugin: String,
+    name: String,
+    items: Vec<Item>,
+}
+
+/// Results from plugins with `search`, for NOVA's search. Asked in parallel;
+/// whatever hasn't answered in 5 s isn't waited for.
+#[tauri::command]
+pub async fn plugins_search(query: String, app: AppHandle) -> Vec<PluginResults> {
+    let query: String = query.trim().chars().filter(|c| !c.is_control()).take(100).collect();
+    if query.chars().count() < 2 {
+        return vec![];
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let profile = crate::profiles::active(&app.state::<AppState>().config.snapshot());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let candidates = with_permission(&app, |p| p.search);
+        let asked = candidates.len();
+        for (manifest, state) in candidates {
+            let (app, tx, query, profile) = (app.clone(), tx.clone(), query.clone(), profile.clone());
+            std::thread::spawn(move || {
+                let registry = app.state::<Registry>();
+                let (ctx, opaque) = context(&manifest.id, &profile);
+                let result = registry.plugin(&manifest.id, &state).and_then(|p| p.call("search", "search", serde_json::json!([query, ctx]), Some(opaque)));
+                match result {
+                    Ok(value) => {
+                        let items: Vec<Item> = value.as_array().into_iter().flatten().take(30).filter_map(clean_item).collect();
+                        let _ = tx.send(PluginResults { plugin: manifest.id, name: manifest.name, items });
+                    }
+                    Err(e) => registry.note_error(&manifest.id, &e),
+                }
+            });
+        }
+        drop(tx);
+        let deadline = Instant::now() + SEARCH_WAIT;
+        let mut out = Vec::new();
+        while out.len() < asked {
+            let left = deadline.saturating_duration_since(Instant::now());
+            match rx.recv_timeout(left) {
+                Ok(r) => out.push(r),
+                Err(_) => break,
+            }
+        }
+        out.retain(|r: &PluginResults| !r.items.is_empty());
+        out
+    })
+    .await
+    .unwrap_or_default()
+}
+
+// ───────────────────────── Screensaver ─────────────────────────
+
+/// Background images from plugins with `screensaver` (HTTPS, at most 50 each).
+#[tauri::command]
+pub async fn plugins_screensaver(app: AppHandle) -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let profile = crate::profiles::active(&app.state::<AppState>().config.snapshot());
+        let handles: Vec<_> = with_permission(&app, |p| p.screensaver)
+            .into_iter()
+            .map(|(manifest, state)| {
+                let (app, profile) = (app.clone(), profile.clone());
+                std::thread::spawn(move || {
+                    let registry = app.state::<Registry>();
+                    let cached = registry.art.lock().ok().and_then(|a| a.get(&manifest.id).cloned());
+                    let plugin = registry.plugin(&manifest.id, &state);
+                    let ttl = plugin.as_ref().ok().map(|p| refresh_secs(p.refresh("screensaver"), 24 * 3600, 15 * 60)).unwrap_or(24 * 3600);
+                    if let Some((at, images)) = &cached {
+                        if at.elapsed() < Duration::from_secs(ttl) {
+                            return images.clone();
+                        }
+                    }
+                    let (ctx, opaque) = context(&manifest.id, &profile);
+                    match plugin.and_then(|p| p.call("screensaver", "load", serde_json::json!([ctx]), Some(opaque))) {
+                        Ok(value) => {
+                            let images: Vec<String> = value.as_array().into_iter().flatten().filter_map(https).take(50).collect();
+                            if let Ok(mut art) = registry.art.lock() {
+                                art.insert(manifest.id.clone(), (Instant::now(), images.clone()));
+                            }
+                            images
+                        }
+                        Err(e) => {
+                            registry.note_error(&manifest.id, &e);
+                            cached.map(|(_, i)| i).unwrap_or_default()
+                        }
+                    }
+                })
+            })
+            .collect();
+        handles.into_iter().filter_map(|h| h.join().ok()).flatten().collect()
+    })
+    .await
+    .unwrap_or_default()
 }
 
 // ───────────────────────── Ajustes → Plugins ─────────────────────────

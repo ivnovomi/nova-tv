@@ -19,7 +19,7 @@ import type { Duration, ProviderDefinition } from "./types";
 
 export * from "./types";
 export type { Manifest, Permissions, Setting } from "./manifest";
-export { http, HttpError, storage, settings, location, log } from "./host";
+export { http, HttpError, storage, settings, location, log, notify } from "./host";
 export type { NovaHost } from "./host";
 
 /** API version this SDK speaks. Goes in the manifest as `"api": 1`. */

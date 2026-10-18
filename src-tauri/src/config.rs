@@ -142,6 +142,22 @@ pub struct Config {
     pub updates: UpdatesConfig,
     #[serde(default)]
     pub plugins: PluginsConfig,
+    /// The city the user chose (Ajustes → Privacidad y datos), for plugins with `location`.
+    #[serde(default)]
+    pub location: Option<Place>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Place {
+    pub city: String,
+    /// "España"…
+    pub country: String,
+    /// Region or province, to tell places with the same name apart.
+    #[serde(default)]
+    pub region: Option<String>,
+    pub latitude: f64,
+    pub longitude: f64,
 }
 
 /// Ajustes → Plugins: what the user decided about each installed plugin.

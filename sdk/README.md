@@ -205,6 +205,18 @@ const donde = location.get();                        // { city, country, latitud
 log.info("Cargados", lista.length, "canales");       // se ve en `nova dev` y en Ajustes → Plugins → Registro
 ```
 
+`location.get()` devuelve la ciudad que el usuario eligió en **Ajustes → Privacidad y datos → Tu ciudad**, con las coordenadas redondeadas a unos 10 km. Si no ha elegido ninguna, `undefined`: ten siempre un plan B (por ejemplo, una opción en tu manifiesto).
+
+### `notify`
+
+```ts
+import { notify } from "@novatv/sdk";
+
+notify("Empieza el partido", "Real Madrid – Barça, en el canal 5003");   // necesita "notify"
+```
+
+Un aviso breve en NOVA, con el nombre de tu plugin. Como mucho **3 por minuto**: los demás se descartan. Úsalo para lo que importa ahora, no en cada refresco.
+
 ---
 
 ## Ejercicio: Twitch y Pluto TV

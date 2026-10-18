@@ -35,7 +35,7 @@ const SIZE: Record<PluginRow["style"], string> = {
   square: "h-[12.5rem] w-[12.5rem]",
 };
 
-function PluginTile({ item, style, onActivate }: { item: PluginItem; style: PluginRow["style"]; onActivate: () => void }) {
+export function PluginTile({ item, style, onActivate }: { item: PluginItem; style: PluginRow["style"]; onActivate: () => void }) {
   const [failed, setFailed] = useState(false);
   return (
     <button
@@ -60,7 +60,7 @@ function PluginTile({ item, style, onActivate }: { item: PluginItem; style: Plug
 }
 
 /** What a plugin's item does, within what NOVA allows. */
-function useRunAction() {
+export function useRunAction() {
   const nova = useNova();
   const toast = useToast();
   const [detail, setDetail] = useState<Extract<PluginAction, { type: "detail" }> & { fallback: string } | null>(null);

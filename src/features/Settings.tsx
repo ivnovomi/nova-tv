@@ -4,6 +4,7 @@ import { enable as enableAutostart, disable as disableAutostart, isEnabled as au
 import { Activity, ArrowDownToLine, Info, Puzzle, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
 import { SourcesStatus } from "./SourcesStatus";
 import { UpdatesSettings } from "./Updates";
+import type { Place } from "../lib/types";
 import { PluginsSettings } from "./PluginsSettings";
 import { SCREENSAVER_CHOICES, screensaverMinutes, setScreensaverMinutes } from "../app/power";
 import { isUnlocked, useActiveProfile, useProfiles } from "../app/profiles";
@@ -29,18 +30,39 @@ export function startsOnTv() {
 
 type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "sources" | "privacy" | "system" | "plugins" | "updates" | "about";
 
-const SECTIONS: { id: SectionId; label: string; icon: ComponentType<LucideProps> }[] = [
-  { id: "profiles", label: "Perfiles y control parental", icon: Users },
-  { id: "appearance", label: "Apariencia", icon: Palette },
-  { id: "startup", label: "Inicio y energía", icon: Power },
-  { id: "remote", label: "Mando del móvil", icon: Smartphone },
-  { id: "tv", label: "TV en directo", icon: RadioTower },
-  { id: "sources", label: "Estado de las fuentes", icon: Activity },
-  { id: "privacy", label: "Privacidad y datos", icon: Shield },
-  { id: "system", label: "Este equipo", icon: Monitor },
-  { id: "plugins", label: "Plugins", icon: Puzzle },
-  { id: "updates", label: "Actualizaciones", icon: ArrowDownToLine },
-  { id: "about", label: "Acerca de NOVA", icon: Info },
+type SectionInfo = { id: SectionId; label: string; icon: ComponentType<LucideProps>; tint: string };
+
+/** The sections, grouped by what they're about; each with its own colour. */
+const GROUPS: { label: string; sections: SectionInfo[] }[] = [
+  {
+    label: "Tú",
+    sections: [
+      { id: "profiles", label: "Perfiles y control parental", icon: Users, tint: "#8b89ff" },
+      { id: "appearance", label: "Apariencia", icon: Palette, tint: "#c08bff" },
+      { id: "startup", label: "Inicio y energía", icon: Power, tint: "#ffb547" },
+    ],
+  },
+  {
+    label: "TV y contenido",
+    sections: [
+      { id: "tv", label: "TV en directo", icon: RadioTower, tint: "#ff6b9a" },
+      { id: "sources", label: "Estado de las fuentes", icon: Activity, tint: "#3ddc97" },
+      { id: "plugins", label: "Plugins", icon: Puzzle, tint: "#3fd5f2" },
+    ],
+  },
+  {
+    label: "Conexiones",
+    sections: [{ id: "remote", label: "Mando del móvil", icon: Smartphone, tint: "#5c9bff" }],
+  },
+  {
+    label: "Sistema",
+    sections: [
+      { id: "system", label: "Este equipo", icon: Monitor, tint: "#a9b2d8" },
+      { id: "privacy", label: "Privacidad y datos", icon: Shield, tint: "#2fc7a8" },
+      { id: "updates", label: "Actualizaciones", icon: ArrowDownToLine, tint: "#3fd5f2" },
+      { id: "about", label: "Acerca de NOVA", icon: Info, tint: "#a9b2d8" },
+    ],
+  },
 ];
 
 function readPref(key: string, fallback: boolean) {
@@ -350,7 +372,82 @@ function Privacy() {
           Borrar
         </button>
       </div>
+      <CityCard />
     </Section>
+  );
+}
+
+/** "Tu ciudad": only for plugins with the location permission (the weather, local news…). */
+function CityCard() {
+  const toast = useToast();
+  const [place, setPlace] = useState<Place | null>(null);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Place[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (inTauri) api.locationGet().then(setPlace, () => {});
+  }, []);
+  const search = async () => {
+    setBusy(true);
+    try {
+      setResults(await api.locationSearch(query));
+    } catch (e) {
+      toast.show("error", "No se pudo buscar", e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = (next: Place | null) =>
+    api.locationSet(next).then(
+      () => {
+        setPlace(next);
+        setResults(null);
+        setQuery("");
+        toast.show("success", next ? `Ciudad: ${next.city}` : "Ciudad quitada");
+      },
+      (e: Error) => toast.show("error", "No se pudo guardar", e.message),
+    );
+  const where = (p: Place) => [p.city, p.region, p.country].filter(Boolean).join(", ");
+  return (
+    <div className="surface rounded-2xl px-6 py-5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="min-w-[16rem] flex-1">
+          <p className="text-[1.25rem] font-semibold">Tu ciudad</p>
+          <p className="text-[1rem] text-ink-3">
+            {place ? where(place) : "Sin indicar."} Solo la reciben los plugins con permiso de ubicación, redondeada a unos 10 km. NOVA nunca usa GPS ni tu IP.
+          </p>
+        </div>
+        {place && (
+          <button data-nav onClick={() => void save(null)} className="focus-lift btn btn-danger">
+            Quitar
+          </button>
+        )}
+      </div>
+      <form
+        className="mt-4 flex flex-wrap gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (query.trim().length >= 2) void search();
+        }}
+      >
+        <span className="block w-full max-w-[24rem]">
+          <input data-nav className="field" placeholder="Escribe tu ciudad" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={80} />
+        </span>
+        <button data-nav type="submit" disabled={busy || query.trim().length < 2} className="focus-lift btn btn-ghost">
+          {busy ? <LoaderCircle className="size-5 spin" /> : null} Buscar
+        </button>
+      </form>
+      {results && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {results.length === 0 && <p className="text-[1rem] text-ink-3">No se ha encontrado ninguna ciudad con ese nombre.</p>}
+          {results.map((r) => (
+            <button key={`${r.latitude},${r.longitude}`} data-nav onClick={() => void save(r)} className="focus-lift btn btn-ghost">
+              {where(r)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -393,23 +490,36 @@ export function SettingsScreen() {
   if (profile?.kids && !isUnlocked(info)) return <KidsLock />;
   return (
     <div className="grid h-full grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] gap-[clamp(1.5rem,2.5vw,2.5rem)] px-[var(--gutter)] pb-8 pt-2">
-      <nav aria-label="Ajustes" className="no-scrollbar min-h-0 overflow-y-auto pb-6">
-        <p className="eyebrow mb-2 px-4 text-cyan">NOVA</p>
-        <h1 className="mb-6 px-4 text-[2.6rem] font-semibold tracking-tight">Ajustes</h1>
-        {SECTIONS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            data-nav
-            data-autofocus={id === "profiles" || undefined}
-            onFocus={() => setSection(id)}
-            onClick={() => setSection(id)}
-            className={`focus-ring mb-1 flex w-full items-center gap-4 rounded-2xl px-4 py-3.5 text-left text-[1.2rem] ${
-              id === section ? "bg-white/12 font-semibold text-ink-1" : "text-ink-2"
-            }`}
-          >
-            <Icon className="size-6 shrink-0" strokeWidth={1.8} />
-            {label}
-          </button>
+      {/* Scrolls on small windows; the inner padding leaves room so the focus ring is never clipped. */}
+      <nav aria-label="Ajustes" className="no-scrollbar -mx-3 min-h-0 overflow-y-auto px-3 pb-6 pt-1">
+        <p className="eyebrow mb-1 px-3 text-cyan">NOVA</p>
+        <h1 className="mb-3 px-3 text-[2.3rem] font-semibold tracking-tight">Ajustes</h1>
+        {GROUPS.map((group) => (
+          <div key={group.label} className="mt-3 first-of-type:mt-0">
+            <p className="mb-1.5 px-3 text-[0.8rem] font-semibold uppercase tracking-[0.14em] text-ink-3">{group.label}</p>
+            {group.sections.map(({ id, label, icon: Icon, tint }) => {
+              const active = id === section;
+              return (
+                <button
+                  key={id}
+                  data-nav
+                  data-autofocus={id === "profiles" || undefined}
+                  aria-current={active ? "page" : undefined}
+                  onFocus={() => setSection(id)}
+                  onClick={() => setSection(id)}
+                  className={`focus-ring relative mb-1 flex w-full items-center gap-3.5 rounded-2xl px-3 py-1.5 text-left text-[1.15rem] transition-colors ${
+                    active ? "bg-white/[0.09] font-semibold text-ink-1" : "text-ink-2 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {active && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full" style={{ background: tint, boxShadow: `0 0 0.8rem ${tint}` }} />}
+                  <span className="grid size-[2.3rem] shrink-0 place-items-center rounded-xl" style={{ background: `${tint}${active ? "33" : "1f"}`, color: tint }}>
+                    <Icon className="size-[1.3rem]" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 truncate">{label}</span>
+                </button>
+              );
+            })}
+          </div>
         ))}
       </nav>
       <div className="page-scroll min-h-0 overflow-y-auto pb-10 pr-2 pt-4">

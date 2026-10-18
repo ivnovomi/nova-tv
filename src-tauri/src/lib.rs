@@ -4,6 +4,7 @@ mod gamewatch;
 mod history;
 mod livetv;
 mod livetv_health;
+mod location;
 mod metadata;
 mod net;
 mod nowplaying;
@@ -136,6 +137,11 @@ pub fn run() {
             plugins::registry::plugins_set_setting,
             plugins::registry::plugins_rollback,
             plugins::registry::plugins_log,
+            plugins::registry::plugins_search,
+            plugins::registry::plugins_screensaver,
+            location::location_search,
+            location::location_get,
+            location::location_set,
             plugins::tv::plugins_stream,
             plugins::tv::plugins_playlist,
             splash::splash_step,
