@@ -175,23 +175,49 @@ pub fn channels(app: &AppHandle) -> Vec<Channel> {
                 if let Some((at, list, _)) = &cached
                     && at.elapsed() < fresh_for
                 {
+                    registry.log(&manifest.id, "info", &format!("canales: {} de la copia guardada (hace {} min)", list.len(), at.elapsed().as_secs() / 60));
                     return list.clone();
                 }
                 let (ctx, opaque) = context(&manifest.id, &profile);
+                let started = Instant::now();
                 match plugin.and_then(|p| p.call("channels", "load", serde_json::json!([ctx]), Some(opaque))) {
                     Ok(value) => {
                         let mut seen = HashSet::new();
                         let mut list = Vec::new();
                         let mut fixed = HashMap::new();
+                        let (mut invalid, mut repeated) = (Vec::new(), 0);
+                        let given = value.as_array().map_or(0, |a| a.len());
                         for (i, v) in value.as_array().into_iter().flatten().take(MAX_CHANNELS).enumerate() {
-                            let Some((channel, stream)) = clean_channel(v, &manifest, block, i) else { continue };
+                            let Some((channel, stream)) = clean_channel(v, &manifest, block, i) else {
+                                invalid.push(v["id"].as_str().or(v["name"].as_str()).unwrap_or("?").chars().take(40).collect::<String>());
+                                continue;
+                            };
                             if !seen.insert(channel.id.clone()) {
+                                repeated += 1;
                                 continue;
                             }
                             if let Some(s) = stream {
                                 fixed.insert(channel.id.clone(), s);
                             }
                             list.push(channel);
+                        }
+                        let kids = list.iter().filter(|c| c.categories.iter().any(|k| k == "Infantil")).count();
+                        registry.log(
+                            &manifest.id,
+                            "info",
+                            &format!(
+                                "canales: el plugin dio {given} en {} ms → {} en la TV (números {}–{}, {kids} infantiles, {} con emisión fija), {} no válidos, {repeated} repetidos{}",
+                                started.elapsed().as_millis(),
+                                list.len(),
+                                block.0,
+                                block.1,
+                                fixed.len(),
+                                invalid.len(),
+                                if given > MAX_CHANNELS { format!(", {} sobran (máximo {MAX_CHANNELS})", given - MAX_CHANNELS) } else { String::new() },
+                            ),
+                        );
+                        if !invalid.is_empty() {
+                            registry.log(&manifest.id, "warn", &format!("canales descartados (sin id o nombre válidos): {}", invalid.iter().take(20).cloned().collect::<Vec<_>>().join(", ")));
                         }
                         if let Ok(mut c) = CHANNELS.lock() {
                             c.insert(manifest.id.clone(), (Instant::now(), list.clone(), fixed));
@@ -200,6 +226,7 @@ pub fn channels(app: &AppHandle) -> Vec<Channel> {
                     }
                     Err(e) => {
                         registry.note_error(&manifest.id, &e);
+                        registry.log(&manifest.id, "error", &format!("canales: falló la carga ({e}); se usan los {} guardados", cached.as_ref().map_or(0, |(_, l, _)| l.len())));
                         cached.map(|(_, list, _)| list).unwrap_or_default()
                     }
                 }
@@ -244,10 +271,18 @@ pub fn guide(app: &AppHandle) -> HashMap<String, Vec<Program>> {
         let now = crate::config::now_secs() as i64;
         let (ctx, opaque) = context(&plugin_id, &profile);
         let range = serde_json::json!({ "from": now - 3600, "to": now + 12 * 3600 });
+        let started = Instant::now();
+        let asked = ids.len();
+        let known: HashSet<String> = ids.iter().cloned().collect();
         let programs = match plugin.call("guide", "load", serde_json::json!([ids, range, ctx]), Some(opaque)) {
             Ok(value) => {
                 let mut programs = HashMap::new();
+                let (mut given, mut dropped, mut strangers) = (0usize, 0usize, Vec::new());
                 for (local, list) in value.as_object().into_iter().flatten() {
+                    if !known.contains(local) {
+                        strangers.push(local.clone());
+                    }
+                    given += list.as_array().map_or(0, |a| a.len());
                     let cleaned: Vec<Program> = list
                         .as_array()
                         .into_iter()
@@ -266,9 +301,22 @@ pub fn guide(app: &AppHandle) -> HashMap<String, Vec<Program>> {
                             })
                         })
                         .collect();
+                    dropped += list.as_array().map_or(0, |a| a.len().min(200)) - cleaned.len();
                     if !cleaned.is_empty() {
                         programs.insert(format!("{PREFIX}{plugin_id}:{local}"), cleaned);
                     }
+                }
+                let kept: usize = programs.values().map(Vec::len).sum();
+                registry.log(
+                    &plugin_id,
+                    "info",
+                    &format!("guía: pedida para {asked} canales, llegó en {} ms con {given} programas → {kept} en la guía, para {} canales", started.elapsed().as_millis(), programs.len()),
+                );
+                if dropped > 0 {
+                    registry.log(&plugin_id, "warn", &format!("guía: {dropped} programas descartados (sin título, horas en milisegundos o fin antes del principio)"));
+                }
+                if !strangers.is_empty() {
+                    registry.log(&plugin_id, "warn", &format!("guía: {} canales que el plugin no tiene: {}", strangers.len(), strangers.iter().take(10).cloned().collect::<Vec<_>>().join(", ")));
                 }
                 if let Ok(mut g) = GUIDE.lock() {
                     g.insert(plugin_id.clone(), (Instant::now(), programs.clone()));
@@ -277,6 +325,7 @@ pub fn guide(app: &AppHandle) -> HashMap<String, Vec<Program>> {
             }
             Err(e) => {
                 registry.note_error(&plugin_id, &e);
+                registry.log(&plugin_id, "error", &format!("guía: falló ({e}); se usa la guardada"));
                 cached.map(|(_, p)| p).unwrap_or_default()
             }
         };
@@ -308,8 +357,37 @@ pub struct Resolved {
     plugin: String,
 }
 
-/// The stream of a plugin channel, right now. `retry` asks the plugin for a fresh one.
+/// A URL for the log: no query string (where tokens travel), not too long.
+fn redact(url: &str) -> String {
+    let base = url.split(['?', '#']).next().unwrap_or(url);
+    let mut out: String = base.chars().take(140).collect();
+    if url.len() > base.len() {
+        out.push_str("?…");
+    }
+    out
+}
+
+/// The stream of a plugin channel, right now, for the player (logged in the
+/// plugin's log). `retry` asks the plugin for a fresh one.
 pub fn resolve(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolved, String> {
+    let started = Instant::now();
+    let result = resolve_quiet(app, channel_id, retry);
+    if let Some((plugin_id, local)) = split(channel_id) {
+        let registry = app.state::<Registry>();
+        let again = if retry { " (reintento: la anterior fue rechazada)" } else { "" };
+        match &result {
+            Ok(r) => registry.log(
+                plugin_id,
+                "info",
+                &format!("sintonizar «{local}»{again}: {} en {} ms{}", redact(&r.stream), started.elapsed().as_millis(), if r.proxy { " · listas por el proxy" } else { "" }),
+            ),
+            Err(e) => registry.log(plugin_id, "error", &format!("sintonizar «{local}»{again}: {e}")),
+        }
+    }
+    result
+}
+
+fn resolve_quiet(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolved, String> {
     let (plugin_id, local) = split(channel_id).ok_or("Canal de plugin no válido")?;
     let config = app.state::<AppState>().config.snapshot();
     let profile = crate::profiles::active(&config);
@@ -337,7 +415,7 @@ pub fn resolve(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolve
     } else {
         fixed.ok_or("Este canal no tiene emisión")?
     };
-    let stream = clean_stream(&raw).ok_or("El plugin devolvió una emisión no válida")?;
+    let stream = clean_stream(&raw).ok_or_else(|| format!("El plugin devolvió una emisión no válida: {}", redact(&raw.to_string())))?;
     let proxy = stream["type"] == "hls" && stream["proxy"].as_bool().unwrap_or(false);
     if proxy {
         let headers: HashMap<String, String> = raw["headers"]
@@ -362,8 +440,25 @@ pub fn resolve(app: &AppHandle, channel_id: &str, retry: bool) -> Result<Resolve
     Ok(Resolved { stream: url, proxy, plugin: plugin_id.to_string() })
 }
 
-/// A proxied playlist for the player: only the plugin's domains, with its headers.
+/// A proxied playlist for the player, logged: every failure, and the master
+/// playlists (the rest are refreshed every few seconds while a channel plays).
 pub fn playlist(app: &AppHandle, plugin_id: &str, url: &str) -> Result<String, String> {
+    let started = Instant::now();
+    let result = playlist_quiet(app, plugin_id, url);
+    let registry = app.state::<Registry>();
+    match &result {
+        Ok(body) if url.split('?').next().is_some_and(|p| p.ends_with("master.m3u8")) => {
+            let variants = body.lines().filter(|l| l.starts_with("#EXT-X-STREAM-INF")).count();
+            registry.log(plugin_id, "info", &format!("proxy: {} → {} calidades, en {} ms", redact(url), variants, started.elapsed().as_millis()));
+        }
+        Ok(_) => {}
+        Err(e) => registry.log(plugin_id, "error", &format!("proxy: {} → {e}", redact(url))),
+    }
+    result
+}
+
+/// A proxied playlist: only for a plugin that's on, only its domains, with its headers.
+fn playlist_quiet(app: &AppHandle, plugin_id: &str, url: &str) -> Result<String, String> {
     let registry = app.state::<Registry>();
     let manifest = registry.installed_manifests().into_iter().find(|m| m.id == plugin_id).ok_or("Ese plugin no está instalado")?;
     // Only for a plugin that's on, with the domains the user approved.
@@ -374,10 +469,12 @@ pub fn playlist(app: &AppHandle, plugin_id: &str, url: &str) -> Result<String, S
     let headers = PROXY_HEADERS.lock().ok().and_then(|h| h.get(plugin_id).cloned()).unwrap_or_default();
     let response = super::http::fetch(&manifest, super::http::Request { url: url.to_string(), method: None, headers, body: None, timeout: Some(15) })?;
     if response.status != 200 {
-        return Err(format!("HTTP {}", response.status));
+        let moved = response.headers.get("location").map(|l| format!(" (redirige a {})", redact(l))).unwrap_or_default();
+        return Err(format!("HTTP {}{moved}", response.status));
     }
     if !response.body.trim_start().starts_with("#EXTM3U") {
-        return Err("HTTP 404".into());
+        let start: String = response.body.trim_start().chars().take(60).filter(|c| !c.is_control()).collect();
+        return Err(format!("HTTP 404 (no es una lista .m3u8; empieza por «{start}»)"));
     }
     Ok(response.body)
 }
@@ -416,16 +513,34 @@ pub enum Probe {
     Stream(String),
 }
 
-/// Signal check of a `plugin:` stream.
+/// Signal check of a `plugin:` stream. One line per channel in the plugin's
+/// log, with the reason when there's no signal.
 pub fn probe(stream: &str) -> Probe {
     let Some(app) = APP.get() else { return Probe::Answer(false) };
+    let Some((plugin_id, local)) = split(stream) else { return Probe::Answer(false) };
+    let registry = app.state::<Registry>();
+    let say = |ok: bool, how: String| registry.log(plugin_id, if ok { "info" } else { "warn" }, &format!("señal «{local}»: {}{how}", if ok { "✓" } else { "sin señal — " }));
     if let Some(answer) = check(app, stream) {
+        say(answer, if answer { " (según su check())".into() } else { "su check() dice que no emite".into() });
         return Probe::Answer(answer);
     }
-    match resolve(app, stream, false) {
-        Ok(r) if r.proxy => Probe::Answer(playlist(app, &r.plugin, &r.stream).is_ok()),
+    match resolve_quiet(app, stream, false) {
+        Ok(r) if r.proxy => match playlist_quiet(app, &r.plugin, &r.stream) {
+            Ok(_) => {
+                say(true, String::new());
+                Probe::Answer(true)
+            }
+            Err(e) => {
+                say(false, format!("la lista {} no llega por el proxy: {e}", redact(&r.stream)));
+                Probe::Answer(false)
+            }
+        },
+        // A direct stream: live TV checks it like any other channel.
         Ok(r) => Probe::Stream(r.stream),
-        Err(_) => Probe::Answer(false),
+        Err(e) => {
+            say(false, format!("no se pudo pedir la emisión: {e}"));
+            Probe::Answer(false)
+        }
     }
 }
 

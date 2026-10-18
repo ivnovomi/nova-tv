@@ -155,6 +155,15 @@ impl Registry {
         }
     }
 
+    /// A line in the plugin's log from NOVA itself (what NOVA did with what the
+    /// plugin gave it), marked "NOVA:". Only while the plugin is running.
+    pub(crate) fn log(&self, id: &str, level: &str, message: &str) {
+        let plugin = self.running.lock().ok().and_then(|r| r.get(id).cloned());
+        if let Some(p) = plugin {
+            p.env.push_log(level, &format!("NOVA: {message}"));
+        }
+    }
+
     /// Whether `id` is being run by `nova dev`.
     pub(crate) fn is_dev(&self, id: &str) -> bool {
         self.dev.lock().is_ok_and(|d| d.iter().any(|(m, _)| m.id == id))
@@ -165,14 +174,28 @@ impl Registry {
         if let Some(p) = self.running.lock().ok().and_then(|r| r.get(id).cloned()) {
             return Ok(p);
         }
+        let clock = Instant::now();
         let started = self.start(id, state);
         match &started {
             Ok(p) => {
+                let mut parts: Vec<String> = p.parts.iter().map(|(name, part)| format!("{name}({})", part.functions.join(", "))).collect();
+                parts.sort();
+                p.env.push_log(
+                    "info",
+                    &format!(
+                        "NOVA: arrancado {} {} en {} ms{} · aporta {}",
+                        p.env.manifest.name,
+                        p.env.manifest.version,
+                        clock.elapsed().as_millis(),
+                        if self.is_dev(id) { " (nova dev)" } else { "" },
+                        parts.join(" · ")
+                    ),
+                );
                 if let Ok(mut running) = self.running.lock() {
                     running.insert(id.to_string(), p.clone());
                 }
             }
-            Err(e) => self.note_error(id, e),
+            Err(e) => self.note_error(id, &format!("No arrancó: {e}")),
         }
         started
     }
@@ -197,8 +220,11 @@ impl Registry {
 }
 
 /// Whether the installed manifest asks for exactly what the user approved.
+/// Compared as permissions, not as text: an approval saved before a permission
+/// existed (e.g. "account") still matches a manifest that doesn't ask for it.
 pub(crate) fn approved(manifest: &Manifest, state: &PluginState) -> bool {
-    serde_json::to_value(&manifest.permissions).ok().as_ref() == Some(&state.granted)
+    let Ok(granted) = serde_json::from_value::<Permissions>(state.granted.clone()) else { return false };
+    serde_json::to_value(&granted).ok() == serde_json::to_value(&manifest.permissions).ok()
 }
 
 /// Whether this profile gets the plugin at all.
@@ -982,6 +1008,22 @@ mod tests {
         assert_eq!(ids, ["1", "2", "5"]);
         assert_eq!(rows[0].items[1].image, None);
         assert_eq!(rows[0].items[2].action["stream"]["channel"], "ibai");
+    }
+
+    #[test]
+    fn approvals_survive_new_permissions() {
+        let manifest: Manifest = serde_json::from_value(serde_json::json!({
+            "id": "es.ejemplo.prueba", "name": "Prueba", "version": "1.0.0", "api": 1, "kind": ["provider"],
+            "main": "dist/index.js", "description": "x", "author": { "name": "Yo" }, "audience": "everyone",
+            "permissions": { "network": ["api.ejemplo.es"], "channels": true }
+        }))
+        .unwrap();
+        let state = |granted: serde_json::Value| PluginState { enabled: true, granted, kids_allowed: false, settings: Default::default(), channel_block: None };
+        // Saved before "account" existed: still approved.
+        assert!(approved(&manifest, &state(serde_json::json!({ "network": ["api.ejemplo.es"], "channels": true, "guide": false }))));
+        assert!(!approved(&manifest, &state(serde_json::json!({ "network": ["otro.es"], "channels": true }))));
+        assert!(!approved(&manifest, &state(serde_json::json!({ "network": ["api.ejemplo.es"], "channels": true, "account": true }))));
+        assert!(!approved(&manifest, &state(serde_json::Value::Null)));
     }
 
     #[test]

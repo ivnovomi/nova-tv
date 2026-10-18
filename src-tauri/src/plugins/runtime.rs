@@ -21,7 +21,8 @@ const STACK: usize = 512 * 1024;
 const JS_TIME: Duration = Duration::from_secs(5);
 /// How long NOVA waits for a call in total (computation plus network).
 const CALL_LIMIT: Duration = Duration::from_secs(60);
-const LOG_LINES: usize = 200;
+/// Enough for a plugin with hundreds of channels to tell what happened to each.
+const LOG_LINES: usize = 1000;
 
 /// Installed first: `console` for convenience and the function NOVA calls into the plugin.
 const BOOTSTRAP: &str = r#"
@@ -525,6 +526,35 @@ mod tests {
         assert_eq!(guide["bipbop"].as_array().unwrap().len(), 2);
         assert_eq!(guide["bipbop"][0]["title"], "Pruebas de emisión");
         let _ = std::fs::remove_dir_all(&data);
+    }
+
+    /// Pluto TV (plugins/pluto-tv, built) against the real Pluto: the stream
+    /// it gives, fetched the way NOVA's playlist proxy does.
+    #[test]
+    #[ignore = "needs internet and plugins/pluto-tv built"]
+    fn pluto_streams_through_the_proxy() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/pluto-tv");
+        let manifest = Manifest::read(&dir).unwrap();
+        let source = std::fs::read_to_string(dir.join(&manifest.main)).unwrap();
+        let data = std::env::temp_dir().join(format!("nova-plugin-pluto-{}", std::process::id()));
+        let p = Plugin::start(Arc::new(Env::new(manifest.clone(), Storage::new(data.clone()))), source).unwrap();
+        let ctx = serde_json::json!({ "profile": { "id": "p1", "kids": false }, "locale": "es-ES" });
+        let channels = p.call("channels", "load", serde_json::json!([ctx]), Some("p1".into())).unwrap();
+        let first = channels[0]["id"].as_str().unwrap().to_string();
+        println!("{} canales, el primero {first}", channels.as_array().unwrap().len());
+        let mut sctx = ctx.clone();
+        sctx["retry"] = false.into();
+        let stream = p.call("channels", "stream", serde_json::json!([first, sctx]), Some("p1".into())).unwrap();
+        println!("stream: {}", &stream.to_string()[..160.min(stream.to_string().len())]);
+        let headers = stream["headers"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
+        let url = stream["url"].as_str().unwrap().to_string();
+        let res = super::http::fetch(&manifest, super::http::Request { url, method: None, headers, body: None, timeout: Some(15) });
+        match &res {
+            Ok(r) => println!("HTTP {} · {}", r.status, r.body[..120.min(r.body.len())].replace('\n', " | ")),
+            Err(e) => println!("ERROR {e}"),
+        }
+        let _ = std::fs::remove_dir_all(&data);
+        assert_eq!(res.unwrap().status, 200);
     }
 
     /// The example plugin, built with the real SDK (`npm run plugin:build -- plugins/ejemplo`).
