@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-playlist"
+description = "Enables the plugins_playlist command without any pre-configured scope."
+commands.allow = ["plugins_playlist"]
+
+[[permission]]
+identifier = "deny-plugins-playlist"
+description = "Denies the plugins_playlist command without any pre-configured scope."
+commands.deny = ["plugins_playlist"]

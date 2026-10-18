@@ -309,6 +309,7 @@ export function groupLabel(c: Channel): string {
   if (c.source === "world") return `${countryName(c.country)}${c.categories[0] ? ` · ${c.categories[0]}` : ""}`;
   if (c.source === "fast") return `Pluto TV · ${c.group}`;
   if (c.source === "twitch") return `Twitch · ${c.group}`;
+  if (c.source === "plugin") return c.group === c.region ? c.region : `${c.region} · ${c.group}`;
   return c.group;
 }
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-stream"
+description = "Enables the plugins_stream command without any pre-configured scope."
+commands.allow = ["plugins_stream"]
+
+[[permission]]
+identifier = "deny-plugins-stream"
+description = "Denies the plugins_stream command without any pre-configured scope."
+commands.deny = ["plugins_stream"]

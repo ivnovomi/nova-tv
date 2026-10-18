@@ -49,15 +49,19 @@ const proxied = (url: string) => {
 
 const Base = Hls.DefaultConfig.loader as unknown as new (config: HlsConfig) => Loader<PlaylistLoaderContext>;
 
-/** hls.js playlist loader: Pluto playlists through NOVA, everything else as usual. */
-class PlaylistLoader extends Base {
+/**
+ * hls.js playlist loader that gets the playlists `through` matches from NOVA
+ * (`fetchText`) and everything else as usual.
+ */
+function loaderThrough(through: (url: string) => boolean, fetchText: (url: string) => Promise<string>) {
+  return class PlaylistLoader extends Base {
   private cancelled = false;
 
   load(context: PlaylistLoaderContext, config: LoaderConfiguration, callbacks: LoaderCallbacks<PlaylistLoaderContext>) {
-    if (!proxied(context.url)) return super.load(context, config, callbacks);
+    if (!through(context.url)) return super.load(context, config, callbacks);
     const stats = this.stats;
     stats.loading.start = performance.now();
-    api.livetvPlaylist(context.url).then(
+    fetchText(context.url).then(
       (text) => {
         if (this.cancelled) return;
         const now = performance.now();
@@ -82,6 +86,21 @@ class PlaylistLoader extends Base {
     this.cancelled = true;
     super.destroy();
   }
+  };
+}
+
+/** Pluto TV playlists through NOVA (signed there). */
+const PlutoLoader = loaderThrough(proxied, (url) => api.livetvPlaylist(url));
+
+/** A plugin stream that asked for the proxy: all its playlists through NOVA, as that plugin. */
+const pluginLoaders = new Map<string, ReturnType<typeof loaderThrough>>();
+function pluginLoader(plugin: string) {
+  let loader = pluginLoaders.get(plugin);
+  if (!loader) {
+    loader = loaderThrough(() => inTauri, (url) => api.pluginsPlaylist(plugin, url));
+    pluginLoaders.set(plugin, loader);
+  }
+  return loader;
 }
 
 /** `youtube:<video>` / `youtube:channel:<UC…>` → embed URL (muted on our side, no controls). */
@@ -244,10 +263,18 @@ export function useHlsStream(
     el.textTracks.addEventListener("addtrack", enforce);
     el.textTracks.addEventListener("change", enforce);
 
+    // A plugin stream refused (401/403): ask the plugin once for a fresh one.
+    let pluginRetried = false;
     const fail = () => {
       hls?.destroy();
       hls = null;
       setEmbed(null);
+      if (streams[index]?.startsWith("plugin:") && !pluginRetried && (lastCode === 401 || lastCode === 403)) {
+        pluginRetried = true;
+        start();
+        return;
+      }
+      pluginRetried = false;
       index += 1;
       if (index < streams.length) start();
       else if (!cancelled) {
@@ -259,6 +286,24 @@ export function useHlsStream(
     const start = () => {
       if (cancelled) return;
       const url = streams[index];
+      // A plugin's channel: the plugin says what plays, right now.
+      if (url.startsWith("plugin:")) {
+        api.pluginsStream(url, pluginRetried).then(
+          (r) => !cancelled && begin(r.stream, r.proxy ? r.plugin : null),
+          (e) => {
+            if (cancelled) return;
+            lastCode = Number(/HTTP (\d+)/.exec(String(e))?.[1] ?? 0);
+            fail();
+          },
+        );
+        return;
+      }
+      begin(url, null);
+    };
+
+    /** Plays one stream; `viaPlugin` routes its playlists through that plugin's proxy. */
+    const begin = (url: string, viaPlugin: string | null) => {
+      if (cancelled) return;
       if (url.startsWith("youtube:") || url.startsWith("twitch:")) {
         el.removeAttribute("src");
         let settled = false;
@@ -290,7 +335,7 @@ export function useHlsStream(
           startFragPrefetch: true,
           // No 1080p for the small picture-in-picture window.
           capLevelToPlayerSize: true,
-          pLoader: PlaylistLoader,
+          pLoader: viaPlugin ? pluginLoader(viaPlugin) : PlutoLoader,
           ...(plan.behind ? { liveSyncDuration: plan.behind, liveMaxLatencyDuration: plan.behind + 120 } : {}),
           ...(plan.lowStart ? { startLevel: 0 } : {}),
           ...(plan.carefulAbr ? { abrBandWidthFactor: 0.75, abrBandWidthUpFactor: 0.5 } : {}),

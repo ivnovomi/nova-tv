@@ -24,6 +24,8 @@ fn main() {
             "plugins_set_setting",
             "plugins_rollback",
             "plugins_log",
+            "plugins_stream",
+            "plugins_playlist",
             "splash_step",
             "splash_done",
             "power_info",

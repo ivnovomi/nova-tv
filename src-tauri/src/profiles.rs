@@ -118,6 +118,8 @@ pub fn channel_allowed(p: &Profile, c: &Channel) -> bool {
         Source::World => p.allow_world && c.categories.iter().any(|k| k == "Infantil"),
         Source::Playlist => false,
         Source::Twitch => shortcut_allowed(p, "stream:twitch"),
+        // Only plugins for everyone that a parent allowed for children.
+        Source::Plugin => crate::plugins::tv::kids_visible(&c.id),
     }
 }
 

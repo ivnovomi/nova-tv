@@ -79,6 +79,7 @@ pub fn run() {
             history::spawn_flusher(app.handle().clone());
             remote::start(app.handle());
             app.manage(plugins::registry::Registry::new(app.handle()));
+            plugins::tv::init(app.handle());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
             updates::clean_leftovers(app.handle());
@@ -133,6 +134,8 @@ pub fn run() {
             plugins::registry::plugins_set_setting,
             plugins::registry::plugins_rollback,
             plugins::registry::plugins_log,
+            plugins::tv::plugins_stream,
+            plugins::tv::plugins_playlist,
             splash::splash_step,
             splash::splash_done,
             power::power_info,

@@ -119,6 +119,10 @@ export const api = {
   pluginsSetSetting: (id: string, key: string, value: unknown) => call<void>("plugins_set_setting", { id, key, value }),
   pluginsRollback: (id: string) => call<void>("plugins_rollback", { id }),
   pluginsLog: (id: string) => call<PluginLogLine[]>("plugins_log", { id }),
+  /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
+  pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
+  /** A proxied playlist of a plugin stream (only its domains, with its headers). */
+  pluginsPlaylist: (plugin: string, url: string) => call<string>("plugins_playlist", { plugin, url }),
 
   /** Start-up window: one step ("profiles" | "channels" | "library"), then open NOVA. */
   splashStep: (step: string) => call<string>("splash_step", { step }),

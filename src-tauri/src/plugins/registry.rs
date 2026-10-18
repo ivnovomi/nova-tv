@@ -68,6 +68,11 @@ impl Registry {
         }
     }
 
+    /// The installed plugins' manifests.
+    pub(crate) fn installed_manifests(&self) -> Vec<Manifest> {
+        self.installed().into_iter().map(|(m, _)| m).collect()
+    }
+
     fn installed(&self) -> Vec<(Manifest, PathBuf)> {
         let Ok(entries) = std::fs::read_dir(&self.plugins_dir) else { return vec![] };
         let mut out: Vec<_> = entries
@@ -94,6 +99,7 @@ impl Registry {
         if let Ok(mut running) = self.running.lock() {
             running.remove(id);
         }
+        super::tv::forget(id);
         if let Ok(mut rows) = self.rows.lock() {
             rows.retain(|(plugin, _), _| plugin != id);
         }
@@ -102,14 +108,14 @@ impl Registry {
         }
     }
 
-    fn note_error(&self, id: &str, error: &str) {
+    pub(crate) fn note_error(&self, id: &str, error: &str) {
         if let Ok(mut errors) = self.errors.lock() {
             errors.insert(id.to_string(), error.to_string());
         }
     }
 
     /// The running plugin, started now if it wasn't.
-    fn plugin(&self, id: &str, state: &PluginState) -> Result<Arc<Plugin>, String> {
+    pub(crate) fn plugin(&self, id: &str, state: &PluginState) -> Result<Arc<Plugin>, String> {
         if let Some(p) = self.running.lock().ok().and_then(|r| r.get(id).cloned()) {
             return Ok(p);
         }
@@ -142,7 +148,7 @@ impl Registry {
 }
 
 /// Whether the installed manifest asks for exactly what the user approved.
-fn approved(manifest: &Manifest, state: &PluginState) -> bool {
+pub(crate) fn approved(manifest: &Manifest, state: &PluginState) -> bool {
     serde_json::to_value(&manifest.permissions).ok().as_ref() == Some(&state.granted)
 }
 
@@ -157,13 +163,13 @@ fn opaque(plugin: &str, profile: &str) -> String {
     hash.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
-fn context(plugin: &str, profile: &crate::config::Profile) -> (serde_json::Value, String) {
+pub(crate) fn context(plugin: &str, profile: &crate::config::Profile) -> (serde_json::Value, String) {
     let id = opaque(plugin, &profile.id);
     (serde_json::json!({ "profile": { "id": id, "kids": profile.kids }, "locale": "es-ES" }), id)
 }
 
 /// "30m" → seconds, never under the minimum.
-fn refresh_secs(value: Option<&str>, default: u64, minimum: u64) -> u64 {
+pub(crate) fn refresh_secs(value: Option<&str>, default: u64, minimum: u64) -> u64 {
     let parsed = value.and_then(|v| {
         let (n, unit) = v.split_at(v.len().checked_sub(1)?);
         let n: f64 = n.parse().ok()?;
@@ -208,7 +214,7 @@ fn https(v: &serde_json::Value) -> Option<String> {
 }
 
 /// A playable stream as NOVA understands it, or None if it isn't valid.
-fn stream(v: &serde_json::Value) -> Option<serde_json::Value> {
+pub(crate) fn clean_stream(v: &serde_json::Value) -> Option<serde_json::Value> {
     let id = |s: &str| !s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
     match v["type"].as_str()? {
         "hls" => Some(serde_json::json!({ "type": "hls", "url": https(&v["url"])?, "proxy": v["proxy"].as_bool().unwrap_or(false) })),
@@ -226,7 +232,7 @@ fn stream(v: &serde_json::Value) -> Option<serde_json::Value> {
 fn action(v: &serde_json::Value) -> Option<serde_json::Value> {
     match v["type"].as_str()? {
         "detail" => Some(serde_json::json!({ "type": "detail", "title": text(&v["title"], 120), "text": text(&v["text"], 2000)?, "image": https(&v["image"]) })),
-        "play" => Some(serde_json::json!({ "type": "play", "stream": stream(&v["stream"])?, "title": text(&v["title"], 120) })),
+        "play" => Some(serde_json::json!({ "type": "play", "stream": clean_stream(&v["stream"])?, "title": text(&v["title"], 120) })),
         "tune" => Some(serde_json::json!({ "type": "tune", "channel": text(&v["channel"], 200)? })),
         "app" => Some(serde_json::json!({ "type": "app", "path": text(&v["path"], 200) })),
         _ => None,
@@ -302,7 +308,7 @@ fn rows_for(app: &AppHandle) -> Vec<PluginRows> {
                 let key = (manifest.id.clone(), opaque_id.clone());
                 let cached = registry.rows.lock().ok().and_then(|r| r.get(&key).cloned());
                 let plugin = registry.plugin(&manifest.id, &state);
-                let ttl = plugin.as_ref().ok().map(|p| refresh_secs(p.parts.get("rows").and_then(|r| r.as_deref()), 30 * 60, 15 * 60)).unwrap_or(30 * 60);
+                let ttl = plugin.as_ref().ok().map(|p| refresh_secs(p.refresh("rows"), 30 * 60, 15 * 60)).unwrap_or(30 * 60);
                 if let Some((at, rows)) = &cached {
                     if at.elapsed() < Duration::from_secs(ttl) {
                         return PluginRows { plugin: manifest.id, name: manifest.name, rows: rows.clone() };
@@ -517,6 +523,7 @@ pub async fn plugins_install(path: String, app: AppHandle) -> Result<(), String>
         let entry = c.plugins.installed.entry(manifest.id.clone()).or_insert_with(|| PluginState {
             enabled: true,
             granted: serde_json::Value::Null,
+            channel_block: None,
             kids_allowed: false,
             settings: Default::default(),
         });

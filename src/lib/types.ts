@@ -72,7 +72,7 @@ export type ProfileInput = Pick<Profile, "name" | "avatar" | "color" | "kids" | 
 
 export interface Channel {
   /** "fast" = Pluto TV (free, with ads). */
-  source: "tdt" | "world" | "playlist" | "fast" | "twitch";
+  source: "tdt" | "world" | "playlist" | "fast" | "twitch" | "plugin";
   country: string | null;
   categories: string[];
   id: string;

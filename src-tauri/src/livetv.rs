@@ -18,7 +18,8 @@ const CHANNELS_TTL: u64 = 12 * 3600;
 const EPG_TTL: u64 = 3 * 3600;
 const PLUTO_EPG_TTL: u64 = 30 * 60;
 const CUSTOM_FIRST_NUMBER: u32 = 1001;
-const WORLD_FIRST_NUMBER: u32 = 5001;
+/// 5001–10000 belong to plugins (see plugins/tv.rs); the world catalogue starts after them.
+const WORLD_FIRST_NUMBER: u32 = 10001;
 const WORLD_TTL: u64 = 24 * 3600;
 pub(crate) const IPTV_ORG: &str = "https://iptv-org.github.io/api";
 
@@ -37,6 +38,8 @@ pub enum Source {
     Fast,
     /// Twitch live streams for everyone.
     Twitch,
+    /// A plugin's channels (each plugin has its own number block).
+    Plugin,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -553,13 +556,14 @@ fn forget_after(id: &str) -> u64 {
     if id.starts_with("twitch:") { FORGET_TWITCH } else { FORGET_AFTER }
 }
 
-/// Number range of each source.
-fn range(source: Source) -> (u32, u32) {
-    match source {
+/// Number range of a channel's source (a plugin's: the block its natural number is in).
+fn range(ch: &Channel) -> (u32, u32) {
+    match ch.source {
         Source::Tdt => (1, 999),
         Source::Playlist => (CUSTOM_FIRST_NUMBER, 2999),
         Source::Fast => (3001, 3999),
         Source::Twitch => (crate::twitch::FIRST_NUMBER, 4999),
+        Source::Plugin => crate::plugins::tv::block_of(ch.number),
         Source::World => (WORLD_FIRST_NUMBER, 99_999),
     }
 }
@@ -586,7 +590,7 @@ fn stable_numbers(tv: &LiveTv, channels: &mut [Channel]) {
             }
             continue;
         }
-        let (lo, hi) = range(ch.source);
+        let (lo, hi) = range(ch);
         // Its natural number if free, else the next free one in its range.
         let n = if (lo..=hi).contains(&ch.number) && !taken.contains(&ch.number) {
             ch.number
@@ -652,6 +656,7 @@ fn collect(app: &AppHandle) -> Collected {
     }
     channels.extend(fast);
     channels.extend(twitch);
+    channels.extend(crate::plugins::tv::channels(app));
     channels.extend(world);
     stable_numbers(&tv, &mut channels);
     tv.note_error("tdt", &tdt_error);
@@ -805,6 +810,7 @@ pub async fn livetv_epg(app: AppHandle) -> Result<HashMap<String, Vec<Program>>,
         // Pluto TV's own guide (its own short cache) and Twitch (from its live list), live only.
         epg.extend(pluto_guide(&tv));
         epg.extend(crate::twitch::guide());
+        epg.extend(crate::plugins::tv::guide(&app));
         Ok(epg)
     })
     .await
@@ -930,13 +936,14 @@ mod tests {
             epg_id: None,
             geo: false,
         };
-        let mut first = vec![ch("b", 5001), ch("c", 5002)];
+        let w = WORLD_FIRST_NUMBER;
+        let mut first = vec![ch("b", w), ch("c", w + 1)];
         stable_numbers(&tv, &mut first);
-        // A new channel sorts first: by position it would take 5001 and push the others along.
-        let mut second = vec![ch("a", 5001), ch("b", 5002), ch("c", 5003)];
+        // A new channel sorts first: by position it would take the first number and push the others along.
+        let mut second = vec![ch("a", w), ch("b", w + 1), ch("c", w + 2)];
         stable_numbers(&tv, &mut second);
         let n: Vec<u32> = second.iter().map(|c| c.number).collect();
-        assert_eq!(n, [5003, 5001, 5002], "b and c keep their numbers; a gets a free one");
+        assert_eq!(n, [w + 2, w, w + 1], "b and c keep their numbers; a gets a free one");
         let _ = fs::remove_dir_all(dir);
     }
 

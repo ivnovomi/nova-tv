@@ -203,6 +203,14 @@ fn probe_youtube(agent: &ureq::Agent, stream: &str) -> Probe {
 
 /// Playable = a media playlist with segments is reachable (master → first variant).
 fn probe_stream(agent: &ureq::Agent, url: &str) -> Probe {
+    if url.starts_with(crate::plugins::tv::PREFIX) {
+        return match crate::plugins::tv::probe(url) {
+            crate::plugins::tv::Probe::Answer(true) => Probe::Ok,
+            crate::plugins::tv::Probe::Answer(false) => Probe::Dead,
+            crate::plugins::tv::Probe::Stream(s) if !s.starts_with(crate::plugins::tv::PREFIX) => probe_stream(agent, &s),
+            crate::plugins::tv::Probe::Stream(_) => Probe::Dead,
+        };
+    }
     if url.starts_with("youtube:") {
         return probe_youtube(agent, url);
     }

@@ -22,6 +22,8 @@ permissions = [
   "allow-plugins-set-setting",
   "allow-plugins-rollback",
   "allow-plugins-log",
+  "allow-plugins-stream",
+  "allow-plugins-playlist",
   "allow-power-info",
   "allow-power-action",
   "allow-power-timer",

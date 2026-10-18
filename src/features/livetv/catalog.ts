@@ -53,7 +53,7 @@ const SPAIN_SUBS: { key: string; label: string; groups: string[] }[] = [
 /** Closeness to a viewer in Spain: TDT, Pluto/Twitch, playlists, Spanish-speaking world, the rest. */
 function rank(c: Channel): number {
   if (c.source === "tdt" && c.region === "España") return 0;
-  if (c.source === "fast" || c.source === "twitch") return 1;
+  if (c.source === "fast" || c.source === "twitch" || c.source === "plugin") return 1;
   if (c.source === "playlist") return 2;
   const i = SPANISH_SPEAKING.indexOf((c.country ?? "").toUpperCase());
   return i >= 0 ? 3 + i / 100 : 4;
@@ -97,13 +97,21 @@ export function buildTabs(channels: Channel[], favorites: string[], recent: stri
   // Twitch: what's live now.
   add("twitch", "Twitch", [sub("live", "En directo ahora", channels.filter((c) => c.source === "twitch").sort(byNumber))]);
 
+  // Each plugin with channels: its own tab, by its own groups (region is the plugin's name).
+  const plugins = channels.filter((c) => c.source === "plugin");
+  for (const name of [...new Set(plugins.map((c) => c.region))]) {
+    const mine = plugins.filter((c) => c.region === name).sort(byNumber);
+    const groups = [...new Set(mine.map((c) => c.group))];
+    add(`plugin:${name}`, name, [sub("all", "Todo", mine), ...(groups.length > 1 ? groups.map((g) => sub(g, g, mine.filter((c) => c.group === g))) : [])]);
+  }
+
   // Themes, across every source, closest first; sub-tabs by origin.
   for (const t of THEME_TABS) {
     const list = channels.filter((c) => themesOf(c).some((k) => t.themes.includes(k))).sort(byCloseness);
     add(t.key, t.label, [
       sub("all", "Todo", list),
       sub("es", "España", list.filter((c) => c.source === "tdt" && c.region === "España")),
-      sub("free", "Pluto TV y Twitch", list.filter((c) => c.source === "fast" || c.source === "twitch")),
+      sub("free", "Pluto TV, Twitch y plugins", list.filter((c) => c.source === "fast" || c.source === "twitch" || c.source === "plugin")),
       sub("world", "Resto del mundo", list.filter((c) => c.source === "world" || (c.source === "tdt" && c.region !== "España"))),
     ]);
   }

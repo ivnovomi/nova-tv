@@ -165,7 +165,8 @@ export function TvMode() {
     else if (k === "f" || k === "F" || k === "GamepadX") void favorite();
     else if (k === "c" || k === "C" || k === "Subtitle") toggleSubtitles();
     else if (/^[0-9]$/.test(k)) {
-      const next = (digits + k).slice(-4);
+      // Up to 5 digits: the world catalogue starts at 10001.
+      const next = (digits + k).slice(-5);
       setDigits(next);
       window.clearTimeout(digitTimer.current);
       digitTimer.current = window.setTimeout(() => {

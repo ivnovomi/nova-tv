@@ -1,0 +1,17 @@
+{
+  "$schema": "../../sdk/schema/nova-plugin.schema.json",
+  "id": "es.novatv.canales-prueba",
+  "name": "Canales de prueba",
+  "version": "1.0.0",
+  "api": 1,
+  "kind": ["provider"],
+  "main": "dist/index.js",
+  "description": "Ejemplo de canales en directo: emisión fija, emisión pedida al reproducir (con proxy), guía y comprobación de señal.",
+  "author": { "name": "NOVA TV" },
+  "audience": "everyone",
+  "permissions": {
+    "network": ["devstreaming-cdn.apple.com", "test-streams.mux.dev"],
+    "channels": true,
+    "guide": true
+  }
+}

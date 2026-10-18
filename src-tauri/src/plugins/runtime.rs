@@ -108,8 +108,8 @@ struct Job {
 pub struct Plugin {
     tx: Mutex<mpsc::Sender<Job>>,
     pub env: Arc<Env>,
-    /// What it provides ("rows", "channels"…) and each part's `refresh`, if it set one.
-    pub parts: std::collections::HashMap<String, Option<String>>,
+    /// What it provides ("rows", "channels"…), with each part's refresh and functions.
+    pub parts: std::collections::HashMap<String, Part>,
 }
 
 impl Plugin {
@@ -128,6 +128,16 @@ impl Plugin {
         Ok(Plugin { tx: Mutex::new(tx), env, parts })
     }
 
+    /// Whether the plugin defines `part.func()` (e.g. channels.stream).
+    pub fn has(&self, part: &str, func: &str) -> bool {
+        self.parts.get(part).is_some_and(|p| p.functions.iter().any(|f| f == func))
+    }
+
+    /// `part`'s refresh text ("30m"), if the plugin set one.
+    pub fn refresh(&self, part: &str) -> Option<&str> {
+        self.parts.get(part).and_then(|p| p.refresh.as_deref())
+    }
+
     /// Calls `part.func(...args)` in the plugin and waits for its (JSON) result.
     pub fn call(&self, part: &str, func: &str, args: serde_json::Value, profile: Option<String>) -> Result<serde_json::Value, String> {
         let (reply, answer) = mpsc::channel();
@@ -138,10 +148,20 @@ impl Plugin {
     }
 }
 
-/// `{ "rows": "30m", "channels": null, … }`: the parts the plugin defined and their refresh.
+/// `{ "rows": { "refresh": "30m", "functions": ["load"] }, … }`: what the plugin defined.
 const DESCRIBE: &str = r#"JSON.stringify(Object.fromEntries(Object.entries(globalThis.__novaPlugin)
   .filter(([, v]) => v && typeof v === "object")
-  .map(([k, v]) => [k, typeof v.refresh === "string" ? v.refresh : null])))"#;
+  .map(([k, v]) => [k, {
+    refresh: typeof v.refresh === "string" ? v.refresh : null,
+    functions: Object.keys(v).filter((f) => typeof v[f] === "function"),
+  }])))"#;
+
+/// One part of a plugin ("rows", "channels"…): its refresh and the functions it has.
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct Part {
+    pub refresh: Option<String>,
+    pub functions: Vec<String>,
+}
 
 fn run(env: Arc<Env>, source: String, jobs: mpsc::Receiver<Job>, ready: mpsc::Sender<Result<String, String>>) {
     let runtime = match Runtime::new() {

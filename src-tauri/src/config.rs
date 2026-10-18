@@ -171,6 +171,9 @@ pub struct PluginState {
     /// Its options, as chosen in Ajustes → Plugins.
     #[serde(default)]
     pub settings: serde_json::Map<String, serde_json::Value>,
+    /// Its block of live TV numbers (see plugins/tv.rs), once it has channels.
+    #[serde(default)]
+    pub channel_block: Option<u32>,
 }
 
 /// Ajustes → Actualizaciones. NOVA looks for new versions by itself unless
