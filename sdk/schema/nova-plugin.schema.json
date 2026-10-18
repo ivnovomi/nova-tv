@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unpkg.com/@novatv/sdk/schema/nova-plugin.schema.json",
+  "title": "Manifiesto de plugin de NOVA TV",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "api", "kind", "main", "description", "author", "audience", "permissions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "description": "Nombre de dominio invertido, único y para siempre (es.ejemplo.eltiempo).",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){2,}$",
+      "maxLength": 100
+    },
+    "name": { "description": "Nombre que se ve en NOVA.", "type": "string", "minLength": 1, "maxLength": 40 },
+    "version": {
+      "description": "Versión del plugin (SemVer).",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+    },
+    "api": { "description": "Versión de la API de NOVA que usa.", "const": 1 },
+    "kind": {
+      "description": "Qué es: proveedor de datos, app con interfaz, o las dos cosas.",
+      "type": "array",
+      "items": { "enum": ["provider", "app"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "main": { "description": "Código del proveedor, ya empaquetado (dist/index.js).", "type": "string" },
+    "app": { "description": "Página de entrada de la app (dist/app/index.html).", "type": "string" },
+    "icon": { "description": "Icono PNG cuadrado, 256×256 o más.", "type": "string" },
+    "description": { "type": "string", "minLength": 10, "maxLength": 200 },
+    "author": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 80 },
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "audience": {
+      "description": "Para quién es. La revisión puede subirlo a \"adults\", nunca bajarlo.",
+      "enum": ["everyone", "adults"]
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "description": "Dominios a los que puede conectarse (solo HTTPS). Se admite un comodín al principio: *.ejemplo.es.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$" },
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "channels": { "description": "Añadir canales a la TV en directo.", "type": "boolean" },
+        "guide": { "description": "Añadir programación a la guía.", "type": "boolean" },
+        "rows": { "description": "Mostrar filas en «Para ti».", "type": "boolean" },
+        "search": { "description": "Aparecer en la búsqueda.", "type": "boolean" },
+        "screensaver": { "description": "Poner fondos en el salvapantallas.", "type": "boolean" },
+        "notify": { "description": "Mostrar avisos breves.", "type": "boolean" },
+        "location": { "description": "Ubicación aproximada (ciudad).", "type": "boolean" }
+      }
+    },
+    "settings": {
+      "description": "Opciones del plugin. NOVA las pinta en Ajustes → Plugins.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "type", "label"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,39}$" },
+          "type": { "enum": ["text", "toggle", "choice", "number"] },
+          "label": { "type": "string", "maxLength": 60 },
+          "help": { "type": "string", "maxLength": 200 },
+          "default": {},
+          "options": {
+            "description": "Para type: \"choice\".",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["value", "label"],
+              "properties": { "value": { "type": "string" }, "label": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

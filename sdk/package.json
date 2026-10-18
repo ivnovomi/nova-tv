@@ -1,0 +1,23 @@
+{
+  "name": "@novatv/sdk",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "SDK de NOVA TV para crear plugins en TypeScript: canales, guía, filas, búsquedas y fondos de salvapantallas.",
+  "license": "MIT",
+  "author": "ivnovomi",
+  "homepage": "https://github.com/ivnovomi/nova-plugins",
+  "repository": { "type": "git", "url": "git+https://github.com/ivnovomi/nova-plugins.git" },
+  "keywords": ["nova-tv", "smart-tv", "plugins", "sdk"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./schema/nova-plugin.schema.json": "./schema/nova-plugin.schema.json"
+  },
+  "files": ["dist", "schema", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  }
+}
