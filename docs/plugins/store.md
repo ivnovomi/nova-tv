@@ -19,17 +19,19 @@ Implementación: [`src-tauri/src/plugins/store.rs`](../../src-tauri/src/plugins/
 5. Comprueba que el manifiesto del paquete es el que anuncia la tienda: mismo `id`, misma `version` y **exactamente los permisos que el usuario acaba de aprobar**.
 6. Lo instala igual que un `.novapkg` (de forma atómica y guardando la versión anterior) y **borra la descarga**.
 
-Mientras la tienda no tenga clave (`STORE_PUBLIC_KEY = None` en `store.rs`), solo instala con el **modo desarrollador** activado, y sin firma (la huella sí se comprueba).
+Un paquete sin firma, o firmado con otra clave, no se instala nunca desde la tienda (ni siquiera en modo desarrollador: para probar paquetes propios está «Instalar .novapkg»).
 
 ## La clave de la tienda (una vez)
 
 Es **distinta de la del actualizador**, y su mitad privada vive en las credenciales del equipo, nunca en el repositorio.
 
+En PowerShell (en cmd sería `%USERPROFILE%`; en PowerShell eso no se sustituye y crearía la carpeta dentro del repo):
+
 ```
-npx tauri signer generate -w %USERPROFILE%\.nova\store.key
+npx tauri signer generate -w "$env:USERPROFILE\.nova\store.key"
 ```
 
-Te da la clave pública (una línea en base64): pégala en `STORE_PUBLIC_KEY` de `src-tauri/src/plugins/store.rs`, saca una versión de NOVA, y guarda `store.key` y su contraseña con las credenciales del equipo.
+Hecho el 18 de octubre de 2026: la clave pública está en `STORE_PUBLIC_KEY` de `src-tauri/src/plugins/store.rs`, y `store.key` (con su contraseña) se guarda con las credenciales del equipo. Si algún día se cambia, las versiones de NOVA anteriores dejarán de aceptar los paquetes nuevos.
 
 ## Publicar un plugin (o una versión nueva)
 
@@ -40,7 +42,7 @@ Te da la clave pública (una línea en base64): pégala en `STORE_PUBLIC_KEY` de
    ```
 3. Firmar el paquete con la clave de la tienda:
    ```
-   npx tauri signer sign -f %USERPROFILE%\.nova\store.key dist\es.novatv.pluto-tv-1.1.0.novapkg
+   npx tauri signer sign -f "$env:USERPROFILE\.nova\store.key" dist\es.novatv.pluto-tv-1.1.0.novapkg
    ```
    Escribe `…novapkg.sig`: su contenido (una línea) va en `package.signature`.
 4. Subir el `.novapkg` a una release de `nova-plugins` (por ejemplo, la etiqueta `es.novatv.pluto-tv@1.1.0`).

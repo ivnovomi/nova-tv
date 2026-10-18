@@ -28,9 +28,11 @@ const MAX_CATALOG: u64 = 4 * 1024 * 1024;
 
 /// The store's public key (as `tauri signer generate` prints it: base64 of the
 /// minisign .pub file). Different from the updater's, and its private half is
-/// kept in the team's credentials. None until it's generated: then the store
-/// only installs in developer mode, without a signature check.
-const STORE_PUBLIC_KEY: Option<&str> = None;
+/// kept in the team's credentials. With None the store would only install in
+/// developer mode, without a signature check.
+const STORE_PUBLIC_KEY: Option<&str> = Some(
+    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY1QkI4M0E2MjRGNkVFMzkKUldRNTd2WWtwb083WlNKbTB3cm1zYjFpTURBWnVwbXhyWTVMODdiRXdnNWJDMy9lQ3R1SUVJSlcK",
+);
 
 // ───────────────────────── The catalogue ─────────────────────────
 
@@ -411,6 +413,14 @@ mod tests {
             "permissions": { "channels": true },
             "package": { "url": "https://github.com/x.novapkg", "sha256": "a".repeat(64), "size": 1000 }
         })
+    }
+
+    #[test]
+    fn the_store_key_is_valid_and_bad_signatures_fail() {
+        use base64::Engine;
+        let text = String::from_utf8(base64::engine::general_purpose::STANDARD.decode(STORE_PUBLIC_KEY.unwrap()).unwrap()).unwrap();
+        assert!(minisign_verify::PublicKey::decode(&text).is_ok());
+        assert!(verify_signature("no es una firma", b"paquete").is_err());
     }
 
     #[test]
