@@ -450,6 +450,30 @@ mod tests {
         assert!(message.as_str().unwrap().contains("otro.es"), "{message}");
     }
 
+    /// The channels example as it goes in its package, minified
+    /// (`npm run plugin:build -- plugins/canales-prueba`).
+    #[test]
+    #[ignore = "needs the channels example built with npm"]
+    fn runs_a_packaged_plugin() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/canales-prueba");
+        let manifest = Manifest::read(&dir).unwrap();
+        let source = std::fs::read_to_string(dir.join(&manifest.main)).unwrap();
+        let data = std::env::temp_dir().join(format!("nova-plugin-canales-{}", std::process::id()));
+        let p = Plugin::start(Arc::new(Env::new(manifest, Storage::new(data.clone()))), source).unwrap();
+        assert_eq!(p.refresh("channels"), Some("6h"));
+        assert!(p.has("channels", "stream") && p.has("channels", "check"));
+        let ctx = serde_json::json!({ "profile": { "id": "p1", "kids": false }, "locale": "es-ES" });
+        let channels = p.call("channels", "load", serde_json::json!([ctx]), None).unwrap();
+        assert_eq!(channels[1]["id"], "mux");
+        let stream = p.call("channels", "stream", serde_json::json!(["mux", { "retry": false }]), None).unwrap();
+        assert_eq!(stream["proxy"], true);
+        let guide = p.call("guide", "load", serde_json::json!([["bipbop"], { "from": 1_800_000_000, "to": 1_800_003_600 }, ctx]), None).unwrap();
+        // Two 30-minute slots; this hour starts on the second of the three titles.
+        assert_eq!(guide["bipbop"].as_array().unwrap().len(), 2);
+        assert_eq!(guide["bipbop"][0]["title"], "Pruebas de emisión");
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
     /// The example plugin, built with the real SDK (`npm run plugin:build -- plugins/ejemplo`).
     #[test]
     #[ignore = "needs the example plugin built with npm"]

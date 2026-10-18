@@ -40,18 +40,29 @@ await build({
   // No Node or browser APIs exist in the plugin sandbox: everything goes through the SDK.
   platform: "neutral",
   logLevel: "warn",
-  // The plugin registers itself through defineProvider(); the export just gets a name.
-  output: { file: out, format: "iife", name: "__novaBundle", minify: false },
+  output: {
+    file: out,
+    // The plugin registers itself through defineProvider(); the export just gets a name.
+    format: "iife",
+    name: "__novaBundle",
+    // Light but readable, so a reviewer can go through it as it is: unused
+    // code, comments and dead branches go; names, lines and indentation stay.
+    minify: { compress: { target: "es2020" }, mangle: false, codegen: { removeWhitespace: false } },
+    comments: { legal: true, annotation: false, jsdoc: false },
+  },
 });
 
 // 2. The package.
 const files = new Set(["nova-plugin.json", manifest.main]);
 if (manifest.icon) files.add(manifest.icon);
 if (existsSync(join(dir, "LICENSE"))) files.add("LICENSE");
+// System and editor leftovers never go in a package.
+const junk = (path) => path.split("/").some((part) => part.startsWith(".") || /^(thumbs\.db|desktop\.ini)$/i.test(part)) || /\.(map|ts|tsx|log)$/i.test(path);
 const walk = (folder) => {
   if (!existsSync(join(dir, folder))) return;
   for (const item of readdirSync(join(dir, folder), { recursive: true, withFileTypes: true })) {
-    if (item.isFile()) files.add(relative(dir, join(item.parentPath, item.name)).replaceAll("\\", "/"));
+    const path = relative(dir, join(item.parentPath, item.name)).replaceAll("\\", "/");
+    if (item.isFile() && !junk(path)) files.add(path);
   }
 };
 if (manifest.app) walk(manifest.app.split("/")[0]);
@@ -62,10 +73,32 @@ if (missing.length) {
   console.error(`Faltan archivos del paquete: ${missing.join(", ")}`);
   process.exit(1);
 }
-const pkg = join(dir, "dist", `${manifest.id}-${manifest.version}.novapkg`);
-writeFileSync(pkg, zip([...files].map((path) => ({ path: path.replaceAll("\\", "/"), data: readFileSync(join(dir, path)) }))));
+// NOVA doesn't show icons over 512 KB; big images slow every TV that installs it.
+const big = [...files].filter((f) => /\.(png|jpe?g|webp|gif|svg)$/i.test(f) && statSync(join(dir, f)).size > 1024 * 1024);
+if (manifest.icon && statSync(join(dir, manifest.icon)).size > 512 * 1024) {
+  console.error(`${manifest.icon} pesa más de 512 KB y NOVA no lo mostraría: redúcelo (256×256 basta).`);
+  process.exit(1);
+}
 
-const kb = (p) => (statSync(p).size / 1024).toFixed(1);
+/** Each file as it goes in the package: JSON without spaces (and without the editor's "$schema"). */
+const content = (path) => {
+  const data = readFileSync(join(dir, path));
+  if (!path.endsWith(".json")) return data;
+  try {
+    const json = JSON.parse(data.toString("utf8"));
+    if (path === "nova-plugin.json") delete json.$schema;
+    return Buffer.from(JSON.stringify(json));
+  } catch {
+    return data;
+  }
+};
+const pkg = join(dir, "dist", `${manifest.id}-${manifest.version}.novapkg`);
+const entries = [...files].map((path) => ({ path: path.replaceAll("\\", "/"), data: content(path) }));
+writeFileSync(pkg, zip(entries));
+
+const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
+const unpacked = entries.reduce((n, e) => n + e.data.length, 0);
 console.log(`✓ ${manifest.name} ${manifest.version}`);
-console.log(`  código   ${manifest.main} (${kb(out)} KB)`);
-console.log(`  paquete  dist/${manifest.id}-${manifest.version}.novapkg (${kb(pkg)} KB, ${files.size} archivos)`);
+console.log(`  código   ${manifest.main} (${kb(statSync(out).size)}, minificado y legible)`);
+console.log(`  paquete  dist/${manifest.id}-${manifest.version}.novapkg (${kb(statSync(pkg).size)}; ${kb(unpacked)} instalado, ${files.size} archivos)`);
+for (const f of big) console.warn(`  ⚠ ${f} pesa más de 1 MB: cada tele que lo instale lo descarga entero.`);
