@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-location-detect"
+description = "Enables the location_detect command without any pre-configured scope."
+commands.allow = ["location_detect"]
+
+[[permission]]
+identifier = "deny-location-detect"
+description = "Denies the location_detect command without any pre-configured scope."
+commands.deny = ["location_detect"]

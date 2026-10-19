@@ -90,7 +90,9 @@ export interface TestOptions {
   /** The user's values for the manifest's `settings` (the rest take their default). */
   settings?: Record<string, unknown>;
   /** The city chosen in Ajustes → Privacidad (undefined: none). */
-  location?: Location;
+  location?: Omit<Location, "source"> & { source?: Location["source"] };
+  /** `ctx.country` (default: the location's `countryCode`). */
+  country?: string;
   /** Who is watching. Default: an adult profile "perfil-1". */
   profile?: { id?: string; kids?: boolean };
   locale?: string;
@@ -352,7 +354,7 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
     },
     location() {
       if (!manifest.permissions.location) throw new Error("El plugin no tiene el permiso «location»");
-      return options.location ? JSON.stringify(options.location) : undefined;
+      return options.location ? JSON.stringify({ source: "user", ...options.location }) : undefined;
     },
     notify(title, detail) {
       if (!manifest.permissions.notify) throw new Error("El plugin no tiene el permiso «notify»");
@@ -385,7 +387,11 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
       return def;
     })());
 
-  const ctx = (): Context => ({ profile: { id: profile.id, kids: profile.kids }, locale: options.locale ?? "es-ES" });
+  const ctx = (): Context => ({
+    profile: { id: profile.id, kids: profile.kids },
+    locale: options.locale ?? "es-ES",
+    country: options.country ?? options.location?.countryCode ?? null,
+  });
 
   /** Calls a part the way NOVA does: permission first, then the function. */
   async function call<T>(part: keyof ProviderDefinition, fn: string, args: unknown[]): Promise<T> {

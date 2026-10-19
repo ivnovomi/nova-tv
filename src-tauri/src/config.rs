@@ -142,9 +142,14 @@ pub struct Config {
     pub updates: UpdatesConfig,
     #[serde(default)]
     pub plugins: PluginsConfig,
-    /// The city the user chose (Ajustes → Privacidad y datos), for plugins with `location`.
+    /// Where NOVA is (Ajustes → Privacidad y datos): chosen by the user, or
+    /// detected from the connection. For plugins with `location`.
     #[serde(default)]
     pub location: Option<Place>,
+    /// The user turned off detecting the approximate location from the
+    /// connection (it's on while they haven't chosen a city).
+    #[serde(default)]
+    pub location_detect_disabled: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -158,6 +163,26 @@ pub struct Place {
     pub region: Option<String>,
     pub latitude: f64,
     pub longitude: f64,
+    /// ISO 3166 ("ES").
+    #[serde(default)]
+    pub country_code: Option<String>,
+    /// IANA ("Europe/Madrid").
+    #[serde(default)]
+    pub timezone: Option<String>,
+    /// Chosen by the user, or detected from the connection.
+    #[serde(default)]
+    pub source: PlaceSource,
+    /// When it was detected (Unix seconds), for detected places.
+    #[serde(default)]
+    pub detected_at: Option<u64>,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PlaceSource {
+    #[default]
+    User,
+    Auto,
 }
 
 /// Ajustes → Plugins: what the user decided about each installed plugin.

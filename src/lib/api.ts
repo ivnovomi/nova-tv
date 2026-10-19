@@ -28,6 +28,7 @@ import type {
   SystemInfo,
   SystemStats,
   PackageInfo,
+  LocationInfo,
   PluginAccountUser,
   PluginLogLine,
   PluginSignIn,
@@ -137,8 +138,12 @@ export const api = {
   /** Background images from plugins with `screensaver`. */
   pluginsScreensaver: () => call<string[]>("plugins_screensaver"),
   locationSearch: (query: string) => call<Place[]>("location_search", { query }),
-  locationGet: () => call<Place | null>("location_get"),
+  locationGet: () => call<LocationInfo>("location_get"),
   locationSet: (place: Place | null) => call<void>("location_set", { place }),
+  /** The connection's approximate place, saved (replaces a chosen city). */
+  locationDetect: () => call<Place>("location_detect"),
+  /** Detection from the connection on/off (off forgets a detected place). */
+  locationSetDetect: (enabled: boolean) => call<void>("location_set_detect", { enabled }),
   /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
   pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
   /** A proxied playlist of a plugin stream (only its domains, with its headers). */

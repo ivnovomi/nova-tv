@@ -332,7 +332,7 @@ export async function createCommand(args) {
             private: true,
             type: "module",
             scripts: { dev: "nova dev", test: "nova test", validate: "nova validate", pack: "nova pack" },
-            dependencies: { "@novatv/sdk": "^0.2.0" },
+            dependencies: { "@novatv/sdk": "^0.3.0" },
             devDependencies: { "@novatv/cli": "^0.2.0", typescript: "^6.0.0" },
           },
           null,

@@ -491,13 +491,26 @@ export interface PluginResults {
   items: PluginItem[];
 }
 
-/** A city (Ajustes → Privacidad y datos), for plugins with `location`. */
+/** Where NOVA is (Ajustes → Privacidad y datos), for plugins with `location`. */
 export interface Place {
   city: string;
   country: string;
   region?: string | null;
   latitude: number;
   longitude: number;
+  /** ISO 3166 ("ES"). */
+  countryCode?: string | null;
+  /** IANA ("Europe/Madrid"). */
+  timezone?: string | null;
+  /** Chosen by the user, or detected from the connection. */
+  source?: "user" | "auto";
+  detectedAt?: number | null;
+}
+
+export interface LocationInfo {
+  place: Place | null;
+  /** Detection from the connection is on. */
+  detect: boolean;
 }
 
 export interface PluginLogLine {

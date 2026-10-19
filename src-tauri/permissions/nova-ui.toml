@@ -33,6 +33,8 @@ permissions = [
   "allow-location-search",
   "allow-location-get",
   "allow-location-set",
+  "allow-location-detect",
+  "allow-location-set-detect",
   "allow-plugins-stream",
   "allow-plugins-playlist",
   "allow-power-info",

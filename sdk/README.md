@@ -83,7 +83,7 @@ export default defineProvider({
 
 `defineProvider` comprueba la forma nada más cargarse: si falta una función o un `refresh` está mal escrito, te lo dice al momento.
 
-Las funciones son `async` y reciben un **contexto**: `ctx.profile.kids` te dice si está viendo un perfil infantil, y `ctx.locale` el idioma (`"es-ES"`).
+Las funciones son `async` y reciben un **contexto**: `ctx.profile.kids` te dice si está viendo un perfil infantil, `ctx.locale` el idioma (`"es-ES"`) y `ctx.country` el país donde está NOVA (`"ES"`, sin pedir permiso), para que tu plugin se configure solo: la región de un servicio, el idioma de sus datos…
 
 ### `refresh`
 
@@ -240,7 +240,19 @@ const donde = location.get();                        // { city, country, latitud
 log.info("Cargados", lista.length, "canales");       // se ve en `nova dev` y en Ajustes → Plugins → Registro
 ```
 
-`location.get()` devuelve la ciudad que el usuario eligió en **Ajustes → Privacidad y datos → Tu ciudad**, con las coordenadas redondeadas a unos 10 km. Si no ha elegido ninguna, `undefined`: ten siempre un plan B (por ejemplo, una opción en tu manifiesto).
+`location.get()` (permiso `location`) dice dónde está NOVA:
+
+```ts
+{ city: "Madrid", region: "Comunidad de Madrid", country: "España", countryCode: "ES",
+  timezone: "Europe/Madrid", latitude: 40.4, longitude: -3.7, source: "auto" }
+```
+
+- `source: "user"`: la ciudad que el usuario eligió en **Ajustes → Privacidad y datos → Tu ubicación**.
+- `source: "auto"`: mientras no elige ninguna, NOVA detecta la aproximada de su conexión (al arrancar y una vez por semana). Puede no ser exacta: si importa, deja que el usuario la cambie.
+- Coordenadas redondeadas a unos 10 km; nunca GPS.
+- Si el usuario apagó la detección y no eligió ciudad, `undefined`: ten siempre un plan B (por ejemplo, una opción en tu manifiesto).
+
+¿Solo necesitas el país para configurarte? Usa `ctx.country`: no pide permiso.
 
 ### `notify`
 
@@ -295,6 +307,48 @@ Manifiesto: `"account": true` y los dominios del servicio en `network`.
 - La sesión se guarda en **`secrets`**: cifrada en el equipo (con la protección de datos de Windows), aparte de `storage`, y se borra al cerrar sesión, al borrar el perfil o al desinstalar el plugin con sus datos.
 - ¿Tu servicio no usa el estándar? Escribe tú la parte `account` (`start`, `poll`, `status` y, si quieres, `signOut`) y guarda lo que necesites con `secrets.set(...)`.
 - Para probarlo sin internet: `nova.account.start()`, `nova.account.poll()`… y `nova.advance(segundos)` para adelantar el reloj. Mira `plugins/cuenta-ejemplo/test`.
+
+---
+
+### Ayudas
+
+Lo que casi todos los plugins acaban escribiendo, ya hecho:
+
+```ts
+import { http, url, device, batch, chunk, retry, categories, time, log, HttpError } from "@novatv/sdk";
+
+// Peticiones
+http.setUserAgent(http.agents.chrome);              // para todas las peticiones del plugin (chrome, firefox, safari, android, smartTv)
+http.setHeaders({ "accept-language": "es-ES" });    // cabeceras para todas
+const api = http.create({                           // un cliente para un servicio
+  base: "https://api.ejemplo.es/v2",
+  headers: () => ({ authorization: `Bearer ${token}` }),   // una función: se llama en cada petición
+  query: { lang: "es" },                            // parámetros en todas
+});
+await api.json("/canales", { query: { limit: 100 } });     // → https://api.ejemplo.es/v2/canales?lang=es&limit=100
+url("https://a.es/buscar", { q: "fútbol", page: 2 });      // → https://a.es/buscar?q=f%C3%BAtbol&page=2
+
+// Identidad
+device.id();                                        // un id anónimo, siempre el mismo (para servicios que piden uno)
+
+// Por partes y con reintentos
+await batch(ids, 60, (lote) => api.json("/guia", { query: { ids: lote.join(",") } }), { label: "guía" });
+                                                    // en tandas de 60; una que falla se apunta en el registro y se salta
+chunk([1, 2, 3, 4, 5], 2);                          // → [[1, 2], [3, 4], [5]]
+await retry(() => api.json("/canales"), { times: 3, when: (e) => e instanceof HttpError && e.status >= 500 });
+                                                    // reintenta al momento (los plugins no tienen temporizadores)
+
+// Temas de NOVA a partir de las categorías de un servicio (español e inglés)
+categories.guess("Películas de terror");            // → "Cine"
+categories.guess("Anime", { anime: "Infantil" });   // el anime es «Entretenimiento» salvo que digas otra cosa
+categories.isPromo("Nuevo en Pluto TV");            // → true: no es el sitio de verdad de un canal
+
+// Horas, en segundos (lo que quiere la guía)
+time.now(); time.hourStart(); time.fromIso("2026-10-19T18:00:00Z"); time.toIso(1792432800); time.hours(6);
+
+// Cuánto tarda algo
+const listo = log.time("canales"); …; listo(145, "canales");   // «canales: 812 ms · 145 canales»
+```
 
 ---
 

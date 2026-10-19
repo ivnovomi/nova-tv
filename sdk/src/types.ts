@@ -34,6 +34,12 @@ export interface Context {
   profile: Profile;
   /** "es-ES"… */
   locale: string;
+  /**
+   * Where NOVA is, as an ISO 3166 country ("ES"), for every plugin (no
+   * permission needed): to set itself up (a service's region, a language…).
+   * Missing if NOVA doesn't know. The city needs the `location` permission.
+   */
+  country?: string | null;
 }
 
 // ───────────────────────── Playback ─────────────────────────
@@ -236,8 +242,17 @@ export interface HttpResponse {
 
 export interface Location {
   city: string;
+  /** Region or province ("Comunidad de Madrid"). */
+  region?: string | null;
+  /** "España". */
   country: string;
+  /** ISO 3166 ("ES"). */
+  countryCode?: string | null;
+  /** IANA ("Europe/Madrid"). */
+  timezone?: string | null;
   /** Rounded to about 10 km. */
   latitude: number;
   longitude: number;
+  /** "user": the city the user chose · "auto": detected from the connection (approximate). */
+  source: "user" | "auto";
 }

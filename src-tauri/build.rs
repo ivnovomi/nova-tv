@@ -35,6 +35,8 @@ fn main() {
             "location_search",
             "location_get",
             "location_set",
+            "location_detect",
+            "location_set_detect",
             "plugins_stream",
             "plugins_playlist",
             "splash_step",

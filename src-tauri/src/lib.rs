@@ -93,6 +93,7 @@ pub fn run() {
             plugins::tv::init(app.handle());
             plugins::dev::spawn(app.handle().clone());
             plugins::store::clean_downloads(app.handle());
+            location::spawn(app.handle().clone());
             osd::spawn(app.handle().clone());
             app.manage(updates::Updates::default());
             updates::spawn_checker(app.handle().clone());
@@ -159,6 +160,8 @@ pub fn run() {
             location::location_search,
             location::location_get,
             location::location_set,
+            location::location_detect,
+            location::location_set_detect,
             plugins::tv::plugins_stream,
             plugins::tv::plugins_playlist,
             splash::splash_step,

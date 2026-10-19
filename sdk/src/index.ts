@@ -19,8 +19,9 @@ import type { Duration, ProviderDefinition } from "./types";
 
 export * from "./types";
 export type { Manifest, Permissions, Setting } from "./manifest";
-export { http, HttpError, storage, secrets, settings, location, log, notify } from "./host";
-export type { NovaHost } from "./host";
+export { http, HttpError, storage, secrets, settings, location, log, notify, url } from "./host";
+export type { NovaHost, HttpClient, HttpClientOptions, Options as HttpOptions, Query } from "./host";
+export { batch, categories, chunk, device, retry, time, uuid } from "./helpers";
 export { deviceLogin } from "./auth";
 export type { DeviceLogin, DeviceLoginOptions } from "./auth";
 

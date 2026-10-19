@@ -240,7 +240,10 @@ fn opaque(plugin: &str, profile: &str) -> String {
 
 pub(crate) fn context(plugin: &str, profile: &crate::config::Profile) -> (serde_json::Value, String) {
     let id = opaque(plugin, &profile.id);
-    (serde_json::json!({ "profile": { "id": id, "kids": profile.kids }, "locale": "es-ES" }), id)
+    // Only the country, for every plugin (to set itself up: a service's region…).
+    // The city and coordinates need the "location" permission.
+    let country = super::tv::app().and_then(|app| app.state::<AppState>().config.snapshot().location?.country_code);
+    (serde_json::json!({ "profile": { "id": id, "kids": profile.kids }, "locale": "es-ES", "country": country }), id)
 }
 
 /// "30m" → seconds, never under the minimum.

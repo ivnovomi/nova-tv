@@ -368,16 +368,48 @@ function Privacy() {
   );
 }
 
-/** "Tu ciudad": only for plugins with the location permission (the weather, local news…). */
+/**
+ * "Tu ubicación": the city the user picks, or (while they haven't) the
+ * connection's approximate place. Plugins with the location permission get
+ * it; every plugin gets the country, to set itself up.
+ */
 function CityCard() {
   const toast = useToast();
   const [place, setPlace] = useState<Place | null>(null);
+  const [detect, setDetect] = useState(true);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const load = () =>
+    api.locationGet().then(
+      (info) => {
+        setPlace(info.place);
+        setDetect(info.detect);
+      },
+      () => {},
+    );
   useEffect(() => {
-    if (inTauri) api.locationGet().then(setPlace, () => {});
+    if (inTauri) void load();
   }, []);
+  const detectNow = async () => {
+    setDetecting(true);
+    try {
+      const found = await api.locationDetect();
+      setPlace(found);
+      setDetect(true);
+      toast.show("success", `Ubicación: ${found.city}`, "Detectada por tu conexión.");
+    } catch (e) {
+      toast.show("error", "No se pudo detectar", e instanceof Error ? e.message : String(e));
+    } finally {
+      setDetecting(false);
+    }
+  };
+  const toggleDetect = () =>
+    api.locationSetDetect(!detect).then(
+      () => void load(),
+      (e: Error) => toast.show("error", "No se pudo cambiar", e.message),
+    );
   const search = async () => {
     setBusy(true);
     try {
@@ -391,28 +423,47 @@ function CityCard() {
   const save = (next: Place | null) =>
     api.locationSet(next).then(
       () => {
-        setPlace(next);
         setResults(null);
         setQuery("");
-        toast.show("success", next ? `Ciudad: ${next.city}` : "Ciudad quitada");
+        void load();
+        toast.show("success", next ? `Ciudad: ${next.city}` : "Ciudad quitada", next ? undefined : detect ? "NOVA usará la de tu conexión." : undefined);
       },
       (e: Error) => toast.show("error", "No se pudo guardar", e.message),
     );
   const where = (p: Place) => [p.city, p.region, p.country].filter(Boolean).join(", ");
+  const auto = place?.source === "auto";
   return (
     <div className="surface rounded-2xl px-6 py-5">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="min-w-[16rem] flex-1">
-          <p className="text-[1.25rem] font-semibold">Tu ciudad</p>
-          <p className="text-[1rem] text-ink-3">
-            {place ? where(place) : "Sin indicar."} Solo la reciben los plugins con permiso de ubicación, redondeada a unos 10 km. NOVA nunca usa GPS ni tu IP.
+          <p className="flex items-center gap-3 text-[1.25rem] font-semibold">
+            Tu ubicación
+            {place && <span className={`badge ${auto ? "bg-cyan/15 text-cyan" : "bg-ok/15 text-ok"}`}>{auto ? "Detectada" : "Elegida por ti"}</span>}
+          </p>
+          <p className="text-[1.05rem] text-ink-2">{place ? `${where(place)}${place.timezone ? ` · ${place.timezone}` : ""}` : "Sin ubicación."}</p>
+          <p className="mt-1 text-[0.95rem] text-ink-3">
+            La reciben los plugins con permiso de ubicación, redondeada a unos 10 km; los demás, solo el país, para configurarse. NOVA nunca usa GPS.
           </p>
         </div>
+        <button data-nav onClick={() => void detectNow()} disabled={detecting} className="focus-lift btn btn-ghost">
+          {detecting ? <LoaderCircle className="size-5 spin" /> : null} Detectar ahora
+        </button>
         {place && (
           <button data-nav onClick={() => void save(null)} className="focus-lift btn btn-danger">
             Quitar
           </button>
         )}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-white/4 px-5 py-4">
+        <span className="min-w-[16rem] flex-1">
+          <span className="block text-[1.05rem] font-semibold">Detectar por la conexión</span>
+          <span className="block text-[0.95rem] text-ink-3">
+            Mientras no elijas una ciudad, NOVA pregunta a un servicio de geolocalización (ipwho.is) dónde está tu conexión, al arrancar y una vez por semana. Ese servicio ve tu IP. Si lo apagas, se olvida lo detectado.
+          </span>
+        </span>
+        <button data-nav role="switch" aria-checked={detect} onClick={() => void toggleDetect()} className={`focus-lift btn shrink-0 ${detect ? "btn-primary" : "btn-ghost"}`}>
+          {detect ? "Activado" : "Desactivado"}
+        </button>
       </div>
       <form
         className="mt-4 flex flex-wrap gap-3"

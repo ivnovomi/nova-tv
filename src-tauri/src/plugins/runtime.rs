@@ -364,13 +364,26 @@ fn install<'js>(ctx: &Ctx<'js>, env: &Arc<Env>) -> rquickjs::Result<()> {
             if !e.manifest.permissions.location {
                 return Err(Exception::throw_message(&ctx, "El plugin no tiene el permiso «location»"));
             }
-            // The city the user chose in NOVA, never GPS or IP; coordinates rounded to about 10 km.
+            // The city the user chose, or the connection's approximate place
+            // (see location.rs); never GPS. Coordinates rounded to about 10 km.
             let place = super::tv::app().and_then(|app| {
                 use tauri::Manager;
                 app.state::<crate::AppState>().config.snapshot().location
             });
             let round = |x: f64| (x * 10.0).round() / 10.0;
-            Ok(place.map(|p| serde_json::json!({ "city": p.city, "country": p.country, "latitude": round(p.latitude), "longitude": round(p.longitude) }).to_string()))
+            Ok(place.map(|p| {
+                serde_json::json!({
+                    "city": p.city,
+                    "region": p.region,
+                    "country": p.country,
+                    "countryCode": p.country_code,
+                    "timezone": p.timezone,
+                    "latitude": round(p.latitude),
+                    "longitude": round(p.longitude),
+                    "source": p.source,
+                })
+                .to_string()
+            }))
         })?,
     )?;
 
