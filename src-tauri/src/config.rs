@@ -280,6 +280,14 @@ pub struct ConfigStore {
     pub data: Mutex<Config>,
 }
 
+/// Who to tell when the config can't be saved (NOVA's interface, once it's up).
+type Report = Box<dyn Fn(&str) + Send + Sync>;
+static SAVE_ERROR: std::sync::OnceLock<Report> = std::sync::OnceLock::new();
+
+pub fn on_save_error(report: impl Fn(&str) + Send + Sync + 'static) {
+    let _ = SAVE_ERROR.set(Box::new(report));
+}
+
 impl ConfigStore {
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("config.json");
@@ -296,14 +304,37 @@ impl ConfigStore {
     }
 
     /// Writes atomically (temp file + rename) so a crash never leaves a half-written config.
+    /// If Windows won't let the old file be replaced, it's overwritten in place.
+    /// Any failure is told to the user (see `on_save_error`): settings that
+    /// silently stop being saved are lost at the next restart.
     pub fn save(&self, config: &Config) -> Result<(), String> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("No se pudo crear la carpeta de configuración: {e}"))?;
+        let result = self.write(config);
+        if let Err(e) = &result {
+            eprintln!("NOVA TV: {e}");
+            if let Some(report) = SAVE_ERROR.get() {
+                report(e);
+            }
         }
-        let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+        result
+    }
+
+    fn write(&self, config: &Config) -> Result<(), String> {
+        let fail = |what: &str, e: std::io::Error| format!("No se pudo guardar la configuración ({what} {}): {e}", self.path.display());
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent).map_err(|e| fail("creando la carpeta de", e))?;
+        }
+        let json = serde_json::to_string_pretty(config).map_err(|e| format!("No se pudo guardar la configuración: {e}"))?;
         let tmp = self.path.with_extension("json.tmp");
-        fs::write(&tmp, json).map_err(|e| format!("No se pudo guardar la configuración: {e}"))?;
-        fs::rename(&tmp, &self.path).map_err(|e| format!("No se pudo guardar la configuración: {e}"))
+        fs::write(&tmp, &json).map_err(|e| fail("escribiendo junto a", e))?;
+        match fs::rename(&tmp, &self.path) {
+            Ok(()) => Ok(()),
+            Err(rename) => {
+                // Not atomic (a crash in this very moment could cut the file), but far
+                // better than settings that are never saved.
+                let _ = fs::remove_file(&tmp);
+                fs::write(&self.path, &json).map_err(|e| fail(&format!("reemplazando ({rename}) y sobrescribiendo"), e))
+            }
+        }
     }
 
     /// Mutates the config under the lock and persists it.
@@ -350,4 +381,44 @@ pub fn now_secs() -> u64 {
 pub fn new_id(prefix: &str) -> String {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     format!("{prefix}-{nanos:x}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A config like a real one (profiles, plugins, settings, location) is saved and read back.
+    #[test]
+    fn a_full_config_saves_and_loads() {
+        let dir = std::env::temp_dir().join(format!("nova-config-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let store = ConfigStore::load(&dir);
+        let result = store.update(|c| {
+            c.live_tv.favorites.push("tdt:la1".into());
+            c.plugins.developer_mode = true;
+            c.plugins.installed.insert(
+                "es.novatv.pluto-tv".into(),
+                PluginState { enabled: true, granted: serde_json::json!({ "network": ["*.pluto.tv"], "channels": true }), kids_allowed: false, settings: Default::default(), channel_block: Some(0) },
+            );
+            Ok(())
+        });
+        assert!(result.is_ok(), "{result:?}");
+        let again = ConfigStore::load(&dir).snapshot();
+        assert!(again.plugins.installed.contains_key("es.novatv.pluto-tv"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The real config.json of this computer (if there is one) can be saved.
+    #[test]
+    #[ignore = "reads this computer's NOVA config"]
+    fn this_computers_config_saves() {
+        let dir = std::path::PathBuf::from(std::env::var("APPDATA").unwrap()).join("com.ivnov.novatv");
+        let store = ConfigStore::load(&dir);
+        let config = store.snapshot();
+        println!("{}", serde_json::to_string(&config).map(|t| format!("OK, {} bytes", t.len())).unwrap_or_else(|e| format!("ERROR {e}")));
+        println!("perfiles {} · plugins {} · activo {:?}", config.profiles.len(), config.plugins.installed.len(), config.active_profile);
+        if std::env::var("NOVA_SAVE_TEST").is_ok() {
+            println!("guardar: {:?}", store.update(|_| Ok(())));
+        }
+    }
 }

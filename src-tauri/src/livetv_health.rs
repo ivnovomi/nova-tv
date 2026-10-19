@@ -96,6 +96,19 @@ impl HealthStore {
         })
     }
 
+    /// Forgets what's known about the channels whose id starts with `prefix`
+    /// (a plugin that changed: its old verdicts no longer mean anything).
+    pub fn forget(&self, prefix: &str) {
+        let removed = self.map.lock().map(|mut m| {
+            let before = m.len();
+            m.retain(|id, _| !id.starts_with(prefix));
+            before - m.len()
+        });
+        if removed.is_ok_and(|n| n > 0) {
+            self.save();
+        }
+    }
+
     pub fn status(&self, id: &str) -> Option<Health> {
         self.map.lock().ok()?.get(id).map(|e| e.status)
     }

@@ -773,6 +773,9 @@ pub async fn plugins_uninstall(id: String, delete_data: bool, app: AppHandle) ->
 /// Tells the interface a plugin changed, so live TV and "Para ti" reload what
 /// it brings (only that plugin is asked again; every other source stays cached).
 pub(crate) fn changed(app: &AppHandle, id: &str) {
+    // Installed, switched on, approved, updated…: its channels get checked again
+    // (a "no signal" from before the change would hide them for hours).
+    app.state::<crate::livetv_health::HealthStore>().forget(&format!("{}{id}:", super::tv::PREFIX));
     let _ = app.emit("plugins-changed", id);
 }
 

@@ -23,7 +23,7 @@ mod updates;
 
 use commands::{applications, media, system};
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub struct AppState {
     pub config: config::ConfigStore,
@@ -66,6 +66,16 @@ pub fn run() {
         .setup(|app| {
             session::spawn_gamepad_listener(app.handle().clone());
             let dir = app.path().app_config_dir()?;
+            // Settings that can't be saved are lost at the next restart: say so (at most once a minute).
+            let handle = app.handle().clone();
+            let last = Mutex::new(None::<std::time::Instant>);
+            config::on_save_error(move |error| {
+                let mut last = last.lock().unwrap_or_else(|p| p.into_inner());
+                if last.is_none_or(|t| t.elapsed() > std::time::Duration::from_secs(60)) {
+                    *last = Some(std::time::Instant::now());
+                    let _ = handle.emit("config-save-failed", error.to_string());
+                }
+            });
             app.manage(AppState {
                 config: config::ConfigStore::load(&dir),
                 sys: Mutex::new(system::SysMonitor::new()),
