@@ -26,7 +26,7 @@ fn autostart() -> bool {
     RegKey::predef(HKEY_CURRENT_USER).open_subkey(RUN_KEY).and_then(|k| k.get_value::<String, _>(RUN_VALUE)).is_ok()
 }
 
-fn set_autostart(on: bool) {
+pub(super) fn set_autostart(on: bool) {
     use winreg::{enums::HKEY_CURRENT_USER, RegKey};
     let Ok((key, _)) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(RUN_KEY) else { return };
     if on {
@@ -76,6 +76,7 @@ pub fn run() {
     let sunshine = MenuItem::new("Sunshine: …", false, None);
     let boxes = MenuItem::new("…", false, None);
     let open = MenuItem::new("Abrir Sunshine", true, None);
+    let password = MenuItem::new("Ver el usuario de Sunshine", super::sunshine::credentials().is_some(), None);
     let log = MenuItem::new("Ver registro", true, None);
     let forget = MenuItem::new("Olvidar las teles emparejadas", true, None);
     let start = CheckMenuItem::new("Arrancar con Windows", true, autostart(), None);
@@ -86,6 +87,7 @@ pub fn run() {
         &boxes,
         &PredefinedMenuItem::separator(),
         &open,
+        &password,
         &log,
         &forget,
         &start,
@@ -117,6 +119,13 @@ pub fn run() {
                     PostQuitMessage(0);
                 } else if event.id == *open.id() {
                     open_sunshine();
+                } else if event.id == *password.id() {
+                    if let Some((user, pass)) = super::sunshine::credentials() {
+                        super::tell(
+                            "NovaBridge · Sunshine",
+                            &format!("NOVA Host configuró Sunshine con este usuario, por si quieres entrar en su página:\n\nUsuario: {user}\nContraseña: {pass}"),
+                        );
+                    }
                 } else if event.id == *log.id() {
                     let _ = tauri_plugin_opener::open_path(log_path(), None::<&str>);
                 } else if event.id == *forget.id() {

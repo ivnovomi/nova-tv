@@ -10,6 +10,8 @@
 
 pub mod proto;
 #[cfg(windows)]
+mod sunshine;
+#[cfg(windows)]
 mod tray;
 
 use crate::commands::{games, steam};
@@ -126,12 +128,14 @@ pub fn computer_name() -> String {
     env::var("COMPUTERNAME").unwrap_or_else(|_| "PC".into())
 }
 
+#[cfg(windows)]
 fn sunshine_exe() -> Option<PathBuf> {
-    ["ProgramFiles", "ProgramFiles(x86)"]
-        .iter()
-        .filter_map(env::var_os)
-        .map(|base| PathBuf::from(base).join(r"Sunshine\sunshine.exe"))
-        .find(|p| p.is_file())
+    sunshine::dir().map(|d| d.join("sunshine.exe"))
+}
+
+#[cfg(not(windows))]
+fn sunshine_exe() -> Option<PathBuf> {
+    None
 }
 
 pub fn sunshine_running() -> bool {
@@ -374,21 +378,34 @@ fn handle(mut request: Request) {
                         return error(request, 409, "Sunshine no está en marcha en el PC");
                     }
                     log(&format!("«{}» empareja Moonlight", client.name));
-                    let _ = tauri_plugin_opener::open_url(format!("{SUNSHINE_WEB}/pin"), None::<&str>);
-                    tell(
-                        "NovaBridge · Moonlight",
-                        &format!(
-                            "«{}» quiere ver la pantalla de este PC.\n\nEscribe este PIN en la página de Sunshine que se acaba de abrir:\n\n{pin}",
-                            client.name
-                        ),
-                    );
                     json(request, 200, &serde_json::json!({ "ok": true }));
+                    pin_to_sunshine(pin, client.name);
                 }
                 _ => error(request, 405, "Método no permitido"),
             }
         }
         _ => error(request, 404, "No existe"),
     }
+}
+
+/// Gives Sunshine the PIN Moonlight is pairing with: by itself when NOVA Host
+/// set Sunshine up, or by asking the person to type it on the PC.
+fn pin_to_sunshine(pin: String, name: String) {
+    #[cfg(windows)]
+    if sunshine::credentials().is_some() {
+        // Sunshine takes the PIN only once Moonlight's request has arrived.
+        for _ in 0..10 {
+            if sunshine::send_pin(&pin, &name) {
+                return log(&format!("PIN de «{name}» escrito en Sunshine"));
+            }
+            thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+    let _ = tauri_plugin_opener::open_url(format!("{SUNSHINE_WEB}/pin"), None::<&str>);
+    tell(
+        "NovaBridge · Moonlight",
+        &format!("«{name}» quiere ver la pantalla de este PC.\n\nEscribe este PIN en la página de Sunshine que se acaba de abrir:\n\n{pin}"),
+    );
 }
 
 fn server() {
@@ -403,7 +420,14 @@ fn server() {
 }
 
 /// Starts NovaBridge: network in the background, tray icon in front.
+/// `--setup` / `--uninstall` are for the NOVA Host installer (elevated).
 pub fn run() {
+    #[cfg(windows)]
+    match env::args().nth(1).as_deref() {
+        Some("--setup") => std::process::exit(sunshine::setup()),
+        Some("--uninstall") => std::process::exit(sunshine::uninstall()),
+        _ => {}
+    }
     #[cfg(windows)]
     if !tray::single_instance() {
         return;

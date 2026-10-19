@@ -1,0 +1,33 @@
+NOVA Host
+=========
+
+NOVA Host instala dos programas en este PC:
+
+1. NovaBridge, de NOVA TV.
+   Habla con NOVA en la tele por la red de casa: anuncia este PC, pregunta
+   antes de dejar entrar a una tele, lista los juegos instalados y los abre
+   cuando la tele lo pide. No envía nada fuera de tu red.
+
+2. Sunshine, de LizardByte (solo si no estaba instalado ya).
+   Envía la imagen y el sonido de este PC a Moonlight, en la tele.
+   Sunshine es software libre con licencia GNU General Public License v3.0.
+   Versión incluida: v2026.914.233613
+   Código fuente de esa versión:
+     https://github.com/LizardByte/Sunshine/tree/v2026.914.233613
+   Texto de la licencia:
+     https://www.gnu.org/licenses/gpl-3.0.html
+   Sunshine se instala con su propio instalador sin modificar y se puede
+   desinstalar por separado desde Configuración → Aplicaciones.
+
+Qué cambia en este PC
+---------------------
+
+- El cortafuegos de Windows deja entrar a NovaBridge solo desde redes
+  privadas (casa), no desde redes públicas.
+- NovaBridge arranca con Windows (se puede quitar desde su menú).
+- Si Sunshine no tenía usuario, NOVA Host le crea uno ("nova") con una
+  contraseña al azar que solo NovaBridge puede leer, para escribir por ti
+  el PIN de Moonlight. Puedes verla en el menú de NovaBridge. Si Sunshine
+  ya tenía tu usuario, no se toca.
+
+Al pulsar «Acepto» confirmas que has leído esto.

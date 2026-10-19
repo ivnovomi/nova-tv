@@ -79,12 +79,12 @@ impl Secrets {
 }
 
 #[cfg(windows)]
-fn protect(plain: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn protect(plain: &[u8]) -> Result<Vec<u8>, String> {
     dpapi(plain, true)
 }
 
 #[cfg(windows)]
-fn unprotect(sealed: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn unprotect(sealed: &[u8]) -> Result<Vec<u8>, String> {
     dpapi(sealed, false)
 }
 
@@ -116,12 +116,12 @@ fn dpapi(data: &[u8], seal: bool) -> Result<Vec<u8>, String> {
 
 // Other systems (development only: NOVA runs on Windows): stored as they are.
 #[cfg(not(windows))]
-fn protect(plain: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn protect(plain: &[u8]) -> Result<Vec<u8>, String> {
     Ok(plain.to_vec())
 }
 
 #[cfg(not(windows))]
-fn unprotect(sealed: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn unprotect(sealed: &[u8]) -> Result<Vec<u8>, String> {
     Ok(sealed.to_vec())
 }
 
