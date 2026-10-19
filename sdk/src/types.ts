@@ -101,6 +101,15 @@ export interface ChannelsProvider {
   stream?(id: string, ctx: Context & { retry: boolean }): Promise<Stream>;
   /** Signal check: is this channel on air? Without it, NOVA checks the stream itself. */
   check?(id: string, ctx: Context): Promise<boolean>;
+  /**
+   * Signs a playlist right before NOVA fetches it (only for `proxy: true`
+   * streams): add a session token, a signature… The player only ever sees the
+   * short address from `stream()`, and when the server refuses a signature
+   * (401/403) NOVA asks again with `retry: true` and fetches once more.
+   * Return the address to fetch (or `{ url, headers }`); return it unchanged
+   * for playlists that don't need signing.
+   */
+  sign?(url: string, ctx: Context & { retry: boolean }): Promise<string | { url: string; headers?: Record<string, string> }>;
 }
 
 export interface GuideProvider {

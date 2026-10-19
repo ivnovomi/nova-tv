@@ -293,7 +293,7 @@ pub(crate) const MAX_STREAM_URL: usize = 8192;
 
 /// A stream address, whole or nothing: cutting it would cut its token (and the
 /// server would answer 401 with no clue why).
-fn stream_url(v: &serde_json::Value) -> Option<String> {
+pub(crate) fn stream_url(v: &serde_json::Value) -> Option<String> {
     let url = v.as_str()?.trim();
     (url.starts_with("https://") && url.len() <= MAX_STREAM_URL && !url.contains(|c: char| c.is_control() || c.is_whitespace())).then(|| url.to_string())
 }

@@ -466,8 +466,41 @@ fn playlist_quiet(app: &AppHandle, plugin_id: &str, url: &str) -> Result<String,
     if !config.plugins.installed.get(plugin_id).is_some_and(|s| s.enabled && approved(&manifest, s)) {
         return Err("Este plugin está desactivado".into());
     }
-    let headers = PROXY_HEADERS.lock().ok().and_then(|h| h.get(plugin_id).cloned()).unwrap_or_default();
-    let response = super::http::fetch(&manifest, super::http::Request { url: url.to_string(), method: None, headers, body: None, timeout: Some(15) })?;
+    let base_headers = PROXY_HEADERS.lock().ok().and_then(|h| h.get(plugin_id).cloned()).unwrap_or_default();
+
+    // `channels.sign(url)`: the plugin signs each playlist right before it's
+    // fetched (a session token, a signature…), so the player only ever sees
+    // short, unsigned addresses and an expired session is renewed on the spot.
+    let state = config.plugins.installed.get(plugin_id).ok_or("Ese plugin no está instalado")?;
+    let plugin = registry.plugin(plugin_id, state)?;
+    let signs = plugin.has("channels", "sign");
+    let sign = |retry: bool| -> Result<(String, HashMap<String, String>), String> {
+        let mut headers = base_headers.clone();
+        if !signs {
+            return Ok((url.to_string(), headers));
+        }
+        let (ctx, opaque) = context(plugin_id, &crate::profiles::active(&config));
+        let mut ctx = ctx;
+        ctx["retry"] = serde_json::Value::Bool(retry);
+        let answer = plugin.call("channels", "sign", serde_json::json!([url, ctx]), Some(opaque))?;
+        let signed = super::registry::stream_url(if answer.is_string() { &answer } else { &answer["url"] })
+            .ok_or_else(|| format!("channels.sign() no devolvió una dirección https:// válida (de hasta {} caracteres)", super::registry::MAX_STREAM_URL))?;
+        for (k, v) in answer["headers"].as_object().into_iter().flatten().take(20) {
+            if let Some(v) = v.as_str().filter(|v| k.len() <= 100 && v.len() <= 4096) {
+                headers.insert(k.clone(), v.to_string());
+            }
+        }
+        Ok((signed, headers))
+    };
+    let get = |retry: bool| -> Result<super::http::Response, String> {
+        let (signed, headers) = sign(retry)?;
+        super::http::fetch(&manifest, super::http::Request { url: signed, method: None, headers, body: None, timeout: Some(15) })
+    };
+    let mut response = get(false)?;
+    if signs && matches!(response.status, 401 | 403) {
+        // The signature was refused (an expired session…): a fresh one, once.
+        response = get(true)?;
+    }
     if response.status != 200 {
         let moved = response.headers.get("location").map(|l| format!(" (redirige a {})", redact(l))).unwrap_or_default();
         return Err(format!("HTTP {}{moved}", response.status));

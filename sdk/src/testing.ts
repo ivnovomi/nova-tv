@@ -130,6 +130,8 @@ export interface TestNova {
 
   channels(): Promise<Channel[]>;
   stream(id: string, options?: { retry?: boolean }): Promise<Stream>;
+  /** What NOVA's proxy would fetch for this playlist: the plugin's `channels.sign()` (or the address as is). */
+  sign(url: string, options?: { retry?: boolean }): Promise<{ url: string; headers?: Record<string, string> }>;
   check(id: string): Promise<boolean>;
   guide(ids?: string[], range?: { from: number; to: number }): Promise<Record<string, Program[]>>;
   rows(): Promise<Row[]>;
@@ -491,6 +493,25 @@ export function testPlugin(json: object, plugin: ProviderDefinition | (() => Pro
       const p = streamProblem(s);
       report(p ? [`stream(${id}): ${p}`] : []);
       return s;
+    },
+
+    async sign(url, { retry = false } = {}) {
+      const def = await ready();
+      if (typeof def.channels?.sign !== "function") return { url };
+      const answer = await call<string | { url: string; headers?: Record<string, string> }>("channels", "sign", [url, { ...ctx(), retry }]);
+      const signed = typeof answer === "string" ? { url: answer } : answer;
+      const found: string[] = [];
+      if (!isHttps(signed?.url)) found.push(`sign(): tiene que devolver una dirección https:// (${String(signed?.url)})`);
+      else if (signed.url.length > 8192) found.push(`sign(): la dirección mide ${signed.url.length} caracteres (NOVA admite 8192)`);
+      else {
+        try {
+          checkUrl(manifest, signed.url);
+        } catch (e) {
+          found.push(`sign(): ${(e as Error).message}`);
+        }
+      }
+      report(found);
+      return signed;
     },
 
     async check(id) {

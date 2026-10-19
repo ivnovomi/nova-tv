@@ -134,6 +134,25 @@ async stream(id, ctx) {
 },
 ```
 
+### Firmar justo antes de descargar: `sign()`
+
+Si las listas de tu servidor necesitan un token (como Pluto TV), mejor que `stream()` devuelva la dirección **corta, sin firmar**, y que firmes en `sign()`: NOVA te la pide **justo antes de cada descarga** de una lista (solo con `proxy: true`).
+
+```ts
+async stream(id) {
+  return { type: "hls", url: `https://cdn.ejemplo.es/canal/${id}/master.m3u8`, proxy: true };
+},
+async sign(url, ctx) {
+  if (!url.endsWith("/master.m3u8")) return url;           // las demás, tal cual
+  const s = await sesion(ctx.retry);                        // ctx.retry: la anterior fue rechazada
+  return `${url}?token=${s.token}`;                         // o { url, headers }
+},
+```
+
+- El token nunca llega al reproductor, y si la sesión caduca a mitad de un directo, la siguiente lista ya va con la nueva.
+- Si el servidor responde 401 o 403, NOVA vuelve a llamar a `sign()` con `retry: true` y repite la descarga una vez.
+- Las direcciones pueden medir hasta 8 KB.
+
 ### ¿Sigue en directo?: `check()`
 
 NOVA comprueba la señal de todos los canales. Si tu fuente sabe responder mejor (por ejemplo, preguntando a su API si el canal emite), implementa `check(id)` y devuelve `true` o `false`.

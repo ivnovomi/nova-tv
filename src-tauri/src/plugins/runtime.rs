@@ -547,11 +547,12 @@ mod tests {
         let stream = p.call("channels", "stream", serde_json::json!([first, sctx]), Some("p1".into())).unwrap();
         println!("stream: {}", &stream.to_string()[..160.min(stream.to_string().len())]);
         let headers = stream["headers"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
-        // Through the same cleaning as in the app (it used to cut the token).
+        // Through the same cleaning as in the app, then signed the way the proxy does it.
         let cleaned = crate::plugins::registry::clean_stream(&stream).expect("NOVA accepts the stream");
-        let url = cleaned["url"].as_str().unwrap().to_string();
-        assert_eq!(url, stream["url"].as_str().unwrap(), "the address arrives whole");
-        println!("longitud de la dirección: {} caracteres", url.len());
+        let short = cleaned["url"].as_str().unwrap().to_string();
+        let signed = p.call("channels", "sign", serde_json::json!([short, sctx]), Some("p1".into())).unwrap();
+        let url = crate::plugins::registry::stream_url(&signed).expect("a valid signed address");
+        println!("dirección: {} caracteres sin firmar, {} firmada", short.len(), url.len());
         let res = super::http::fetch(&manifest, super::http::Request { url, method: None, headers, body: None, timeout: Some(15) });
         match &res {
             Ok(r) => println!("HTTP {} · {}", r.status, r.body[..120.min(r.body.len())].replace('\n', " | ")),
@@ -565,7 +566,8 @@ mod tests {
         let fetch = |id: &str| {
             let s = p.call("channels", "stream", serde_json::json!([id, sctx]), Some("p1".into())).unwrap();
             let headers = s["headers"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
-            super::http::fetch(&manifest, super::http::Request { url: s["url"].as_str().unwrap().into(), method: None, headers, body: None, timeout: Some(15) }).map(|r| r.status).unwrap_or(0)
+            let signed = p.call("channels", "sign", serde_json::json!([s["url"], sctx]), Some("p1".into())).unwrap();
+            super::http::fetch(&manifest, super::http::Request { url: signed.as_str().unwrap().into(), method: None, headers, body: None, timeout: Some(15) }).map(|r| r.status).unwrap_or(0)
         };
         let one_by_one: Vec<u16> = ids.iter().map(|id| fetch(id)).collect();
         println!("seguidos: {:?}", one_by_one);
