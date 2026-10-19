@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Gamepad2, Link2, LoaderCircle, MonitorPlay, Moon, Search, Trash2, TriangleAlert } from "lucide-react";
+import { Download, Gamepad2, Link2, LoaderCircle, MonitorPlay, Moon, Search, Trash2, TriangleAlert } from "lucide-react";
+import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toasts";
 import { api, inTauri } from "../lib/api";
-import type { FoundPc, PcInfo, PcsInfo } from "../lib/types";
+import type { FoundPc, MoonlightProgress, PcInfo, PcsInfo } from "../lib/types";
 
 /** What the user has to do on the PC right now. */
 type Pairing = { name: string; stage: "accept" } | { name: string; stage: "pin"; pin: string };
@@ -15,6 +16,74 @@ function newPin() {
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Moonlight is missing: NOVA brings its own (portable, in NOVA's folder, no admin). */
+function MoonlightInstall({ version, onDone }: { version: string; onDone: () => void }) {
+  const toast = useToast();
+  const [progress, setProgress] = useState<MoonlightProgress | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!inTauri) return;
+    const off = listen<MoonlightProgress>("moonlight-install", ({ payload }) => setProgress(payload));
+    return () => void off.then((f) => f());
+  }, []);
+
+  const install = async () => {
+    setBusy(true);
+    setProgress(null);
+    try {
+      await api.pcInstallMoonlight();
+      toast.show("success", "Moonlight instalado", "Esta tele ya puede recibir los juegos de tu PC.");
+      onDone();
+    } catch (e) {
+      toast.show("error", "No se pudo instalar Moonlight", message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
+  const mb = (n: number) => (n / 1024 / 1024).toFixed(0);
+  return (
+    <div className="surface relative overflow-hidden rounded-2xl px-6 py-5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <TriangleAlert className="size-7 shrink-0 text-warn" />
+        <div className="min-w-[16rem] flex-1">
+          <p className="text-[1.25rem] font-semibold">Falta Moonlight en esta tele</p>
+          <p className="mt-1 text-[1rem] text-ink-3">
+            Es lo que recibe la imagen del PC. NOVA instala el oficial (versión {version}, unos 37 MB) en su propia carpeta: sin permisos de administrador y sin tocar Windows.
+          </p>
+        </div>
+        <button data-nav disabled={busy} onClick={() => void install()} className="focus-lift btn btn-primary">
+          {busy ? <LoaderCircle className="size-5 spin" /> : <Download className="size-5" />}
+          {busy ? (progress?.stage === "unpack" ? "Preparando…" : `Descargando ${percent}%`) : "Instalar Moonlight"}
+        </button>
+      </div>
+      {busy && (
+        <div className="mt-4">
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-[linear-gradient(90deg,#7c7aff,#3fd5f2)] transition-[width] duration-300" style={{ width: `${progress?.stage === "download" ? percent : progress ? 100 : 2}%` }} />
+          </div>
+          {progress?.stage === "download" && progress.total > 0 && (
+            <p className="mt-2 text-[0.9rem] tabular-nums text-ink-3">
+              {mb(progress.done)} de {mb(progress.total)} MB · comprobando que es el archivo oficial
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The same, as a dialog from NOVA PLAY. */
+export function PcGamesDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal title="Juegos desde tu PC" subtitle="Juega aquí a los juegos de otro PC de casa: él los mueve y esta tele los recibe por la red." onClose={onClose} width="58rem">
+      <PcGamesCard />
+    </Modal>
+  );
+}
 
 /** Ajustes → Juegos desde tu PC: find NovaBridge, pair it and Moonlight. */
 export function PcGamesCard() {
@@ -89,14 +158,7 @@ export function PcGamesCard() {
 
   return (
     <div className="space-y-3">
-      {info && !info.moonlight && (
-        <div className="surface flex items-start gap-4 rounded-2xl px-6 py-5">
-          <TriangleAlert className="mt-1 size-6 shrink-0 text-warn" />
-          <p className="text-[1.05rem] text-ink-2">
-            Falta <b className="text-ink-1">Moonlight</b> en esta tele: es lo que recibe la imagen del PC. Instálalo desde moonlight-stream.org y vuelve aquí.
-          </p>
-        </div>
-      )}
+      {info && !info.moonlight && <MoonlightInstall version={info.moonlightVersion} onDone={refresh} />}
 
       {pairing && (
         <div className="surface rounded-2xl border border-cyan/30 px-6 py-6" role="status">
@@ -153,9 +215,9 @@ export function PcGamesCard() {
               <Gamepad2 className="size-6 text-cyan" /> Añadir un PC
             </p>
             <ol className="mt-2 space-y-1 text-[1rem] text-ink-3">
-              <li>1. En el PC de juegos, instala Sunshine (es lo que emite la imagen).</li>
-              <li>2. Abre NovaBridge en ese PC: se queda junto al reloj.</li>
-              <li>3. Los dos en la misma red; mejor por cable. Busca aquí.</li>
+              <li>1. En el PC de juegos, instala NOVA Host (trae NovaBridge y Sunshine, ya configurados).</li>
+              <li>2. Los dos en la misma red; mejor por cable.</li>
+              <li>3. Busca aquí y, cuando lo pida, pulsa «Sí» en el PC.</li>
             </ol>
           </div>
           <button data-nav disabled={searching || !!pairing} onClick={() => void search()} className="focus-lift btn btn-ghost">

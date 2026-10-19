@@ -540,7 +540,15 @@ export interface PcInfo {
 export interface PcsInfo {
   /** Moonlight is installed on this box. */
   moonlight: boolean;
+  /** The version NOVA installs. */
+  moonlightVersion: string;
   pcs: PcInfo[];
+}
+
+export interface MoonlightProgress {
+  stage: "download" | "unpack" | "done";
+  done: number;
+  total: number;
 }
 
 export interface PluginLogLine {

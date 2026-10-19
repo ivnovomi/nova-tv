@@ -154,6 +154,8 @@ export const api = {
   /** Waits until the PIN is typed into Sunshine on the PC. */
   pcLinkMoonlight: (id: string, pin: string) => call<void>("pc_link_moonlight", { id, pin }),
   pcForget: (id: string) => call<void>("pc_forget", { id }),
+  /** Portable Moonlight in NOVA's folder; progress in "moonlight-install" events. */
+  pcInstallMoonlight: () => call<void>("pc_install_moonlight"),
   /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
   pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
   /** A proxied playlist of a plugin stream (only its domains, with its headers). */

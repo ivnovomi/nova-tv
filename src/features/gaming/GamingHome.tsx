@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "motion/react";
-import { Bluetooth, Dices, Gamepad2, Info, Joystick, Keyboard, Menu, Play, Plus, RefreshCw, Star, Trash2, type LucideProps } from "lucide-react";
+import { Bluetooth, Dices, Gamepad2, Info, Joystick, Keyboard, Menu, MonitorPlay, Play, Plus, RefreshCw, Star, Trash2, type LucideProps } from "lucide-react";
 import { byRecent, useNova } from "../../app/context";
 import { useActiveProfile } from "../../app/profiles";
 import { initials, posterBackground } from "../../components/art";
@@ -565,6 +565,13 @@ export function GamingHome({ pads, ready, onExit }: Props) {
               {games.length > 0 && <Shelf title={`Todos tus juegos · ${games.length}`}>{games.map((g, i) => tile(g, CoverTile, !continueList.length && i === 0))}</Shelf>}
               <Shelf title="Más">
                 <ActionTile icon={Dices} title="Sorpréndeme" subtitle="Un juego al azar de tu biblioteca" onClick={surprise} onFocus={() => sfx.move()} />
+                <ActionTile
+                  icon={MonitorPlay}
+                  title="Juegos de tu PC"
+                  subtitle={present.has("pc") ? "Tus PCs y Moonlight" : "Juega aquí a los de un PC potente"}
+                  onClick={() => nova.openDialog({ type: "pc-games" })}
+                  onFocus={() => sfx.move()}
+                />
                 <ActionTile icon={RefreshCw} title="Buscar juegos" subtitle="Steam, Epic, GOG, Ubisoft, Xbox…" onClick={rescan} onFocus={() => sfx.move()} />
                 <ActionTile icon={Plus} title="Añadir juego" subtitle="Cualquier .exe del PC" onClick={() => nova.openDialog({ type: "add-exe", kind: "game" })} onFocus={() => sfx.move()} />
                 <ActionTile icon={Gamepad2} title="Juego de Steam" subtitle="Por su App ID" onClick={() => nova.openDialog({ type: "add-steam" })} onFocus={() => sfx.move()} />

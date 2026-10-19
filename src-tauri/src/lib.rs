@@ -170,6 +170,7 @@ pub fn run() {
             gamestream::pc_pair,
             gamestream::pc_link_moonlight,
             gamestream::pc_forget,
+            gamestream::pc_install_moonlight,
             plugins::tv::plugins_stream,
             plugins::tv::plugins_playlist,
             splash::splash_step,

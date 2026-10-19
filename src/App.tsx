@@ -8,6 +8,7 @@ import { ToastProvider, useToast } from "./components/Toasts";
 import { NovaContext, type Dialog, type Nova } from "./app/context";
 import { AddExecutableDialog, AddSteamDialog, AddWebDialog, ConfirmDialog, ConfirmRemoveDialog } from "./features/Dialogs";
 import { HomeScreen } from "./features/Home";
+import { PcGamesDialog } from "./features/PcGamesCard";
 import { AppsScreen } from "./features/Library";
 import { MediaScreen } from "./features/Media";
 import { StreamingScreen } from "./features/Streaming";
@@ -554,6 +555,7 @@ function Shell() {
         )}
         {dialog?.type === "add-steam" && <AddSteamDialog key="add-steam" onClose={closeDialog} onSaved={onSaved} />}
         {dialog?.type === "add-web" && <AddWebDialog key="add-web" onClose={closeDialog} onSaved={onSaved} />}
+        {dialog?.type === "pc-games" && <PcGamesDialog key="pc-games" onClose={closeDialog} />}
         {dialog?.type === "confirm-clear-history" && (
           <ConfirmDialog
             key="clear-history"

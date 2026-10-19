@@ -133,13 +133,119 @@ fn reach(pc: &PairedPc, wait: Duration) -> Option<(Info, String)> {
 
 // ───────────────────────── Moonlight on this box ─────────────────────────
 
-fn moonlight() -> Option<PathBuf> {
+// The portable Moonlight NOVA installs in its own folder (no admin, nothing
+// in Windows): pinned version, checked against its published SHA-256.
+const MOONLIGHT_VERSION: &str = "6.2.0";
+const MOONLIGHT_URL: &str = "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.2.0/MoonlightPortable-x64-6.2.0.zip";
+const MOONLIGHT_SHA256: &str = "6f91d268b41ed5ca8066d9d7578dc403b8db190991ff48f00b1700465f8f7ebf";
+const MOONLIGHT_MAX: u64 = 64 * 1024 * 1024;
+/// Written last: a folder without it is a half-finished install.
+const MOONLIGHT_MARK: &str = "nova-version.txt";
+
+fn own_moonlight_dir(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_local_data_dir().ok().map(|d| d.join("moonlight"))
+}
+
+fn own_moonlight(app: &AppHandle) -> Option<PathBuf> {
+    let dir = own_moonlight_dir(app)?;
+    std::fs::read_to_string(dir.join(MOONLIGHT_MARK)).ok()?;
+    Some(dir.join("Moonlight.exe")).filter(|p| p.is_file())
+}
+
+/// NOVA's own Moonlight, or one installed in Windows.
+fn moonlight(app: &AppHandle) -> Option<PathBuf> {
     let program_files = ["ProgramFiles", "ProgramFiles(x86)"].iter().filter_map(env::var_os).map(PathBuf::from);
     let local = env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Programs"));
-    program_files
-        .chain(local)
-        .map(|base| base.join(r"Moonlight Game Streaming\Moonlight.exe"))
-        .find(|p| p.is_file())
+    own_moonlight(app).or_else(|| {
+        program_files
+            .chain(local)
+            .map(|base| base.join(r"Moonlight Game Streaming\Moonlight.exe"))
+            .find(|p| p.is_file())
+    })
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct InstallProgress {
+    /// "download" | "unpack" | "done"
+    stage: &'static str,
+    done: u64,
+    total: u64,
+}
+
+/// Downloads, checks and unpacks Moonlight into NOVA's folder.
+fn install_moonlight(app: &AppHandle) -> Result<(), String> {
+    let dir = own_moonlight_dir(app).ok_or("No se encuentra la carpeta de NOVA")?;
+    install_moonlight_into(&dir, |stage, done, total| {
+        let _ = app.emit("moonlight-install", InstallProgress { stage, done, total });
+    })
+}
+
+fn install_moonlight_into(dir: &std::path::Path, emit: impl Fn(&'static str, u64, u64)) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    use std::io::{Read, Write};
+    let dir = dir.to_path_buf();
+    let zip_path = dir.with_extension("zip.part");
+
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(15 * 60)))
+        .max_redirects(5)
+        .https_only(true)
+        .build()
+        .into();
+    let mut res = agent.get(MOONLIGHT_URL).call().map_err(|e| format!("No se pudo descargar Moonlight: {e}"))?;
+    let total = res.body().content_length().unwrap_or(0);
+    let mut reader = res.body_mut().with_config().limit(MOONLIGHT_MAX).reader();
+    std::fs::create_dir_all(dir.parent().unwrap_or(&dir)).map_err(|e| e.to_string())?;
+    let mut file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+    let mut hasher = Sha256::new();
+    let (mut done, mut last) = (0u64, 0u64);
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        let n = reader.read(&mut buf).map_err(|e| format!("La descarga de Moonlight se cortó: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+        file.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        done += n as u64;
+        if done - last >= 512 * 1024 {
+            last = done;
+            emit("download", done, total);
+        }
+    }
+    drop(file);
+    let sum: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    if sum != MOONLIGHT_SHA256 {
+        let _ = std::fs::remove_file(&zip_path);
+        return Err("Lo descargado no es el Moonlight esperado (la huella no coincide). No se ha instalado.".into());
+    }
+
+    emit("unpack", done, total);
+    let _ = std::fs::remove_file(dir.join(MOONLIGHT_MARK));
+    let unpacked = std::fs::File::open(&zip_path)
+        .map_err(|e| e.to_string())
+        .and_then(|f| zip::ZipArchive::new(f).map_err(|e| e.to_string()))
+        .and_then(|mut archive| archive.extract(&dir).map_err(|e| e.to_string()));
+    let _ = std::fs::remove_file(&zip_path);
+    unpacked.map_err(|e| format!("No se pudo descomprimir Moonlight: {e}"))?;
+    std::fs::write(dir.join(MOONLIGHT_MARK), MOONLIGHT_VERSION).map_err(|e| e.to_string())?;
+    emit("done", done, total);
+    log(&format!("Moonlight {MOONLIGHT_VERSION} instalado en {}", dir.display()));
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pc_install_moonlight(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    crate::profiles::require_adult(&state)?;
+    static INSTALLING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if INSTALLING.swap(true, std::sync::atomic::Ordering::AcqRel) {
+        return Err("Moonlight ya se está instalando.".into());
+    }
+    let worker = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || install_moonlight(&worker)).await.map_err(|e| e.to_string());
+    INSTALLING.store(false, std::sync::atomic::Ordering::Release);
+    result?
 }
 
 fn box_name() -> String {
@@ -227,7 +333,7 @@ pub async fn play(app: &AppHandle, pc_id: &str, game: &str, name: &str) -> Resul
         .into_iter()
         .find(|p| p.id == pc_id)
         .ok_or("Ese PC ya no está emparejado.")?;
-    let exe = moonlight().ok_or("Falta Moonlight en esta tele: instálalo desde moonlight-stream.org.")?;
+    let exe = moonlight(app).ok_or("Falta Moonlight en esta tele: instálalo desde Ajustes → Juegos desde tu PC.")?;
     if !pc.moonlight {
         return Err(format!("Moonlight aún no está emparejado con {}: hazlo en Ajustes → Juegos desde tu PC.", pc.name));
     }
@@ -295,11 +401,13 @@ pub struct PcView {
 pub struct PcsView {
     /// Moonlight is installed on this box.
     moonlight: bool,
+    /// The one NOVA installs.
+    moonlight_version: &'static str,
     pcs: Vec<PcView>,
 }
 
 #[tauri::command]
-pub async fn pc_list(state: State<'_, AppState>) -> Result<PcsView, String> {
+pub async fn pc_list(app: AppHandle, state: State<'_, AppState>) -> Result<PcsView, String> {
     let pcs = state.config.snapshot().pcs;
     let checks: Vec<_> = pcs
         .into_iter()
@@ -323,7 +431,7 @@ pub async fn pc_list(state: State<'_, AppState>) -> Result<PcsView, String> {
     })
     .await
     .map_err(|e| e.to_string())?;
-    Ok(PcsView { moonlight: moonlight().is_some(), pcs: views })
+    Ok(PcsView { moonlight: moonlight(&app).is_some(), moonlight_version: MOONLIGHT_VERSION, pcs: views })
 }
 
 #[tauri::command]
@@ -369,7 +477,7 @@ pub async fn pc_link_moonlight(id: String, pin: String, app: AppHandle, state: S
         return Err("El PIN son 4 cifras.".into());
     }
     let pc = state.config.snapshot().pcs.into_iter().find(|p| p.id == id).ok_or("Ese PC ya no está emparejado.")?;
-    let exe = moonlight().ok_or("Falta Moonlight en esta tele: instálalo desde moonlight-stream.org.")?;
+    let exe = moonlight(&app).ok_or("Falta Moonlight en esta tele: instálalo desde Ajustes → Juegos desde tu PC.")?;
     let ok = tauri::async_runtime::spawn_blocking(move || {
         let mut child = Command::new(&exe).args(["pair", &pc.host, "--pin", &pin]).spawn().map_err(|e| format!("No se pudo abrir Moonlight: {e}"))?;
         // Moonlight first says hello to Sunshine; then the PC can take the PIN.
@@ -429,6 +537,24 @@ mod tests {
         assert!(is_pc_id(&s.id));
         assert_eq!(s.description.as_deref(), Some("En TORRE · Steam"));
         assert!(matches!(s.target, Target::Pc { ref pc, ref game } if pc == "ab12" && game == "steam:730"));
+    }
+
+    /// Downloads the real Moonlight (≈37 MB) into a temporary folder.
+    #[test]
+    #[ignore = "downloads Moonlight"]
+    fn installs_portable_moonlight() {
+        let dir = env::temp_dir().join("nova-moonlight-test").join("moonlight");
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+        install_moonlight_into(&dir, |stage, done, total| {
+            if stage != "download" || done % (8 * 1024 * 1024) < 512 * 1024 {
+                println!("{stage} {done}/{total}");
+            }
+        })
+        .unwrap();
+        assert!(dir.join("Moonlight.exe").is_file());
+        assert!(dir.join("portable.dat").is_file());
+        assert_eq!(std::fs::read_to_string(dir.join(MOONLIGHT_MARK)).unwrap(), MOONLIGHT_VERSION);
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
     }
 
     /// Needs NovaBridge running on this network.

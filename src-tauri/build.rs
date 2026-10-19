@@ -42,6 +42,7 @@ fn main() {
             "pc_pair",
             "pc_link_moonlight",
             "pc_forget",
+            "pc_install_moonlight",
             "plugins_stream",
             "plugins_playlist",
             "splash_step",

@@ -7,6 +7,8 @@ export type Dialog =
   | { type: "add-web" }
   | { type: "confirm-remove"; item: Shortcut }
   | { type: "confirm-clear-history" }
+  /** Juegos desde tu PC (from NOVA PLAY). */
+  | { type: "pc-games" }
   | null;
 
 export interface Nova {
