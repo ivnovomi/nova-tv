@@ -70,14 +70,16 @@ export interface StoreProgress {
 }
 
 export type ShortcutKind = "app" | "game" | "stream";
-export type ShortcutSource = "user" | "detected" | "steam" | "builtin" | "store" | "epic" | "gog" | "ubisoft" | "xbox" | "launcher";
+export type ShortcutSource = "user" | "detected" | "steam" | "builtin" | "store" | "epic" | "gog" | "ubisoft" | "xbox" | "launcher" | "pc";
 
 export type Target =
   | { type: "executable"; path: string; args: string[] }
   | { type: "steam"; appId: number }
   | { type: "web"; url: string; tv: boolean }
   | { type: "packaged"; aumid: string }
-  | { type: "uri"; uri: string };
+  | { type: "uri"; uri: string }
+  /** A game on a PC of the house, played through Moonlight. */
+  | { type: "pc"; pc: string; game: string };
 
 /** Ajustes → Estado de las fuentes: what NOVA knows about one source. */
 export interface SourceStatus {
@@ -511,6 +513,34 @@ export interface LocationInfo {
   place: Place | null;
   /** Detection from the connection is on. */
   detect: boolean;
+}
+
+/** A PC with NovaBridge answering on the home network. */
+export interface FoundPc {
+  id: string;
+  name: string;
+  host: string;
+  sunshine: boolean;
+  paired: boolean;
+}
+
+/** A paired PC, and whether it answers right now. */
+export interface PcInfo {
+  id: string;
+  name: string;
+  host: string;
+  /** Moonlight on this box is paired with its Sunshine. */
+  moonlight: boolean;
+  games: number;
+  online: boolean;
+  sunshine: boolean;
+  sunshineRunning: boolean;
+}
+
+export interface PcsInfo {
+  /** Moonlight is installed on this box. */
+  moonlight: boolean;
+  pcs: PcInfo[];
 }
 
 export interface PluginLogLine {

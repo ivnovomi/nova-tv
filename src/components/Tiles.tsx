@@ -48,6 +48,7 @@ const SOURCE_LABEL: Record<Shortcut["source"], string> = {
   ubisoft: "Ubisoft",
   xbox: "Xbox",
   launcher: "Lanzador",
+  pc: "Desde tu PC",
 };
 
 interface ShortcutTileProps {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pc-forget"
+description = "Enables the pc_forget command without any pre-configured scope."
+commands.allow = ["pc_forget"]
+
+[[permission]]
+identifier = "deny-pc-forget"
+description = "Denies the pc_forget command without any pre-configured scope."
+commands.deny = ["pc_forget"]

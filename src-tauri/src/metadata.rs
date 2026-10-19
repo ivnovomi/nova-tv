@@ -290,6 +290,14 @@ fn fetch_one(game: &Shortcut) -> GameMeta {
     if let Some(product) = store_product_for(&game.id) {
         return ms_by_id(product, Some(&game.name)).unwrap_or_else(miss);
     }
+    // A PC's Steam game (`steam:730` there) has the same artwork as here.
+    let pc_steam = match &game.target {
+        Target::Pc { game, .. } => game.strip_prefix("steam:").and_then(|n| n.parse::<u32>().ok()),
+        _ => None,
+    };
+    if let Some(app_id) = pc_steam {
+        return details(app_id).unwrap_or_else(miss);
+    }
     match &game.target {
         Target::Steam { app_id } => details(*app_id).unwrap_or_else(miss),
         Target::Packaged { aumid } => {

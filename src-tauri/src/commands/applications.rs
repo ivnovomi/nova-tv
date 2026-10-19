@@ -167,6 +167,9 @@ fn find_shortcut(state: &AppState, id: &str) -> Option<Shortcut> {
     if ["epic:", "gog:", "ubisoft:", "xbox:", "launcher:", "riot:"].iter().any(|p| id.starts_with(p)) {
         return super::games::installed_games().into_iter().find(|s| s.id == id);
     }
+    if crate::gamestream::is_pc_id(id) {
+        return crate::gamestream::shortcuts(&state.config.snapshot()).into_iter().find(|s| s.id == id);
+    }
     None
 }
 
@@ -205,6 +208,7 @@ pub fn all_games(app: &AppHandle) -> Vec<Shortcut> {
             .into_iter()
             .filter(|s| s.kind == ShortcutKind::Game),
     );
+    games.extend(crate::gamestream::games(app));
     games
 }
 
@@ -215,6 +219,8 @@ pub async fn list_library(app: AppHandle, state: State<'_, AppState>) -> Result<
     let mut apps = detected_apps();
     let mut games = super::steam::installed_games();
     games.extend(super::games::installed_games());
+    // Games of the PCs of the house (NovaBridge), playable through Moonlight.
+    games.extend(crate::gamestream::games(&app));
     let mut streaming = super::streaming::catalog();
     streaming.extend(super::store::installed_apps());
     for s in config.shortcuts {
@@ -253,7 +259,9 @@ pub async fn parental_catalog(state: State<'_, AppState>) -> Result<Vec<Shortcut
     all.extend(super::steam::installed_games());
     all.extend(super::games::installed_games());
     all.extend(detected_apps());
-    all.extend(state.config.snapshot().shortcuts);
+    let config = state.config.snapshot();
+    all.extend(crate::gamestream::shortcuts(&config));
+    all.extend(config.shortcuts);
     Ok(all)
 }
 
@@ -373,13 +381,15 @@ pub async fn launch_shortcut(id: String, app: AppHandle, state: State<'_, AppSta
         // Games read the controller themselves: no streaming session, no key mapping.
         Target::Packaged { aumid } if shortcut.kind == ShortcutKind::Game => super::store::activate(aumid)?,
         Target::Uri { uri } => super::games::launch_uri(uri)?,
+        // Played on the PC, seen here through Moonlight (NOVA watches Moonlight, not the game).
+        Target::Pc { pc, game } => crate::gamestream::play(&app, pc, game, &shortcut.name).await?,
         Target::Packaged { aumid } => {
             crate::session::end_blocking(&app).await;
             super::store::launch(aumid)?;
             crate::session::start(&app, &shortcut.name, crate::session::Kind::Untracked);
         }
     }
-    if shortcut.kind == ShortcutKind::Game {
+    if shortcut.kind == ShortcutKind::Game && !matches!(shortcut.target, Target::Pc { .. }) {
         crate::gamewatch::watch(&app, &shortcut);
     }
     // Launch succeeded; recording it in "recent" is best effort.

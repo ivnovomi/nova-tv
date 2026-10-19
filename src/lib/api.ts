@@ -29,6 +29,8 @@ import type {
   SystemStats,
   PackageInfo,
   LocationInfo,
+  FoundPc,
+  PcsInfo,
   PluginAccountUser,
   PluginLogLine,
   PluginSignIn,
@@ -144,6 +146,14 @@ export const api = {
   locationDetect: () => call<Place>("location_detect"),
   /** Detection from the connection on/off (off forgets a detected place). */
   locationSetDetect: (enabled: boolean) => call<void>("location_set_detect", { enabled }),
+  // Games from a PC of the house (NovaBridge + Moonlight).
+  pcList: () => call<PcsInfo>("pc_list"),
+  pcDiscover: () => call<FoundPc[]>("pc_discover"),
+  /** Waits until the user answers on the PC (up to 90 s). Returns the PC's id. */
+  pcPair: (host: string) => call<string>("pc_pair", { host }),
+  /** Waits until the PIN is typed into Sunshine on the PC. */
+  pcLinkMoonlight: (id: string, pin: string) => call<void>("pc_link_moonlight", { id, pin }),
+  pcForget: (id: string) => call<void>("pc_forget", { id }),
   /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
   pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
   /** A proxied playlist of a plugin stream (only its domains, with its headers). */

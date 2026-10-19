@@ -48,7 +48,8 @@ export const PLATFORM: Record<string, string> = {
   user: "Añadido",
 };
 
-/** "Riot Games", "Minecraft Launcher"… for games behind a launcher; the store otherwise. */
+/** "Riot Games", "Minecraft Launcher"… for games behind a launcher, "En TORRE · Steam" for a PC's; the store otherwise. */
 export function platformLabel(game: Shortcut) {
-  return game.source === "launcher" ? game.description ?? PLATFORM.launcher : PLATFORM[game.source] ?? "Juego";
+  if (game.source === "launcher" || game.source === "pc") return game.description ?? PLATFORM[game.source] ?? "Juego";
+  return PLATFORM[game.source] ?? "Juego";
 }

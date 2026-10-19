@@ -289,6 +289,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: "gog", label: "GOG" },
   { key: "ubisoft", label: "Ubisoft" },
   { key: "launcher", label: "Lanzadores" },
+  { key: "pc", label: "Desde tu PC" },
   { key: "user", label: "Añadidos" },
 ];
 

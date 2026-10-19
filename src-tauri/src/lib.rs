@@ -1,5 +1,8 @@
+/// NovaBridge, the gaming PC's side (binary `nova-bridge`).
+pub mod bridge;
 mod commands;
 mod config;
+mod gamestream;
 mod gamewatch;
 mod history;
 mod livetv;
@@ -162,6 +165,11 @@ pub fn run() {
             location::location_set,
             location::location_detect,
             location::location_set_detect,
+            gamestream::pc_list,
+            gamestream::pc_discover,
+            gamestream::pc_pair,
+            gamestream::pc_link_moonlight,
+            gamestream::pc_forget,
             plugins::tv::plugins_stream,
             plugins::tv::plugins_playlist,
             splash::splash_step,

@@ -384,11 +384,13 @@ function Shell() {
       listen<{ plugin: string; title: string; detail: string | null }>("plugin-notify", ({ payload }) =>
         toast.show("info", payload.title, payload.detail ? `${payload.detail} · ${payload.plugin}` : payload.plugin),
       ),
+      // A PC of the house was paired, forgotten or has other games.
+      listen("pcs-changed", () => void reload()),
       // Settings that can't be saved would be lost at the next restart: never silently.
       listen<string>("config-save-failed", ({ payload }) => toast.show("error", "NOVA no puede guardar tus ajustes", payload)),
     ];
     return () => offs.forEach((o) => void o.then((f) => f()));
-  }, [toast]);
+  }, [toast, reload]);
 
   // Another profile: everything it sees comes again from Rust, already filtered.
   useEffect(() => {

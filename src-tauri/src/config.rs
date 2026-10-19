@@ -40,6 +40,8 @@ pub enum ShortcutSource {
     Xbox,
     /// A game opened through its own launcher (Minecraft, Roblox, Riot…).
     Launcher,
+    /// A game on another PC of the house, played over Moonlight (NovaBridge).
+    Pc,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -65,6 +67,8 @@ pub enum Target {
     Packaged { aumid: String },
     /// A launcher URI built by NOVA from install records (Epic, Ubisoft…).
     Uri { uri: String },
+    /// A game on a paired PC (NovaBridge id + the game's id on that PC).
+    Pc { pc: String, game: String },
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -150,6 +154,41 @@ pub struct Config {
     /// connection (it's on while they haven't chosen a city).
     #[serde(default)]
     pub location_detect_disabled: bool,
+    /// PCs of the house paired through NovaBridge, to play their games here.
+    #[serde(default)]
+    pub pcs: Vec<PairedPc>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PairedPc {
+    /// NovaBridge's own id (stable across IP changes).
+    pub id: String,
+    pub name: String,
+    /// Last address it answered from.
+    pub host: String,
+    /// Network cards, to wake it up (Wake-on-LAN).
+    #[serde(default)]
+    pub macs: Vec<String>,
+    /// Token NovaBridge gave NOVA when the user accepted it on the PC.
+    pub token: String,
+    /// Moonlight on this box is paired with the PC's Sunshine.
+    #[serde(default)]
+    pub moonlight: bool,
+    /// Its games, kept so they show (and wake the PC) while it sleeps.
+    #[serde(default)]
+    pub games: Vec<PcGame>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PcGame {
+    /// The game's id on the PC (`steam:730`, `epic:…`).
+    pub id: String,
+    pub name: String,
+    /// Where it comes from on the PC ("Steam", "Epic Games"…).
+    #[serde(default)]
+    pub store: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

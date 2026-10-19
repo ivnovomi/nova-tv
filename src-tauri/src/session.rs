@@ -23,6 +23,8 @@ pub enum Kind {
     Player(String),
     /// A browser process NOVA started.
     Browser(Child),
+    /// Moonlight playing a game from a PC: it reads the controller itself.
+    Game(Child),
     /// A Store app, or a browser that handed off to an already running instance.
     Untracked,
 }
@@ -99,7 +101,7 @@ pub fn is_untracked() -> bool {
 
 pub fn start(app: &AppHandle, name: &str, kind: Kind) {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    let watch = matches!(kind, Kind::Browser(_));
+    let watch = matches!(kind, Kind::Browser(_) | Kind::Game(_));
     set_now_playing(None);
     if let Ok(mut s) = SESSION.lock() {
         *s = Some(Session { id, name: name.to_string(), kind, started: Instant::now() });
@@ -124,10 +126,14 @@ fn watch_browser(app: AppHandle, id: u64) {
         thread::sleep(Duration::from_millis(500));
         let Ok(mut guard) = SESSION.lock() else { return };
         let Some(session) = guard.as_mut().filter(|s| s.id == id) else { return };
-        let Kind::Browser(child) = &mut session.kind else { return };
+        let (child, game) = match &mut session.kind {
+            Kind::Browser(child) => (child, false),
+            Kind::Game(child) => (child, true),
+            _ => return,
+        };
         match child.try_wait() {
             Ok(None) => {}
-            Ok(Some(_)) if session.started.elapsed() < Duration::from_secs(4) => {
+            Ok(Some(_)) if !game && session.started.elapsed() < Duration::from_secs(4) => {
                 // Handed the window to an already running instance: can't track it.
                 session.kind = Kind::Untracked;
                 return;
@@ -166,7 +172,7 @@ pub fn end(app: &AppHandle, refocus: bool) {
                 let _ = w.destroy();
             }
         }
-        Kind::Browser(child) => close_gracefully(child),
+        Kind::Browser(child) | Kind::Game(child) => close_gracefully(child),
         Kind::Untracked => {}
     }
     emit(app, false, &session.name, "home");
@@ -224,6 +230,8 @@ fn controller_may_type(app: &AppHandle) -> bool {
         match &session.kind {
             Kind::Player(_) => fg == Some(std::process::id()),
             Kind::Browser(child) => fg == Some(child.id()),
+            // Moonlight sends the controller to the PC as it is.
+            Kind::Game(_) => false,
             // Store apps run under system hosts; any foreground app except NOVA.
             Kind::Untracked => fg.is_some() && fg != Some(std::process::id()),
         }

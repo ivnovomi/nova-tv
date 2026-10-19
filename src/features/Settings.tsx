@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as autostartEnabled } from "@tauri-apps/plugin-autostart";
-import { Activity, ArrowDownToLine, Info, Puzzle, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
+import { Activity, ArrowDownToLine, Gamepad2, Info, Puzzle, LoaderCircle, Monitor, Palette, Power, RadioTower, RefreshCw, Shield, Smartphone, Users, type LucideProps } from "lucide-react";
 import { SourcesStatus } from "./SourcesStatus";
 import { UpdatesSettings } from "./Updates";
 import type { Place } from "../lib/types";
@@ -18,6 +18,7 @@ import { sfx } from "./gaming/sfx";
 import { trailerPref } from "./gaming/prefs";
 import { liveTv, useLiveTv } from "./livetv/store";
 import { RemoteCard } from "./RemoteCard";
+import { PcGamesCard } from "./PcGamesCard";
 import { SystemPanel } from "./System";
 
 export const FULLSCREEN_PREF = "nova.fullscreenOnStart";
@@ -28,7 +29,7 @@ export function startsOnTv() {
   return readPref(START_TV_PREF, true);
 }
 
-type SectionId = "profiles" | "appearance" | "startup" | "remote" | "tv" | "sources" | "privacy" | "system" | "plugins" | "updates" | "about";
+type SectionId = "profiles" | "appearance" | "startup" | "remote" | "pc" | "tv" | "sources" | "privacy" | "system" | "plugins" | "updates" | "about";
 
 type SectionInfo = { id: SectionId; label: string; icon: ComponentType<LucideProps>; tint: string };
 
@@ -52,7 +53,10 @@ const GROUPS: { label: string; sections: SectionInfo[] }[] = [
   },
   {
     label: "Conexiones",
-    sections: [{ id: "remote", label: "Mando del móvil", icon: Smartphone, tint: "#5c9bff" }],
+    sections: [
+      { id: "remote", label: "Mando del móvil", icon: Smartphone, tint: "#5c9bff" },
+      { id: "pc", label: "Juegos desde tu PC", icon: Gamepad2, tint: "#7cf29a" },
+    ],
   },
   {
     label: "Sistema",
@@ -577,6 +581,11 @@ export function SettingsScreen() {
           {section === "remote" && (
             <Section key="r" title="Mando del móvil" description="Controla NOVA desde el navegador de tu teléfono, sin instalar nada.">
               <RemoteCard />
+            </Section>
+          )}
+          {section === "pc" && (
+            <Section key="pc" title="Juegos desde tu PC" description="Juega aquí a los juegos de otro PC de casa: él los mueve y esta tele los recibe por la red, con Moonlight.">
+              <PcGamesCard />
             </Section>
           )}
           {section === "tv" && <TvSettings key="t" />}

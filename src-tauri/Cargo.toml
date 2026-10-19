@@ -4,6 +4,8 @@ version = "0.3.1"
 description = "NOVA TV - Smart TV launcher for Windows"
 authors = ["ivnov"]
 edition = "2024"
+# src/bin/nova-bridge.rs is NovaBridge, the gaming PC's tray program.
+default-run = "nova-tv"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -44,6 +46,8 @@ base64 = "0.22"
 tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 rquickjs = "0.14"
 zip = { version = "9", default-features = false, features = ["deflate"] }
+# NovaBridge's tray icon on the gaming PC.
+tray-icon = "0.25"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
@@ -56,6 +60,10 @@ windows = { version = "0.62", features = [
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Shell",
   "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_System_Threading",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
+  "Win32_Networking_WinSock",
   "Foundation",
   "Foundation_Collections",
   "ApplicationModel",
