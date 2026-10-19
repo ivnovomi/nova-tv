@@ -551,8 +551,9 @@ pub async fn plugins_stream(stream: String, retry: bool, app: AppHandle) -> Resu
 
 #[tauri::command]
 pub async fn plugins_playlist(plugin: String, url: String, app: AppHandle) -> Result<String, String> {
-    if url.len() > 4096 {
-        return Err("Lista no permitida".into());
+    // Variant playlists inherit the master's token, so they're about as long.
+    if url.len() > super::registry::MAX_STREAM_URL {
+        return Err(format!("Lista no permitida: la dirección mide {} caracteres (máximo {})", url.len(), super::registry::MAX_STREAM_URL));
     }
     tauri::async_runtime::spawn_blocking(move || playlist(&app, &plugin, &url)).await.map_err(|e| e.to_string())?
 }

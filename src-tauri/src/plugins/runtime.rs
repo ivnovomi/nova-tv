@@ -547,14 +547,31 @@ mod tests {
         let stream = p.call("channels", "stream", serde_json::json!([first, sctx]), Some("p1".into())).unwrap();
         println!("stream: {}", &stream.to_string()[..160.min(stream.to_string().len())]);
         let headers = stream["headers"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
-        let url = stream["url"].as_str().unwrap().to_string();
+        // Through the same cleaning as in the app (it used to cut the token).
+        let cleaned = crate::plugins::registry::clean_stream(&stream).expect("NOVA accepts the stream");
+        let url = cleaned["url"].as_str().unwrap().to_string();
+        assert_eq!(url, stream["url"].as_str().unwrap(), "the address arrives whole");
+        println!("longitud de la dirección: {} caracteres", url.len());
         let res = super::http::fetch(&manifest, super::http::Request { url, method: None, headers, body: None, timeout: Some(15) });
         match &res {
             Ok(r) => println!("HTTP {} · {}", r.status, r.body[..120.min(r.body.len())].replace('\n', " | ")),
             Err(e) => println!("ERROR {e}"),
         }
-        let _ = std::fs::remove_dir_all(&data);
         assert_eq!(res.unwrap().status, 200);
+
+        // Many channels with the same session, one after another and all at once
+        // (what NOVA's signal check does).
+        let ids: Vec<String> = channels.as_array().unwrap().iter().take(40).map(|c| c["id"].as_str().unwrap().to_string()).collect();
+        let fetch = |id: &str| {
+            let s = p.call("channels", "stream", serde_json::json!([id, sctx]), Some("p1".into())).unwrap();
+            let headers = s["headers"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
+            super::http::fetch(&manifest, super::http::Request { url: s["url"].as_str().unwrap().into(), method: None, headers, body: None, timeout: Some(15) }).map(|r| r.status).unwrap_or(0)
+        };
+        let one_by_one: Vec<u16> = ids.iter().map(|id| fetch(id)).collect();
+        println!("seguidos: {:?}", one_by_one);
+        let at_once: Vec<u16> = std::thread::scope(|s| ids.iter().map(|id| s.spawn(|| fetch(id))).collect::<Vec<_>>().into_iter().map(|h| h.join().unwrap()).collect());
+        println!("a la vez: {:?}", at_once);
+        let _ = std::fs::remove_dir_all(&data);
     }
 
     /// The example plugin, built with the real SDK (`npm run plugin:build -- plugins/ejemplo`).

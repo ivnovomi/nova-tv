@@ -288,11 +288,21 @@ fn https(v: &serde_json::Value) -> Option<String> {
     text(v, 2048).filter(|u| u.starts_with("https://") && !u.contains(char::is_whitespace))
 }
 
+/// Longest stream address NOVA takes: signed ones carry long tokens (Pluto TV's are ~2.6 KB).
+pub(crate) const MAX_STREAM_URL: usize = 8192;
+
+/// A stream address, whole or nothing: cutting it would cut its token (and the
+/// server would answer 401 with no clue why).
+fn stream_url(v: &serde_json::Value) -> Option<String> {
+    let url = v.as_str()?.trim();
+    (url.starts_with("https://") && url.len() <= MAX_STREAM_URL && !url.contains(|c: char| c.is_control() || c.is_whitespace())).then(|| url.to_string())
+}
+
 /// A playable stream as NOVA understands it, or None if it isn't valid.
 pub(crate) fn clean_stream(v: &serde_json::Value) -> Option<serde_json::Value> {
     let id = |s: &str| !s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
     match v["type"].as_str()? {
-        "hls" => Some(serde_json::json!({ "type": "hls", "url": https(&v["url"])?, "proxy": v["proxy"].as_bool().unwrap_or(false) })),
+        "hls" => Some(serde_json::json!({ "type": "hls", "url": stream_url(&v["url"])?, "proxy": v["proxy"].as_bool().unwrap_or(false) })),
         "twitch" => text(&v["channel"], 25).filter(|c| id(c)).map(|c| serde_json::json!({ "type": "twitch", "channel": c.to_lowercase() })),
         "youtube" => match (text(&v["video"], 20), text(&v["channel"], 40)) {
             (Some(video), _) if id(&video) => Some(serde_json::json!({ "type": "youtube", "video": video })),
@@ -990,6 +1000,16 @@ pub fn plugins_log(id: String, app: AppHandle) -> Vec<LogLine> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pluto TV's signed addresses are ~2.6 KB: cut at 2 KB, the token broke and every channel got 401.
+    #[test]
+    fn long_signed_streams_arrive_whole() {
+        let url = format!("https://stitcher.pluto.tv/v2/stitch/hls/channel/abc/master.m3u8?appName=web&jwt={}", "x".repeat(2600));
+        let stream = clean_stream(&serde_json::json!({ "type": "hls", "url": url, "proxy": true })).unwrap();
+        assert_eq!(stream["url"], url.as_str(), "never cut");
+        let too_long = format!("https://a.es/x?t={}", "x".repeat(MAX_STREAM_URL));
+        assert!(clean_stream(&serde_json::json!({ "type": "hls", "url": too_long })).is_none(), "rejected, not cut");
+    }
 
     #[test]
     fn rows_are_cleaned() {
