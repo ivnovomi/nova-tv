@@ -55,6 +55,15 @@ fn icon() -> Icon {
     Icon::from_rgba(rgba, SIZE, SIZE).expect("valid icon")
 }
 
+/// The menu entry for the Sunshine page: what it does depends on whether NovaBridge knows the user.
+fn password_label() -> &'static str {
+    if super::sunshine::credentials().is_some() {
+        "Usuario y contraseña de Sunshine…"
+    } else {
+        "Conectar con Sunshine…"
+    }
+}
+
 fn status_text() -> (String, String) {
     let info = info();
     let sunshine = match (info.sunshine, info.sunshine_running) {
@@ -76,7 +85,7 @@ pub fn run() {
     let sunshine = MenuItem::new("Sunshine: …", false, None);
     let boxes = MenuItem::new("…", false, None);
     let open = MenuItem::new("Abrir Sunshine", true, None);
-    let password = MenuItem::new("Ver el usuario de Sunshine", super::sunshine::credentials().is_some(), None);
+    let password = MenuItem::new(password_label(), true, None);
     let log = MenuItem::new("Ver registro", true, None);
     let forget = MenuItem::new("Olvidar las teles emparejadas", true, None);
     let start = CheckMenuItem::new("Arrancar con Windows", true, autostart(), None);
@@ -120,12 +129,7 @@ pub fn run() {
                 } else if event.id == *open.id() {
                     open_sunshine();
                 } else if event.id == *password.id() {
-                    if let Some((user, pass)) = super::sunshine::credentials() {
-                        super::tell(
-                            "NovaBridge · Sunshine",
-                            &format!("NOVA Host configuró Sunshine con este usuario, por si quieres entrar en su página:\n\nUsuario: {user}\nContraseña: {pass}"),
-                        );
-                    }
+                    let _ = tauri_plugin_opener::open_url(super::page::url(), None::<&str>);
                 } else if event.id == *log.id() {
                     let _ = tauri_plugin_opener::open_path(log_path(), None::<&str>);
                 } else if event.id == *forget.id() {
@@ -140,6 +144,7 @@ pub fn run() {
                 let (s, b) = status_text();
                 sunshine.set_text(&s);
                 boxes.set_text(&b);
+                password.set_text(password_label());
                 let _ = tray.set_tooltip(Some(format!("NovaBridge\n{s}\n{b}")));
             }
         }

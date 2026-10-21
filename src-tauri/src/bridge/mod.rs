@@ -8,6 +8,8 @@
 //! The binary is `src/bin/nova-bridge.rs`; its state lives in
 //! `%APPDATA%\NovaBridge` (id, accepted boxes, log).
 
+#[cfg(windows)]
+mod page;
 pub mod proto;
 #[cfg(windows)]
 mod sunshine;
@@ -377,35 +379,41 @@ fn handle(mut request: Request) {
                     if !sunshine_running() {
                         return error(request, 409, "Sunshine no está en marcha en el PC");
                     }
-                    log(&format!("«{}» empareja Moonlight", client.name));
+                    log(&format!("«{}» ({from}) empareja Moonlight", client.name));
                     json(request, 200, &serde_json::json!({ "ok": true }));
-                    pin_to_sunshine(pin, client.name);
+                    pin_to_sunshine(pin, client.name, from);
                 }
                 _ => error(request, 405, "Método no permitido"),
             }
         }
+        #[cfg(windows)]
+        (_, "/sunshine") => page::handle(request, &from),
         _ => error(request, 404, "No existe"),
     }
 }
 
-/// Gives Sunshine the PIN Moonlight is pairing with: by itself when NOVA Host
-/// set Sunshine up, or by asking the person to type it on the PC.
-fn pin_to_sunshine(pin: String, name: String) {
+/// Gives Sunshine the PIN Moonlight is pairing with: by itself when NovaBridge
+/// knows Sunshine's user, or by asking the person to type it on the PC.
+fn pin_to_sunshine(pin: String, name: String, from: String) {
     #[cfg(windows)]
-    if sunshine::credentials().is_some() {
-        // Sunshine takes the PIN only once Moonlight's request has arrived.
-        for _ in 0..10 {
-            if sunshine::send_pin(&pin, &name) {
-                return log(&format!("PIN de «{name}» escrito en Sunshine"));
-            }
-            thread::sleep(std::time::Duration::from_secs(1));
+    {
+        let known = sunshine::credentials().is_some();
+        if known && sunshine::send_pin(&pin, &name, &from) {
+            return log(&format!("PIN de «{name}» escrito en Sunshine: no hace falta tocar nada"));
         }
+        let how = if known {
+            "NovaBridge no pudo escribirlo solo (mira «Ver registro» en su menú)."
+        } else {
+            "Para que la próxima vez se escriba solo: menú de NovaBridge → «Conectar con Sunshine…»."
+        };
+        let _ = tauri_plugin_opener::open_url(format!("{SUNSHINE_WEB}/pin"), None::<&str>);
+        tell(
+            "NovaBridge · Moonlight",
+            &format!("«{name}» quiere ver la pantalla de este PC.\n\nEscribe este PIN en la página de Sunshine que se acaba de abrir:\n\n{pin}\n\n{how}"),
+        );
     }
-    let _ = tauri_plugin_opener::open_url(format!("{SUNSHINE_WEB}/pin"), None::<&str>);
-    tell(
-        "NovaBridge · Moonlight",
-        &format!("«{name}» quiere ver la pantalla de este PC.\n\nEscribe este PIN en la página de Sunshine que se acaba de abrir:\n\n{pin}"),
-    );
+    #[cfg(not(windows))]
+    let _ = (pin, name, from);
 }
 
 fn server() {
