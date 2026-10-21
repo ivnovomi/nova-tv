@@ -11,6 +11,8 @@
 #[cfg(windows)]
 mod input;
 #[cfg(windows)]
+mod assist;
+#[cfg(windows)]
 mod page;
 pub mod proto;
 #[cfg(windows)]
@@ -371,6 +373,8 @@ fn handle(mut request: Request) {
                     match launch(&id) {
                         Ok(name) => {
                             log(&format!("«{}» abre {name} ({id})", client.name));
+                            #[cfg(windows)]
+                            assist::start();
                             json(request, 200, &serde_json::json!({ "ok": true }));
                         }
                         Err(e) => {
@@ -408,7 +412,7 @@ fn handle(mut request: Request) {
                 (Method::Post, "/input") => {
                     let Some(InputRequest { keyboard }) = body(&mut request) else { return error(request, 400, "Petición no válida") };
                     #[cfg(windows)]
-                    input::set(keyboard);
+                    assist::prefer_keyboard(keyboard);
                     log(&format!("«{}» pide el mando como teclado y ratón: {}", client.name, if keyboard { "sí" } else { "no" }));
                     json(request, 200, &serde_json::json!({ "ok": true, "keyboard": keyboard }));
                 }

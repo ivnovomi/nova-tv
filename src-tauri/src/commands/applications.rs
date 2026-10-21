@@ -164,7 +164,7 @@ fn find_shortcut(state: &AppState, id: &str) -> Option<Shortcut> {
     if id.starts_with("steam:") {
         return super::steam::installed_games().into_iter().find(|s| s.id == id);
     }
-    if ["epic:", "gog:", "ubisoft:", "xbox:", "launcher:", "riot:"].iter().any(|p| id.starts_with(p)) {
+    if ["epic:", "gog:", "ubisoft:", "xbox:", "launcher:", "riot:", "modrinth:", "curseforge:"].iter().any(|p| id.starts_with(p)) {
         return super::games::installed_games().into_iter().find(|s| s.id == id);
     }
     if crate::gamestream::is_pc_id(id) {

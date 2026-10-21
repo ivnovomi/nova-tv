@@ -86,18 +86,28 @@ fn prefixes(game: &Shortcut) -> Vec<String> {
     out
 }
 
-fn game_running(sys: &mut System, prefixes: &[String], me: u32) -> bool {
-    sys.refresh_processes_specifics(
-        ProcessesToUpdate::All,
-        true,
-        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
-    );
+/// Whether a process of the game runs. `by_args`: Minecraft modpacks run on the launcher's Java, so their folder
+/// shows up in the command line (`--gameDir …`), not in the executable's path.
+pub(crate) fn running(sys: &mut System, prefixes: &[String], me: u32, by_args: bool) -> bool {
+    let mut what = ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet);
+    if by_args {
+        what = what.with_cmd(UpdateKind::OnlyIfNotSet);
+    }
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, what);
     sys.processes().iter().any(|(pid, p)| {
-        pid.as_u32() != me
-            && p.exe().is_some_and(|exe| {
-                let exe = exe.to_string_lossy().to_lowercase();
-                prefixes.iter().any(|pre| exe.starts_with(pre.as_str()))
-            })
+        if pid.as_u32() == me {
+            return false;
+        }
+        if by_args {
+            return p.cmd().iter().any(|arg| {
+                let arg = arg.to_string_lossy().to_lowercase();
+                prefixes.iter().any(|pre| arg.starts_with(pre.trim_end_matches('\\')))
+            });
+        }
+        p.exe().is_some_and(|exe| {
+            let exe = exe.to_string_lossy().to_lowercase();
+            prefixes.iter().any(|pre| exe.starts_with(pre.as_str()))
+        })
     })
 }
 
@@ -105,6 +115,7 @@ fn game_running(sys: &mut System, prefixes: &[String], me: u32) -> bool {
 /// Tells the loading screen when the game is up (or that NOVA can't tell).
 pub fn watch(app: &AppHandle, game: &Shortcut) {
     let prefixes = prefixes(game);
+    let by_args = games::is_modpack(&game.id);
     let generation = GENERATION.fetch_add(1, Ordering::AcqRel) + 1;
     if prefixes.is_empty() {
         stage(app, &game.id, "unwatched", None);
@@ -128,7 +139,7 @@ pub fn watch(app: &AppHandle, game: &Shortcut) {
                 }
                 return;
             }
-            let running = game_running(&mut sys, &prefixes, me);
+            let running = running(&mut sys, &prefixes, me, by_args);
             match (started, running) {
                 (None, true) => {
                     started = Some(Instant::now());
@@ -193,8 +204,15 @@ mod tests {
         let prefix = lower(exe.parent().unwrap());
         let mut sys = System::new();
         // Excluding nobody: this test process itself lives in that folder.
-        assert!(game_running(&mut sys, &[prefix.clone()], 0));
+        assert!(running(&mut sys, std::slice::from_ref(&prefix), 0, false));
         // Excluding ourselves and pointing at an empty folder: nothing runs there.
-        assert!(!game_running(&mut sys, &[r"z:\nova-no-such-folder\".into()], std::process::id()));
+        assert!(!running(&mut sys, &[r"z:\nova-no-such-folder\".into()], std::process::id(), false));
+    }
+
+    /// Modpacks are looked for in command lines: a folder no process mentions never "runs".
+    #[test]
+    fn modpacks_are_found_by_their_arguments() {
+        let mut sys = System::new();
+        assert!(!running(&mut sys, &[r"z:\curseforge\minecraft\instances\nada\".into()], std::process::id(), true));
     }
 }

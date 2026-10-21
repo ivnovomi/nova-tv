@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use std::{env, fs};
 
 /// Launcher URI schemes NOVA may open; anything else is rejected at launch.
-const URI_SCHEMES: [&str; 2] = ["com.epicgames.launcher://", "uplay://"];
+const URI_SCHEMES: [&str; 4] = ["com.epicgames.launcher://", "uplay://", "modrinth://launch/instance/", "curseforge://launch-game?"];
 
 pub fn valid_uri(uri: &str) -> bool {
     URI_SCHEMES.iter().any(|s| uri.starts_with(s))
@@ -227,8 +227,13 @@ fn known_by_aumid(aumid: &str) -> Option<&'static Known> {
     KNOWN.iter().find(|k| k.package.is_some_and(|p| aumid.starts_with(p)))
 }
 
-/// The Store product with this game's artwork, for launcher games and Xbox packages we know.
+/// The Store product with this game's artwork, for launcher games and Xbox packages we know
+/// (also a PC's game, by its id there; Minecraft modpacks show as Minecraft).
 pub fn store_product_for(game_id: &str) -> Option<&'static str> {
+    let game_id = game_id.strip_prefix("pc:").and_then(|rest| rest.split_once(':')).map(|(_, inner)| inner).unwrap_or(game_id);
+    if is_modpack(game_id) {
+        return known("launcher:minecraft").map(|k| k.store_product);
+    }
     known(game_id)
         .or_else(|| game_id.strip_prefix("xbox:").and_then(known_by_aumid))
         .map(|k| k.store_product)
@@ -292,6 +297,66 @@ fn riot() -> Vec<Shortcut> {
         .collect()
 }
 
+// ───────────────────────── Minecraft modpacks ─────────────────────────
+//
+// Each modpack is its own game: its launcher opens that instance straight
+// away (the same links their "desktop shortcut" option makes), no clicking
+// "Play" with a mouse.
+
+/// Minecraft's id at CurseForge (`gameId` in its links).
+const CURSEFORGE_MINECRAFT: u32 = 432;
+
+/// Modrinth App profiles: `%APPDATA%\ModrinthApp\profiles\<name>`, opened with
+/// `modrinth://launch/instance/<name>` (Modrinth App 0.15+).
+fn modrinth() -> Vec<Shortcut> {
+    let Some(root) = env::var_os("APPDATA").map(|p| Path::new(&p).join(r"ModrinthApp\profiles")) else { return vec![] };
+    let Ok(entries) = fs::read_dir(&root) else { return vec![] };
+    entries
+        .flatten()
+        .filter(|e| e.path().join("mods").is_dir() || e.path().join("saves").is_dir())
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let id = format!("modrinth:{}", encode(&name));
+            remember(&id, e.path());
+            game(id, name.clone(), "Minecraft · Modrinth", Target::Uri { uri: format!("modrinth://launch/instance/{}", encode(&name)) }, ShortcutSource::Launcher)
+        })
+        .collect()
+}
+
+/// CurseForge instances (`~\curseforge\minecraft\Instances\*\minecraftinstance.json`),
+/// opened with `curseforge://launch-game?instanceId=<guid>&gameId=432`.
+fn curseforge() -> Vec<Shortcut> {
+    let Some(root) = env::var_os("USERPROFILE").map(|p| Path::new(&p).join(r"curseforge\minecraft\Instances")) else { return vec![] };
+    let Ok(entries) = fs::read_dir(&root) else { return vec![] };
+    entries
+        .flatten()
+        .filter_map(|e| {
+            let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(e.path().join("minecraftinstance.json")).ok()?).ok()?;
+            let guid = json.get("guid")?.as_str()?.to_string();
+            // A guid is hex and dashes: nothing else may go into the link.
+            if guid.is_empty() || !guid.chars().all(|c| c.is_ascii_hexdigit() || c == '-') {
+                return None;
+            }
+            let name = json.get("name").and_then(|n| n.as_str()).map(String::from).unwrap_or_else(|| e.file_name().to_string_lossy().into_owned());
+            let version = json.get("gameVersion").and_then(|v| v.as_str()).unwrap_or_default();
+            let id = format!("curseforge:{guid}");
+            remember(&id, e.path());
+            Some(game(
+                id,
+                name,
+                &if version.is_empty() { "Minecraft · CurseForge".to_string() } else { format!("Minecraft {version} · CurseForge") },
+                Target::Uri { uri: format!("curseforge://launch-game?instanceId={guid}&gameId={CURSEFORGE_MINECRAFT}") },
+                ShortcutSource::Launcher,
+            ))
+        })
+        .collect()
+}
+
+/// A Minecraft modpack (its art is Minecraft's).
+pub fn is_modpack(game_id: &str) -> bool {
+    game_id.starts_with("modrinth:") || game_id.starts_with("curseforge:")
+}
+
 fn launcher_games(already: &[Shortcut]) -> Vec<Shortcut> {
     let has = |name: &str| already.iter().any(|g| g.name == name);
     let mut out = Vec::new();
@@ -303,6 +368,8 @@ fn launcher_games(already: &[Shortcut]) -> Vec<Shortcut> {
         out.extend(roblox());
     }
     out.extend(riot());
+    out.extend(modrinth());
+    out.extend(curseforge());
     out
 }
 
@@ -363,6 +430,18 @@ mod tests {
         assert!(valid_uri("com.epicgames.launcher://apps/Fortnite?action=launch&silent=true"));
         assert!(!valid_uri("https://example.com"));
         assert!(!valid_uri("uplay://launch/1/0 & calc"));
+        assert!(valid_uri("modrinth://launch/instance/Fallout%20Craft%20-%20Alpha"));
+        assert!(valid_uri("curseforge://launch-game?instanceId=931baf2e-3302-413a-ade4-3f2bb3dae8ca&gameId=432"));
+        assert!(!valid_uri("modrinth://install/x"));
+        assert!(!valid_uri("curseforge://install?addonId=1"));
+    }
+
+    #[test]
+    fn modpacks_look_like_minecraft() {
+        assert!(is_modpack("curseforge:931baf2e"));
+        assert_eq!(store_product_for("modrinth:Fallout%20Craft"), store_product_for("launcher:minecraft"));
+        assert_eq!(store_product_for("pc:ab12:curseforge:931baf2e"), store_product_for("launcher:minecraft"));
+        assert_eq!(store_product_for("pc:ab12:riot:valorant"), store_product_for("riot:valorant"));
     }
 
     /// Lists what this PC has (read-only).
