@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-wifi-networks"
+description = "Enables the wifi_networks command without any pre-configured scope."
+commands.allow = ["wifi_networks"]
+
+[[permission]]
+identifier = "deny-wifi-networks"
+description = "Denies the wifi_networks command without any pre-configured scope."
+commands.deny = ["wifi_networks"]

@@ -328,6 +328,29 @@ export type SettingsPage =
   | "gaming"
   | "gamebar";
 
+/** The first-run assistant's view of the connection. */
+export interface NetStatus {
+  internet: boolean;
+  kind: "wifi" | "ethernet" | null;
+  ssid: string | null;
+  /** The network's name in Windows. */
+  network: string | null;
+  /** Private network (null: unknown). NOVA's phone remote and NovaBridge need it. */
+  private: boolean | null;
+  /** This computer has Wi-Fi. */
+  wifi: boolean;
+}
+
+export interface WifiNetwork {
+  ssid: string;
+  /** 0-100 */
+  signal: number;
+  secured: boolean;
+  connected: boolean;
+  /** Windows already knows it (no password needed). */
+  saved: boolean;
+}
+
 export interface RemoteDevice {
   id: string;
   name: string;

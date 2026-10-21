@@ -9,6 +9,7 @@ import { NovaContext, type Dialog, type Nova } from "./app/context";
 import { AddExecutableDialog, AddSteamDialog, AddWebDialog, ConfirmDialog, ConfirmRemoveDialog } from "./features/Dialogs";
 import { HomeScreen } from "./features/Home";
 import { PcGamesDialog } from "./features/PcGamesCard";
+import { Setup } from "./features/setup/Setup";
 import { AppsScreen } from "./features/Library";
 import { MediaScreen } from "./features/Media";
 import { StreamingScreen } from "./features/Streaming";
@@ -420,21 +421,37 @@ function Shell() {
   const profileInfo = useProfiles();
   const [profilesReady, setProfilesReady] = useState(!inTauri);
   const [picking, setPicking] = useState<"boot" | "switch" | null>(null);
+  // First run: the assistant comes before choosing a profile or turning the TV on.
+  const [setup, setSetup] = useState(false);
   const multiProfile = (profileInfo?.profiles.length ?? 1) > 1;
   useEffect(() => {
-    if (!inTauri) return;
-    profiles.load().then(
-      (info) => {
-        setProfilesReady(true);
-        if (info && info.profiles.length > 1) setPicking("boot");
-        else if (startsOnTv()) void liveTv.open();
-      },
-      () => {
-        setProfilesReady(true);
-        if (startsOnTv()) void liveTv.open();
-      },
-    );
+    if (!inTauri) {
+      // Development: `?setup` shows the assistant with sample data.
+      if (import.meta.env.DEV && new URLSearchParams(location.search).has("setup")) setSetup(true);
+      return;
+    }
+    Promise.all([api.setupNeeded().catch(() => false), profiles.load().catch(() => null)]).then(([needed, info]) => {
+      setProfilesReady(true);
+      if (needed) setSetup(true);
+      else if (info && info.profiles.length > 1) setPicking("boot");
+      else if (startsOnTv()) void liveTv.open();
+    });
   }, []);
+
+  // Ajustes → "Repetir el asistente".
+  useEffect(() => {
+    const again = () => setSetup(true);
+    window.addEventListener("nova-setup", again);
+    return () => window.removeEventListener("nova-setup", again);
+  }, []);
+
+  const setupDone = () => {
+    setSetup(false);
+    void profiles.load();
+    void reload();
+    show("home", "content");
+    if (startsOnTv()) void liveTv.open();
+  };
 
   // A plugin was installed, enabled, changed…: its channels and guide, now (the
   // rest of live TV stays cached in Rust, so this is quick).
@@ -476,7 +493,7 @@ function Shell() {
     power.start();
   }, []);
   const { screensaver } = usePower();
-  useAutoScreensaver(!booting && !picking && !tvOn && !gaming && !overlay && !gameLaunch);
+  useAutoScreensaver(!booting && !picking && !tvOn && !gaming && !overlay && !gameLaunch && !setup);
 
   const pickerDone = () => {
     const boot = picking === "boot";
@@ -587,7 +604,7 @@ function Shell() {
           <BootSplash
             key="boot"
             libraryReady={profilesReady && (library !== null || libraryError !== null || !inTauri)}
-            tv={inTauri && profilesReady && !multiProfile && startsOnTv()}
+            tv={inTauri && profilesReady && !setup && !multiProfile && startsOnTv()}
             onDone={() => setBooting(false)}
           />
         )}
@@ -606,12 +623,14 @@ function Shell() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>{setup && !booting && <Setup key="setup" onDone={setupDone} />}</AnimatePresence>
+
       <AnimatePresence>{screensaver && <Screensaver key="screensaver" tvWasOn={tvOn} />}</AnimatePresence>
       <PowerLayer />
 
       {/* Announced only in NOVA's own menus, never over the TV, a game or the start-up. */}
-      <UpdateNotice hidden={booting || !!picking || tvFull || gaming} raised={tvOn && tvPip} />
-      {!booting && !picking && !tvFull && !gaming && <UpdateWindows />}
+      <UpdateNotice hidden={booting || !!picking || setup || tvFull || gaming} raised={tvOn && tvPip} />
+      {!booting && !picking && !setup && !tvFull && !gaming && <UpdateWindows />}
 
       <AnimatePresence>
         {dialog?.type === "add-exe" && (

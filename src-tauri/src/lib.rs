@@ -19,10 +19,12 @@ mod profiles;
 mod remote;
 mod search;
 mod session;
+mod setup;
 mod sources;
 mod splash;
 mod twitch;
 mod updates;
+mod wifi;
 
 use commands::{applications, media, system};
 use std::sync::Mutex;
@@ -83,6 +85,8 @@ pub fn run() {
                 config: config::ConfigStore::load(&dir),
                 sys: Mutex::new(system::SysMonitor::new()),
             });
+            // First: a NOVA that already had profiles skips the first-run assistant.
+            setup::init(&app.state::<AppState>());
             profiles::init(&app.state::<AppState>());
             app.manage(history::HistoryStore::load(&dir));
             app.manage(metadata::MetadataStore::load(&dir));
@@ -165,6 +169,12 @@ pub fn run() {
             location::location_set,
             location::location_detect,
             location::location_set_detect,
+            setup::setup_needed,
+            setup::setup_finish,
+            setup::setup_restart,
+            wifi::net_status,
+            wifi::wifi_networks,
+            wifi::wifi_connect,
             gamestream::pc_list,
             gamestream::pc_discover,
             gamestream::pc_pair,

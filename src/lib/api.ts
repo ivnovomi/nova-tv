@@ -29,6 +29,8 @@ import type {
   SystemStats,
   PackageInfo,
   LocationInfo,
+  NetStatus,
+  WifiNetwork,
   FoundPc,
   PcsInfo,
   PluginAccountUser,
@@ -139,6 +141,15 @@ export const api = {
   pluginsSearch: (query: string) => call<PluginResults[]>("plugins_search", { query }),
   /** Background images from plugins with `screensaver`. */
   pluginsScreensaver: () => call<string[]>("plugins_screensaver"),
+  // First-run assistant.
+  setupNeeded: () => call<boolean>("setup_needed"),
+  setupFinish: () => call<void>("setup_finish"),
+  setupRestart: () => call<void>("setup_restart"),
+  netStatus: () => call<NetStatus>("net_status"),
+  /** Scans (a few seconds). */
+  wifiNetworks: () => call<WifiNetwork[]>("wifi_networks"),
+  /** Joins it and waits (up to ~25 s); no password for saved or open networks. */
+  wifiConnect: (ssid: string, password?: string) => call<void>("wifi_connect", { ssid, password: password ?? null }),
   locationSearch: (query: string) => call<Place[]>("location_search", { query }),
   locationGet: () => call<LocationInfo>("location_get"),
   locationSet: (place: Place | null) => call<void>("location_set", { place }),

@@ -498,6 +498,7 @@ function CityCard() {
 }
 
 function About() {
+  const toast = useToast();
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
     api.systemInfo().then((i) => setVersion(i.appVersion), () => {});
@@ -513,6 +514,24 @@ function About() {
       <div className="surface rounded-2xl px-6 py-5">
         <p className="text-[1.6rem] font-semibold">NOVA TV {version ? `v${version}` : ""}</p>
         <p className="mt-1 text-[1rem] text-ink-3">Tauri 2 · Rust · React. Sin cuentas, sin anuncios, sin servidores propios.</p>
+      </div>
+      <div className="surface flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl px-6 py-5">
+        <div className="min-w-[16rem] flex-1">
+          <p className="text-[1.25rem] font-semibold">Asistente de primer arranque</p>
+          <p className="mt-1 text-[1rem] text-ink-3">Internet, tu perfil, tu ciudad, el mando del móvil y cómo empieza NOVA, paso a paso.</p>
+        </div>
+        <button
+          data-nav
+          onClick={() =>
+            void api.setupRestart().then(
+              () => window.dispatchEvent(new Event("nova-setup")),
+              (e: Error) => toast.show("error", "No se pudo abrir el asistente", e.message),
+            )
+          }
+          className="focus-lift btn btn-ghost"
+        >
+          Repetir el asistente
+        </button>
       </div>
       <div className="surface rounded-2xl px-6 py-3">
         {sources.map(([k, v]) => (

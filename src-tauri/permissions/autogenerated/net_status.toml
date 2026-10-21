@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-net-status"
+description = "Enables the net_status command without any pre-configured scope."
+commands.allow = ["net_status"]
+
+[[permission]]
+identifier = "deny-net-status"
+description = "Denies the net_status command without any pre-configured scope."
+commands.deny = ["net_status"]

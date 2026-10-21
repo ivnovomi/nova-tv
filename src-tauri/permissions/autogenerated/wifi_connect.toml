@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-wifi-connect"
+description = "Enables the wifi_connect command without any pre-configured scope."
+commands.allow = ["wifi_connect"]
+
+[[permission]]
+identifier = "deny-wifi-connect"
+description = "Denies the wifi_connect command without any pre-configured scope."
+commands.deny = ["wifi_connect"]

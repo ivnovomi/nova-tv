@@ -184,6 +184,19 @@
   }
 }
 
+/* On-screen keyboard keys: the focused one lights up white */
+.focus-key {
+  transition: transform var(--dur-fast) var(--ease-out-tv), background-color var(--dur-fast) linear, color var(--dur-fast) linear;
+}
+
+.focus-key:focus {
+  background: #fff;
+  color: #05070f;
+  transform: scale(1.08);
+  box-shadow: 0 0.8rem 2rem -0.6rem rgb(110 108 255 / 0.7);
+  z-index: 2;
+}
+
 /* Flat controls (tabs, pills): ring without scaling */
 .focus-ring {
   transition: box-shadow var(--dur-fast) linear, background-color var(--dur-fast) linear, color var(--dur-fast) linear;

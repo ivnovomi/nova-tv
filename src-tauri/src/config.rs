@@ -157,6 +157,9 @@ pub struct Config {
     /// PCs of the house paired through NovaBridge, to play their games here.
     #[serde(default)]
     pub pcs: Vec<PairedPc>,
+    /// The first-run assistant was completed (or this NOVA was set up before it existed).
+    #[serde(default)]
+    pub setup_done: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
