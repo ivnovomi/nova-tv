@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>NOVA · Arte de instaladores</title>
+<!-- Rendered by scripts/installer-art.ps1 at 2x:
+       ?piece=sidebar&product=tv|host  → 164×314 (welcome / finish pages)
+       ?piece=header&product=tv|host   → 150×57  (top right of the other pages) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=block" />
+<style>
+  :root {
+    --bg: #070a14;
+    --ink: #f4f6ff;
+    --ink2: #b9c0e0;
+    --violet: #6e6cff;
+    --cyan: #3fd5f2;
+    --green: #5cf2a0;
+    --pink: #ff5c9a;
+    --accent: var(--cyan);
+  }
+  .host { --accent: var(--green); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); overflow: hidden; }
+  body { font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .canvas { position: relative; overflow: hidden; background: var(--bg); }
+  .orb { position: absolute; border-radius: 50%; filter: blur(34px); pointer-events: none; }
+  .grain { position: absolute; inset: 0; opacity: 0.06; mix-blend-mode: overlay; background-image: radial-gradient(rgb(255 255 255 / 0.9) 0.5px, transparent 0.6px); background-size: 2px 2px; }
+  .mark svg, .word svg { display: block; overflow: visible; }
+
+  /* ── Sidebar: 164 × 314 ── */
+  .sidebar { width: 164px; height: 314px; }
+  .sidebar .lines { position: absolute; inset: 0; opacity: 0.35;
+    background: repeating-linear-gradient(115deg, transparent 0 22px, rgb(160 170 255 / 0.05) 22px 23px); }
+  .sidebar .ring { position: absolute; left: 50%; top: 104px; width: 132px; height: 132px; transform: translate(-50%, -50%); border-radius: 50%;
+    border: 1px solid rgb(160 170 255 / 0.18); box-shadow: inset 0 0 40px rgb(110 108 255 / 0.25), 0 0 40px rgb(63 213 242 / 0.08); }
+  .sidebar .ring.two { width: 176px; height: 176px; border-color: rgb(160 170 255 / 0.08); box-shadow: none; }
+  .sidebar .mark { position: absolute; left: 50%; top: 104px; width: 70px; transform: translate(-50%, -54%);
+    filter: drop-shadow(0 0 10px rgb(63 213 242 / 0.6)) drop-shadow(0 0 26px rgb(110 108 255 / 0.55)); }
+  .host .sidebar .mark { filter: drop-shadow(0 0 10px rgb(92 242 160 / 0.55)) drop-shadow(0 0 26px rgb(63 213 242 / 0.45)); }
+  .sidebar .name { position: absolute; left: 0; right: 0; top: 196px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .sidebar .word { display: flex; align-items: flex-start; gap: 5px; }
+  .sidebar .word svg { height: 21px; width: auto; }
+  .sidebar .word .tag { font-weight: 700; font-size: 9.5px; letter-spacing: 0.24em; color: var(--ink2); margin-top: -1px; }
+  .sidebar .line { width: 34px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--violet), var(--accent)); box-shadow: 0 0 8px var(--accent); margin-top: 6px; }
+  .sidebar .claim { font-weight: 700; font-size: 11.5px; line-height: 1.3; text-align: center; color: var(--ink); letter-spacing: -0.01em; margin-top: 4px; }
+  .sidebar .claim span { color: var(--accent); }
+  .sidebar .foot { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-weight: 700; font-size: 7px; letter-spacing: 0.32em; color: rgb(185 192 224 / 0.55); text-transform: uppercase; }
+
+  /* ── Header: 150 × 57 ── */
+  .header { width: 150px; height: 57px; }
+  .header .content { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-right: 12px; }
+  .header .mark { width: 22px; filter: drop-shadow(0 0 5px rgb(63 213 242 / 0.6)); }
+  .host .header .mark { filter: drop-shadow(0 0 5px rgb(92 242 160 / 0.6)); }
+  .header .word { display: flex; align-items: flex-start; gap: 3px; }
+  .header .word svg { height: 13px; width: auto; }
+  .header .word .tag { font-weight: 700; font-size: 6.5px; letter-spacing: 0.22em; color: var(--ink2); margin-top: -1px; }
+
+  /* Light header (NOVA TV's pages are light): ink on white, soft colour. */
+  .light { --bg: #ffffff; --ink2: #5b6385; }
+  .light .header .mark { filter: drop-shadow(0 0 4px rgb(110 108 255 / 0.35)); }
+  .light .grain { display: none; }
+</style>
+</head>
+<body>
+<script>
+  const q = new URLSearchParams(location.search);
+  const piece = q.get("piece") === "header" ? "header" : "sidebar";
+  const host = q.get("product") === "host";
+  const light = q.get("theme") === "light";
+  const ink = light ? "#0b1020" : "#f4f6ff";
+  document.documentElement.classList.toggle("host", host);
+  document.documentElement.classList.toggle("light", light);
+
+  const mark = (id) => `<svg viewBox="0 0 100 92" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="${host ? "#5cf2a0" : "#3fd5f2"}"/></linearGradient></defs><path d="M8 86 L50 6 L92 86" fill="none" stroke="url(#${id})" stroke-width="12" stroke-linecap="square"/></svg>`;
+  const word = (id) => `<span class="word"><svg viewBox="0 0 176 40" aria-label="NOVA"><defs><linearGradient id="${id}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6e6cff"/><stop offset="1" stop-color="${host ? "#5cf2a0" : "#3fd5f2"}"/></linearGradient></defs><g fill="none" stroke-width="4.6" stroke-linecap="square"><path d="M3 37V3l28 34V3" stroke="${ink}"/><circle cx="66" cy="20" r="17" stroke="${ink}"/><path d="M96 3l17 34 17-34" stroke="${ink}"/><path d="M140 37l17-34 17 34" stroke="url(#${id})"/></g></svg><span class="tag">${host ? "HOST" : "TV"}</span></span>`;
+
+  const orbs = piece === "sidebar"
+    ? (host
+        ? `<div class="orb" style="width:190px;height:190px;left:-80px;top:-70px;background:#3fd5f2;opacity:.42"></div>
+           <div class="orb" style="width:170px;height:170px;right:-90px;bottom:40px;background:#5cf2a0;opacity:.32"></div>
+           <div class="orb" style="width:140px;height:140px;left:-50px;bottom:-60px;background:#6e6cff;opacity:.35"></div>`
+        : `<div class="orb" style="width:200px;height:200px;left:-80px;top:-80px;background:#6e6cff;opacity:.55"></div>
+           <div class="orb" style="width:170px;height:170px;right:-90px;bottom:30px;background:#3fd5f2;opacity:.38"></div>
+           <div class="orb" style="width:120px;height:120px;right:-50px;top:-40px;background:#ff5c9a;opacity:.22"></div>`)
+    : `<div class="orb" style="width:90px;height:90px;right:-30px;top:-40px;background:${host ? "#5cf2a0" : "#6e6cff"};opacity:${light ? ".16" : ".35"}"></div>
+       <div class="orb" style="width:80px;height:80px;right:40px;bottom:-60px;background:#3fd5f2;opacity:${light ? ".12" : ".22"}"></div>`;
+
+  const claim = host ? "Tus juegos del PC,<br><span>en la tele.</span>" : "Tu PC,<br>como una <span>Smart TV.</span>";
+  document.body.innerHTML = piece === "sidebar"
+    ? `<div class="canvas sidebar">${orbs}<div class="lines"></div><div class="ring two"></div><div class="ring"></div>
+         <div class="mark">${mark("m")}</div>
+         <div class="name">${word("w")}<div class="line"></div><p class="claim">${claim}</p></div>
+         <p class="foot">${host ? "NovaBridge · Sunshine" : "TV · Juegos · Apps"}</p><div class="grain"></div></div>`
+    : `<div class="canvas header">${orbs}<div class="content"><div class="mark">${mark("m")}</div>${word("w")}</div><div class="grain"></div></div>`;
+</script>
+</body>
+</html>

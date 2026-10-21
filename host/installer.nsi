@@ -7,6 +7,8 @@
 ; Lo construye scripts/host.ps1 (que pasa VERSION, BRIDGE, SUNSHINE, VIGEM, ICON, OUTFILE).
 
 Unicode true
+; Sharp text and artwork on TVs and scaled screens.
+ManifestDPIAware true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "x64.nsh"
@@ -17,7 +19,12 @@ Unicode true
 Name "${PRODUCT}"
 OutFile "${OUTFILE}"
 InstallDir "$PROGRAMFILES64\NOVA Host"
-RequestExecutionLevel admin
+; /DPREVIEW: to look at the pages (no admin, installs nothing).
+!ifdef PREVIEW
+  RequestExecutionLevel user
+!else
+  RequestExecutionLevel admin
+!endif
 SetCompressor /SOLID lzma
 BrandingText "NOVA TV"
 ShowInstDetails show
@@ -32,6 +39,17 @@ VIAddVersionKey /LANG=1034 "LegalCopyright" "NOVA TV"
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
 !define MUI_ABORTWARNING
+
+; NOVA's look: dark header and welcome / finish pages, artwork from
+; installer/art.html (scripts/installer-art.ps1). makensis runs in this folder.
+!define MUI_BGCOLOR "070A14"
+!define MUI_TEXTCOLOR "F4F6FF"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "sidebar.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "sidebar.bmp"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_HEADERIMAGE_BITMAP "header.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "header.bmp"
 !define MUI_WELCOMEPAGE_TITLE "Juega en la tele a los juegos de este PC"
 !define MUI_WELCOMEPAGE_TEXT "NOVA Host prepara este PC para que NOVA TV juegue a sus juegos desde la tele, por la red de casa.$\r$\n$\r$\nSe instalan:$\r$\n  •  NovaBridge, que se queda junto al reloj y habla con la tele.$\r$\n  •  Sunshine, que envía la imagen (si no lo tienes ya).$\r$\n  •  El driver de mandos ViGEmBus, para que el mando de la tele funcione en los juegos.$\r$\n$\r$\nLa tele necesita Moonlight; NOVA te lo indica en Ajustes → Juegos desde tu PC."
 !define MUI_FINISHPAGE_TITLE "Este PC ya está listo"
@@ -43,6 +61,7 @@ VIAddVersionKey /LANG=1034 "LegalCopyright" "NOVA TV"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${LICENSES}"
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW FinishShow
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -56,12 +75,23 @@ Function .onInit
   SetRegView 64
 FunctionEnd
 
+; Windows draws themed checkboxes in black whatever colour NSIS asks for:
+; without the theme, "Abrir NovaBridge ahora" is light on the dark page.
+Function FinishShow
+  System::Call 'uxtheme::SetWindowTheme(p $mui.FinishPage.Run, w " ", w " ")'
+  SetCtlColors $mui.FinishPage.Run "F4F6FF" "070A14"
+FunctionEnd
+
 ; Opened through Explorer so NovaBridge runs as the user, not as administrator.
 Function StartBridge
   Exec '"$WINDIR\explorer.exe" "$INSTDIR\NovaBridge.exe"'
 FunctionEnd
 
 Section "NOVA Host"
+  !ifdef PREVIEW
+    DetailPrint "Vista previa: no se instala nada"
+    Return
+  !endif
   SetShellVarContext all
   DetailPrint "Cerrando NovaBridge si estaba abierto…"
   nsExec::Exec 'taskkill /IM NovaBridge.exe /F'
