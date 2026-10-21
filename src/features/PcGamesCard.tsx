@@ -92,6 +92,7 @@ export function PcGamesCard() {
   const [found, setFound] = useState<FoundPc[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [pairing, setPairing] = useState<Pairing | null>(null);
+  const [manual, setManual] = useState("");
 
   const refresh = useCallback(() => {
     api.pcList().then(setInfo, () => {});
@@ -224,9 +225,25 @@ export function PcGamesCard() {
             {searching ? <LoaderCircle className="size-5 spin" /> : <Search className="size-5" />} Buscar PCs
           </button>
         </div>
+        <form
+          className="mt-4 flex flex-wrap items-center gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const host = manual.trim();
+            if (host) void pair({ id: "", name: host, host, sunshine: true, paired: false });
+          }}
+        >
+          <span className="text-[1rem] text-ink-3">¿No aparece? Escribe su IP:</span>
+          <span className="block w-[14rem]">
+            <input data-nav className="field" placeholder="192.168.1.20" value={manual} onChange={(e) => setManual(e.target.value)} maxLength={64} inputMode="decimal" />
+          </span>
+          <button data-nav type="submit" disabled={!manual.trim() || !!pairing} className="focus-lift btn btn-ghost">
+            Añadir
+          </button>
+        </form>
         {found && (
           <div className="mt-4 flex flex-wrap gap-2">
-            {fresh.length === 0 && <p className="text-[1rem] text-ink-3">{found.length ? "Los PCs encontrados ya están emparejados." : "No aparece ninguno. ¿Está NovaBridge abierto y el PC en esta red?"}</p>}
+            {fresh.length === 0 && <p className="text-[1rem] text-ink-3">{found.length ? "Los PCs encontrados ya están emparejados." : "No aparece ninguno. Mira que NovaBridge esté abierto, que la red del PC sea «Privada» en Windows y que no haya una VPN conectada; o escribe su IP arriba."}</p>}
             {fresh.map((pc) => (
               <button key={pc.id} data-nav disabled={!!pairing} onClick={() => void pair(pc)} className="focus-lift btn btn-ghost">
                 <MonitorPlay className="size-5" /> {pc.name} <span className="text-ink-3">{pc.host}{pc.sunshine ? "" : " · sin Sunshine"}</span>

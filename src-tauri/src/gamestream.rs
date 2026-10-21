@@ -12,7 +12,7 @@ use crate::bridge::proto::{self, Info, LaunchRequest, PairReply, PairRequest, Pi
 use crate::config::{Config, PairedPc, PcGame, Shortcut, ShortcutKind, ShortcutSource, Target};
 use crate::AppState;
 use serde::{de::DeserializeOwned, Serialize};
-use std::net::UdpSocket;
+use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
@@ -73,21 +73,92 @@ fn post<T: DeserializeOwned>(host: &str, path: &str, token: Option<&str>, body: 
 }
 
 /// NovaBridges answering on the home network right now, with their address.
+/// This box's addresses on real home networks (no loopback, no 169.254.x.x).
+fn lan_addresses() -> Vec<Ipv4Addr> {
+    let mut out: Vec<Ipv4Addr> = local_ip_address::list_afinet_netifas()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(_, ip)| match ip {
+            IpAddr::V4(v4) if v4.is_private() => Some(v4),
+            _ => None,
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// A broadcast reaches only the network card Windows picks (often a VPN or a
+/// virtual one): one socket per home card, each shouting on its own network.
+fn broadcast(packet: &[u8], ports: &[u16]) -> Vec<UdpSocket> {
+    let mut sockets: Vec<UdpSocket> = lan_addresses()
+        .into_iter()
+        .filter_map(|ip| {
+            let socket = UdpSocket::bind((ip, 0)).ok()?;
+            let _ = socket.set_broadcast(true);
+            let [a, b, c, _] = ip.octets();
+            for &port in ports {
+                let _ = socket.send_to(packet, ("255.255.255.255", port));
+                // Most homes are /24: also the network's own broadcast address.
+                let _ = socket.send_to(packet, (Ipv4Addr::new(a, b, c, 255), port));
+            }
+            Some(socket)
+        })
+        .collect();
+    // And Windows' own pick, in case none of the above is the right one.
+    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
+        let _ = socket.set_broadcast(true);
+        for &port in ports {
+            let _ = socket.send_to(packet, ("255.255.255.255", port));
+        }
+        sockets.push(socket);
+    }
+    sockets
+}
+
+/// An IPv4 address or a plain PC name (`TORRE`, `torre.local`).
+fn valid_host(host: &str) -> bool {
+    !host.is_empty()
+        && host.len() <= 253
+        && !host.starts_with(['.', '-'])
+        && host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+}
+
+/// How likely an address is the home network: routers use 192.168.x.x; VPNs
+/// tend to 10.x and virtual switches (Hyper-V, WSL) to 172.16-31.x.
+fn home_rank(host: &str) -> u8 {
+    match host.parse::<Ipv4Addr>().map(|ip| ip.octets()) {
+        Ok([192, 168, ..]) => 0,
+        Ok([10, ..]) => 1,
+        Ok([172, ..]) => 2,
+        Ok([169, 254, ..]) => 4,
+        _ => 3,
+    }
+}
+
+/// NovaBridges answering on the home network right now, with their address.
 fn discover(wait: Duration) -> Vec<(Info, String)> {
-    let Ok(socket) = UdpSocket::bind("0.0.0.0:0") else { return vec![] };
-    let _ = socket.set_broadcast(true);
-    let _ = socket.send_to(proto::DISCOVER, ("255.255.255.255", proto::DISCOVERY_PORT));
+    let sockets = broadcast(proto::DISCOVER, &[proto::DISCOVERY_PORT]);
+    for socket in &sockets {
+        let _ = socket.set_read_timeout(Some(Duration::from_millis(40)));
+    }
     let deadline = Instant::now() + wait;
     let mut found: Vec<(Info, String)> = Vec::new();
     let mut buf = [0u8; 4096];
-    while let Some(left) = deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero()) {
-        let _ = socket.set_read_timeout(Some(left));
-        let Ok((n, from)) = socket.recv_from(&mut buf) else { break };
-        if let Ok(info) = serde_json::from_slice::<Info>(&buf[..n])
-            && !info.id.is_empty()
-            && !found.iter().any(|(i, _)| i.id == info.id)
-        {
-            found.push((info, from.ip().to_string()));
+    while Instant::now() < deadline {
+        for socket in &sockets {
+            let Ok((n, from)) = socket.recv_from(&mut buf) else { continue };
+            let Ok(info) = serde_json::from_slice::<Info>(&buf[..n]) else { continue };
+            if info.id.is_empty() {
+                continue;
+            }
+            let host = from.ip().to_string();
+            match found.iter_mut().find(|(i, _)| i.id == info.id) {
+                // The same PC through another card: keep its most home-like address.
+                Some(entry) if home_rank(&host) < home_rank(&entry.1) => entry.1 = host,
+                Some(_) => {}
+                None => found.push((info, host)),
+            }
         }
     }
     found
@@ -95,16 +166,12 @@ fn discover(wait: Duration) -> Vec<(Info, String)> {
 
 /// Magic packet: six 0xFF and the card's address sixteen times.
 fn wake(macs: &[String]) {
-    let Ok(socket) = UdpSocket::bind("0.0.0.0:0") else { return };
-    let _ = socket.set_broadcast(true);
     for mac in macs.iter().filter_map(|m| proto::parse_mac(m)) {
         let mut packet = vec![0xffu8; 6];
         for _ in 0..16 {
             packet.extend_from_slice(&mac);
         }
-        for port in [9, 7] {
-            let _ = socket.send_to(&packet, ("255.255.255.255", port));
-        }
+        broadcast(&packet, &[9, 7]);
     }
 }
 
@@ -458,6 +525,11 @@ pub async fn pc_discover(state: State<'_, AppState>) -> Result<Vec<FoundPc>, Str
 #[tauri::command]
 pub async fn pc_pair(host: String, app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     crate::profiles::require_adult(&state)?;
+    // Found by discovery or typed by the person: an address or a PC name, nothing else.
+    let host = host.trim().to_string();
+    if !valid_host(&host) {
+        return Err("Escribe la IP del PC (por ejemplo 192.168.1.20) o su nombre.".into());
+    }
     let ask_host = host.clone();
     let (info, PairReply { token }) = tauri::async_runtime::spawn_blocking(move || {
         let info = get::<Info>(&ask_host, "/info", None, QUICK)?;
@@ -547,6 +619,24 @@ mod tests {
         assert!(is_pc_id(&s.id));
         assert_eq!(s.description.as_deref(), Some("En TORRE · Steam"));
         assert!(matches!(s.target, Target::Pc { ref pc, ref game } if pc == "ab12" && game == "steam:730"));
+    }
+
+    #[test]
+    fn typed_hosts() {
+        assert!(valid_host("192.168.1.20"));
+        assert!(valid_host("TORRE"));
+        assert!(valid_host("torre.local"));
+        assert!(!valid_host(""));
+        assert!(!valid_host("192.168.1.20/x"));
+        assert!(!valid_host("a b"));
+        assert!(!valid_host("http://x"));
+    }
+
+    #[test]
+    fn home_addresses_win() {
+        assert!(home_rank("192.168.1.133") < home_rank("10.2.0.2"));
+        assert!(home_rank("10.2.0.2") < home_rank("172.22.208.1"));
+        assert!(home_rank("172.22.208.1") < home_rank("169.254.45.201"));
     }
 
     /// Downloads the real Moonlight (≈37 MB) into a temporary folder.
