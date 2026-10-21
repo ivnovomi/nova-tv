@@ -4,7 +4,7 @@
 //!   with its `Info` as JSON.
 //! - HTTP `HTTP_PORT`: `GET /info`, `POST /pair` (the user accepts on the PC),
 //!   then with `Authorization: Bearer <token>`: `GET /games`, `POST /launch`,
-//!   `POST /moonlight-pin`, `POST /input`.
+//!   `POST /moonlight-pin`, `POST /input`, `POST /update`.
 
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +27,9 @@ pub struct Info {
     pub sunshine_running: bool,
     /// Network cards, for Wake-on-LAN.
     pub macs: Vec<String>,
+    /// A newer NOVA Host is available (its version): `POST /update` installs it.
+    #[serde(default)]
+    pub update: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

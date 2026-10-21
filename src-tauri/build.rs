@@ -44,6 +44,7 @@ fn main() {
             "pc_forget",
             "pc_install_moonlight",
             "pc_keyboard_games",
+            "pc_update_bridge",
             "pc_game_keyboard",
             "plugins_stream",
             "plugins_playlist",

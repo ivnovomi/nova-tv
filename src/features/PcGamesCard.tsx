@@ -149,6 +149,12 @@ export function PcGamesCard() {
     }
   };
 
+  const updateBridge = (pc: PcInfo) =>
+    api.pcUpdateBridge(pc.id).then(
+      (version) => toast.show("info", `Actualizando ${pc.name} a NOVA Host ${version}`, "En el PC, acepta el permiso de Windows. NovaBridge se reiniciará solo."),
+      (e: Error) => toast.show("error", "No se pudo actualizar", e.message),
+    );
+
   const forget = (pc: PcInfo) =>
     api.pcForget(pc.id).then(
       () => toast.show("success", `${pc.name} olvidado`),
@@ -195,9 +201,15 @@ export function PcGamesCard() {
             </p>
             <p className="mt-1 text-[1rem] text-ink-3">
               {pc.host} · {pc.moonlight ? `${pc.games} ${pc.games === 1 ? "juego" : "juegos"} en NOVA PLAY` : "Falta emparejar Moonlight"}
+              {pc.bridgeVersion && ` · NovaBridge ${pc.bridgeVersion}`}
               {!pc.online && " · NOVA lo despierta al jugar, si su tarjeta de red lo permite"}
             </p>
           </div>
+          {pc.bridgeUpdate && (
+            <button data-nav disabled={!!pairing} onClick={() => void updateBridge(pc)} className="focus-lift btn btn-primary">
+              <Download className="size-5" /> Actualizar a {pc.bridgeUpdate}
+            </button>
+          )}
           {!pc.moonlight && info.moonlight && (
             <button data-nav disabled={!!pairing || !pc.online} onClick={() => void linkMoonlight(pc)} className="focus-lift btn btn-primary">
               <Link2 className="size-5" /> Emparejar Moonlight

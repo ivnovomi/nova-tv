@@ -154,6 +154,8 @@ export const api = {
   /** Waits until the PIN is typed into Sunshine on the PC. */
   pcLinkMoonlight: (id: string, pin: string) => call<void>("pc_link_moonlight", { id, pin }),
   pcForget: (id: string) => call<void>("pc_forget", { id }),
+  /** NovaBridge on that PC installs its newer NOVA Host (Windows asks there). Returns the version. */
+  pcUpdateBridge: (id: string) => call<string>("pc_update_bridge", { id }),
   /** Portable Moonlight in NOVA's folder; progress in "moonlight-install" events. */
   pcInstallMoonlight: () => call<void>("pc_install_moonlight"),
   /** NOVA ids of the PC games played with the controller as keyboard and mouse. */

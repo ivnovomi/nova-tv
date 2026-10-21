@@ -17,6 +17,8 @@ pub mod proto;
 mod sunshine;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod update;
 
 use crate::commands::{games, steam};
 use crate::config::{PcGame, Shortcut, ShortcutSource, Target};
@@ -157,6 +159,10 @@ pub fn info() -> Info {
         sunshine: sunshine_exe().is_some(),
         sunshine_running: sunshine_running(),
         macs: macs(),
+        #[cfg(windows)]
+        update: update::available(),
+        #[cfg(not(windows))]
+        update: None,
     }
 }
 
@@ -356,7 +362,7 @@ fn handle(mut request: Request) {
             log(&format!("«{name}» emparejado"));
             json(request, 200, &PairReply { token });
         }
-        (_, "/games" | "/launch" | "/moonlight-pin" | "/input") => {
+        (_, "/games" | "/launch" | "/moonlight-pin" | "/input" | "/update") => {
             let Some(client) = client(&request) else { return error(request, 401, "Esta caja no está emparejada") };
             match (request.method(), path.as_str()) {
                 (Method::Get, "/games") => json(request, 200, &game_list()),
@@ -385,6 +391,20 @@ fn handle(mut request: Request) {
                     json(request, 200, &serde_json::json!({ "ok": true }));
                     pin_to_sunshine(pin, client.name, from);
                 }
+                // From the TV: install the newer NOVA Host (Windows asks on the PC).
+                #[cfg(windows)]
+                (Method::Post, "/update") => match update::available() {
+                    Some(version) => {
+                        log(&format!("«{}» pide actualizar a NOVA Host {version}", client.name));
+                        json(request, 200, &serde_json::json!({ "ok": true, "version": version }));
+                        thread::spawn(|| {
+                            if let Err(e) = update::install() {
+                                tell("NovaBridge", &e);
+                            }
+                        });
+                    }
+                    None => error(request, 404, "NovaBridge ya está al día"),
+                },
                 (Method::Post, "/input") => {
                     let Some(InputRequest { keyboard }) = body(&mut request) else { return error(request, 400, "Petición no válida") };
                     #[cfg(windows)]
@@ -452,6 +472,8 @@ pub fn run() {
     log(&format!("NovaBridge {VERSION} arrancado en {} (Sunshine: {})", computer_name(), if sunshine_exe().is_some() { "sí" } else { "no" }));
     thread::spawn(discovery);
     thread::spawn(server);
+    #[cfg(windows)]
+    update::spawn();
     #[cfg(windows)]
     tray::run();
     #[cfg(not(windows))]

@@ -480,6 +480,10 @@ pub struct PcView {
     online: bool,
     sunshine: bool,
     sunshine_running: bool,
+    /// NovaBridge's version on that PC (when it answers).
+    bridge_version: Option<String>,
+    /// A newer NOVA Host it can install (`pc_update_bridge`).
+    bridge_update: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -512,6 +516,8 @@ pub async fn pc_list(app: AppHandle, state: State<'_, AppState>) -> Result<PcsVi
                 online: info.is_some(),
                 sunshine: info.as_ref().is_some_and(|i| i.sunshine),
                 sunshine_running: info.as_ref().is_some_and(|i| i.sunshine_running),
+                bridge_version: info.as_ref().map(|i| i.version.clone()),
+                bridge_update: info.as_ref().and_then(|i| i.update.clone()),
             })
             .collect()
     })
@@ -604,6 +610,17 @@ pub async fn pc_link_moonlight(id: String, pin: String, app: AppHandle, state: S
     force_refresh(&app);
     let _ = app.emit("pcs-changed", ());
     Ok(())
+}
+
+/// Asks the PC's NovaBridge to install its newer NOVA Host (Windows asks there).
+#[tauri::command]
+pub async fn pc_update_bridge(id: String, state: State<'_, AppState>) -> Result<String, String> {
+    crate::profiles::require_adult(&state)?;
+    let pc = state.config.snapshot().pcs.into_iter().find(|p| p.id == id).ok_or("Ese PC ya no está emparejado.")?;
+    let reply: serde_json::Value = tauri::async_runtime::spawn_blocking(move || post(&pc.host, "/update", Some(&pc.token), &serde_json::json!({}), QUICK * 4))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(reply.get("version").and_then(|v| v.as_str()).unwrap_or_default().to_string())
 }
 
 /// NOVA's ids (`pc:<pc>:<game>`) of the PC games played with the controller as keyboard and mouse.

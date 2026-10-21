@@ -81,7 +81,29 @@ if ($LASTEXITCODE -ne 0) { throw "makensis failed" }
 Write-Host "Built $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
 
 if ($Publish) {
-  gh release upload "v$version" $setup --repo $Repo --clobber
+  # Signed with NOVA's updater key: NovaBridge installs only what it can verify.
+  $key = Join-Path $env:USERPROFILE ".tauri\nova-tv.key"
+  if (-not (Test-Path $key)) { throw "Signing key not found at $key" }
+  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+  Push-Location $root
+  try {
+    npx tauri signer sign -f $key $setup
+    if ($LASTEXITCODE -ne 0) { throw "Signing failed" }
+  } finally {
+    Pop-Location
+    Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
+  }
+  $asset = Split-Path $setup -Leaf
+  $manifest = [ordered]@{
+    version   = $version
+    url       = "https://github.com/$Repo/releases/download/v$version/$asset"
+    signature = (Get-Content "$setup.sig" -Raw).Trim()
+  }
+  # NovaBridge looks for this file in NOVA's releases (UTF-8 without BOM).
+  $hostJson = Join-Path $out "host.json"
+  [System.IO.File]::WriteAllText($hostJson, ($manifest | ConvertTo-Json), (New-Object System.Text.UTF8Encoding $false))
+
+  gh release upload "v$version" $setup $hostJson --repo $Repo --clobber
   if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
-  Write-Host "Attached to v$version in $Repo"
+  Write-Host "Attached NOVA Host and host.json to v$version in $Repo"
 }

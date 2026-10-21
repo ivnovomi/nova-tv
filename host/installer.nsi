@@ -69,7 +69,7 @@ VIAddVersionKey /LANG=1034 "LegalCopyright" "NOVA TV"
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "NOVA Host necesita Windows de 64 bits."
+    MessageBox MB_ICONSTOP "NOVA Host necesita Windows de 64 bits." /SD IDOK
     Abort
   ${EndIf}
   SetRegView 64
@@ -122,7 +122,7 @@ Section "NOVA Host"
       SetRebootFlag true
     ${ElseIf} $0 != 0
       DetailPrint "El driver de mandos no se pudo instalar (código $0)"
-      MessageBox MB_ICONEXCLAMATION "El driver de mandos (ViGEmBus) no se pudo instalar (código $0). Podrás jugar, pero el mando de la tele no llegará a los juegos.$\r$\n$\r$\nEl motivo está en $INSTDIR\vigembus-install.log."
+      MessageBox MB_ICONEXCLAMATION "El driver de mandos (ViGEmBus) no se pudo instalar (código $0). Podrás jugar, pero el mando de la tele no llegará a los juegos.$\r$\n$\r$\nEl motivo está en $INSTDIR\vigembus-install.log." /SD IDOK
     ${Else}
       DetailPrint "Driver de mandos instalado"
       ; A Sunshine already running looks for the driver only when it starts.
@@ -143,7 +143,7 @@ Section "NOVA Host"
     ${If} $0 != 0
     ${AndIf} $0 != 3010
       DetailPrint "Sunshine no se pudo instalar (código $0)"
-      MessageBox MB_ICONEXCLAMATION "Sunshine no se pudo instalar (código $0). NovaBridge funcionará, pero sin imagen hasta que instales Sunshine desde lizardbyte.dev."
+      MessageBox MB_ICONEXCLAMATION "Sunshine no se pudo instalar (código $0). NovaBridge funcionará, pero sin imagen hasta que instales Sunshine desde lizardbyte.dev." /SD IDOK
     ${EndIf}
   ${Else}
     DetailPrint "Sunshine ya estaba instalado: se respeta su configuración"
@@ -162,6 +162,11 @@ Section "NOVA Host"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\Desinstalar.exe"'
   WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoRepair" 1
+
+  ; Silent: NovaBridge updating itself. Open the new one (as the user, not as admin).
+  ${If} ${Silent}
+    Exec '"$WINDIR\explorer.exe" "$INSTDIR\NovaBridge.exe"'
+  ${EndIf}
 SectionEnd
 
 Section "Uninstall"

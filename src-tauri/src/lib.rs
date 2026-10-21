@@ -172,6 +172,7 @@ pub fn run() {
             gamestream::pc_forget,
             gamestream::pc_install_moonlight,
             gamestream::pc_keyboard_games,
+            gamestream::pc_update_bridge,
             gamestream::pc_game_keyboard,
             plugins::tv::plugins_stream,
             plugins::tv::plugins_playlist,

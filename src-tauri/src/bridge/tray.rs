@@ -64,6 +64,13 @@ fn password_label() -> &'static str {
     }
 }
 
+fn update_label() -> String {
+    match super::update::available() {
+        Some(version) => format!("Actualizar a NOVA Host {version}"),
+        None => "Buscar actualizaciones".into(),
+    }
+}
+
 fn status_text() -> (String, String) {
     let info = info();
     let sunshine = match (info.sunshine, info.sunshine_running) {
@@ -90,6 +97,7 @@ pub fn run() {
     let forget = MenuItem::new("Olvidar las teles emparejadas", true, None);
     let start = CheckMenuItem::new("Arrancar con Windows", true, autostart(), None);
     let keyboard = CheckMenuItem::new("Mando como teclado y ratón", true, super::input::active(), None);
+    let updates = MenuItem::new(update_label(), true, None);
     let quit = MenuItem::new("Salir", true, None);
     let _ = menu.append_items(&[
         &title,
@@ -102,6 +110,7 @@ pub fn run() {
         &log,
         &forget,
         &start,
+        &updates,
         &PredefinedMenuItem::separator(),
         &quit,
     ]);
@@ -139,6 +148,16 @@ pub fn run() {
                     refreshed = Instant::now() - Duration::from_secs(60);
                 } else if event.id == *start.id() {
                     set_autostart(start.is_checked());
+                } else if event.id == *updates.id() {
+                    if super::update::available().is_some() {
+                        std::thread::spawn(|| {
+                            if let Err(e) = super::update::install() {
+                                super::tell("NovaBridge", &e);
+                            }
+                        });
+                    } else {
+                        super::update::check_now();
+                    }
                 } else if event.id == *keyboard.id() {
                     super::input::set(keyboard.is_checked());
                 }
@@ -149,6 +168,7 @@ pub fn run() {
                 sunshine.set_text(&s);
                 boxes.set_text(&b);
                 password.set_text(password_label());
+                updates.set_text(update_label());
                 let _ = tray.set_tooltip(Some(format!("NovaBridge\n{s}\n{b}")));
             }
             // NOVA turns it on and off, and it stops by itself after a game.

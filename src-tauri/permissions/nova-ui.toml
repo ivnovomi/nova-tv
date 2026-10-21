@@ -42,6 +42,7 @@ permissions = [
   "allow-pc-forget",
   "allow-pc-install-moonlight",
   "allow-pc-keyboard-games",
+  "allow-pc-update-bridge",
   "allow-pc-game-keyboard",
   "allow-plugins-stream",
   "allow-plugins-playlist",

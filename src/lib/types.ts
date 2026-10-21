@@ -535,6 +535,10 @@ export interface PcInfo {
   online: boolean;
   sunshine: boolean;
   sunshineRunning: boolean;
+  /** NovaBridge's version there (when it answers). */
+  bridgeVersion: string | null;
+  /** A newer NOVA Host it can install. */
+  bridgeUpdate: string | null;
 }
 
 export interface PcsInfo {

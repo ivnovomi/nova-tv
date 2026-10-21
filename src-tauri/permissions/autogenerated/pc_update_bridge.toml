@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pc-update-bridge"
+description = "Enables the pc_update_bridge command without any pre-configured scope."
+commands.allow = ["pc_update_bridge"]
+
+[[permission]]
+identifier = "deny-pc-update-bridge"
+description = "Denies the pc_update_bridge command without any pre-configured scope."
+commands.deny = ["pc_update_bridge"]
