@@ -2,7 +2,9 @@
 ;   - NovaBridge (bandeja): habla con NOVA, lista y abre los juegos.
 ;   - Sunshine (si falta): emite la imagen a Moonlight. Se deja configurado
 ;     para que NovaBridge escriba solo el PIN de Moonlight.
-; Lo construye scripts/host.ps1 (que pasa VERSION, BRIDGE, SUNSHINE, ICON, OUTFILE).
+;   - ViGEmBus (si falta): el driver con el que el mando de la tele aparece
+;     en el PC como un mando de Xbox o PlayStation.
+; Lo construye scripts/host.ps1 (que pasa VERSION, BRIDGE, SUNSHINE, VIGEM, ICON, OUTFILE).
 
 Unicode true
 !include "MUI2.nsh"
@@ -31,7 +33,7 @@ VIAddVersionKey /LANG=1034 "LegalCopyright" "NOVA TV"
 !define MUI_UNICON "${ICON}"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Juega en la tele a los juegos de este PC"
-!define MUI_WELCOMEPAGE_TEXT "NOVA Host prepara este PC para que NOVA TV juegue a sus juegos desde la tele, por la red de casa.$\r$\n$\r$\nSe instalan:$\r$\n  •  NovaBridge, que se queda junto al reloj y habla con la tele.$\r$\n  •  Sunshine, que envía la imagen (si no lo tienes ya).$\r$\n$\r$\nLa tele necesita Moonlight; NOVA te lo indica en Ajustes → Juegos desde tu PC."
+!define MUI_WELCOMEPAGE_TEXT "NOVA Host prepara este PC para que NOVA TV juegue a sus juegos desde la tele, por la red de casa.$\r$\n$\r$\nSe instalan:$\r$\n  •  NovaBridge, que se queda junto al reloj y habla con la tele.$\r$\n  •  Sunshine, que envía la imagen (si no lo tienes ya).$\r$\n  •  El driver de mandos ViGEmBus, para que el mando de la tele funcione en los juegos.$\r$\n$\r$\nLa tele necesita Moonlight; NOVA te lo indica en Ajustes → Juegos desde tu PC."
 !define MUI_FINISHPAGE_TITLE "Este PC ya está listo"
 !define MUI_FINISHPAGE_TEXT "En la tele, abre NOVA → Ajustes → Juegos desde tu PC → Buscar PCs.$\r$\n$\r$\nCuando la tele lo pida, pulsa «Sí» en este PC. Mejor con cable de red."
 !define MUI_FINISHPAGE_RUN
@@ -67,6 +69,32 @@ Section "NOVA Host"
   SetOutPath "$INSTDIR"
   File "/oname=NovaBridge.exe" "${BRIDGE}"
   File "/oname=LICENCIAS.txt" "${LICENSES}"
+
+  ; Gamepad driver first, so Sunshine finds it when it starts.
+  nsExec::Exec 'sc query ViGEmBus'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "Instalando el driver de mandos (ViGEmBus)…"
+    InitPluginsDir
+    SetOutPath "$PLUGINSDIR"
+    File "/oname=vigembus-setup.exe" "${VIGEM}"
+    ExecWait '"$PLUGINSDIR\vigembus-setup.exe" /exenoui /qn /norestart' $0
+    SetOutPath "$INSTDIR"
+    ${If} $0 == 3010
+      DetailPrint "Driver de mandos instalado (Windows pide reiniciar para terminar)"
+      SetRebootFlag true
+    ${ElseIf} $0 != 0
+      DetailPrint "El driver de mandos no se pudo instalar (código $0)"
+      MessageBox MB_ICONEXCLAMATION "El driver de mandos (ViGEmBus) no se pudo instalar (código $0). Podrás jugar, pero el mando de la tele no llegará a los juegos."
+    ${Else}
+      DetailPrint "Driver de mandos instalado"
+      ; A Sunshine already running looks for the driver only when it starts.
+      nsExec::Exec 'net stop SunshineService'
+      nsExec::Exec 'net start SunshineService'
+    ${EndIf}
+  ${Else}
+    DetailPrint "El driver de mandos (ViGEmBus) ya estaba instalado"
+  ${EndIf}
 
   ${IfNot} ${FileExists} "$PROGRAMFILES64\Sunshine\sunshine.exe"
     DetailPrint "Instalando Sunshine (puede tardar un minuto)…"

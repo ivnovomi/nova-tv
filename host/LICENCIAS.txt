@@ -1,7 +1,7 @@
 NOVA Host
 =========
 
-NOVA Host instala dos programas en este PC:
+NOVA Host instala tres programas en este PC:
 
 1. NovaBridge, de NOVA TV.
    Habla con NOVA en la tele por la red de casa: anuncia este PC, pregunta
@@ -17,6 +17,15 @@ NOVA Host instala dos programas en este PC:
    Texto de la licencia:
      https://www.gnu.org/licenses/gpl-3.0.html
    Sunshine se instala con su propio instalador sin modificar y se puede
+   desinstalar por separado desde Configuración → Aplicaciones.
+
+3. ViGEmBus, de Nefarius Software Solutions (solo si no estaba instalado ya).
+   Driver que crea en este PC un mando virtual de Xbox 360 o DualShock 4, para
+   que el mando de la tele llegue a los juegos a través de Sunshine.
+   Licencia BSD de 3 cláusulas:
+     https://github.com/nefarius/ViGEmBus/blob/v1.22.0/LICENSE
+   Versión incluida: 1.22.0 (la última; el proyecto ya no se actualiza).
+   Se instala con su propio instalador firmado, sin modificar, y se puede
    desinstalar por separado desde Configuración → Aplicaciones.
 
 Qué cambia en este PC
