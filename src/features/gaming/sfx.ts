@@ -73,6 +73,12 @@ export const sfx = {
   success() {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, { type: "triangle", gain: 0.035, delay: i * 0.07 }));
   },
+  /** A game starts: a rising whoosh that lands on a bright chord. */
+  launch() {
+    tone(160, 0.9, { type: "sine", gain: 0.05, to: 640 });
+    tone(320, 0.7, { type: "triangle", gain: 0.02, delay: 0.15, to: 1280 });
+    [784, 988, 1319].forEach((f, i) => tone(f, 0.45, { type: "sine", gain: 0.025, delay: 0.62 + i * 0.05 }));
+  },
   boot() {
     // Low swell + rising shimmer.
     tone(110, 1.4, { type: "sine", gain: 0.06, to: 220 });

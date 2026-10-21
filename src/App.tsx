@@ -30,6 +30,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { liveTv, useLiveTv } from "./features/livetv/store";
 import { runHomeOverride, useBackHandler } from "./hooks/backStack";
 import { GamingMode } from "./features/gaming/GamingMode";
+import { GameLaunch, PREVIEW_LAUNCH, type GameLaunchState, type LaunchStage } from "./features/gaming/GameLaunch";
+import { sfx } from "./features/gaming/sfx";
 import { useRemoteInput } from "./hooks/useRemoteInput";
 import { api, inTauri, pickMediaFile } from "./lib/api";
 import { focusElement, focusFirst } from "./lib/spatialNav";
@@ -51,6 +53,7 @@ function Shell() {
   const [launching, setLaunching] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [overlay, setOverlay] = useState<OverlayState>(null);
+  const [gameLaunch, setGameLaunch] = useState<GameLaunchState>(null);
   const [watchHistory, setWatchHistory] = useState<WatchEntry[]>([]);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [gaming, setGaming] = useState(false);
@@ -225,6 +228,20 @@ function Shell() {
         window.clearTimeout(overlayTimer.current);
         setOverlay({ phase: "opening", item, name: item.name });
       }
+      // Games get their loading screen; it follows the launch through `game-launch` events.
+      if (item.kind === "game") {
+        sfx.launch();
+        setGameLaunch({ item, stage: "launching" });
+        try {
+          await api.launch(item.id);
+          void reload();
+        } catch (e) {
+          setGameLaunch((g) => (g?.item.id === item.id ? { item, stage: "error", detail: e instanceof Error ? e.message : String(e) } : g));
+        } finally {
+          window.setTimeout(() => setLaunching(null), Math.max(0, 600 - (performance.now() - started)));
+        }
+        return;
+      }
       const id = isStream ? -1 : toast.show("loading", `Abriendo ${item.name}…`);
       try {
         await api.launch(item.id);
@@ -258,6 +275,52 @@ function Shell() {
     },
     [launching, toast, reload, hideOverlayIn],
   );
+
+  // The game's loading screen follows the real launch (gamewatch / gamestream).
+  useEffect(() => {
+    if (!inTauri) return;
+    const off = [
+      listen<{ id: string; stage: LaunchStage; detail?: string }>("game-launch", ({ payload }) => {
+        setGameLaunch((g) => (g && g.item.id === payload.id && g.stage !== "error" ? { ...g, stage: payload.stage, detail: payload.detail ?? g.detail } : g));
+      }),
+      // Ended before NOVA saw it start (or the PC session closed): nothing left to wait for.
+      listen<{ id: string }>("game-ended", ({ payload }) => setGameLaunch((g) => (g?.item.id === payload.id ? null : g))),
+    ];
+    return () => off.forEach((o) => void o.then((f) => f()));
+  }, []);
+
+  // Development: `?launch-preview` plays a whole PC-game launch, no Tauri needed.
+  useEffect(() => {
+    if (!import.meta.env.DEV || !new URLSearchParams(location.search).has("launch-preview")) return;
+    const { item, stages } = PREVIEW_LAUNCH;
+    const timers = stages.map(([stage, at]) => window.setTimeout(() => setGameLaunch({ item, stage, detail: "TORRE" }), at + 800));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  // When it's over: "running" plays its way out; when NOVA can't tell (or it's
+  // a PC's game in Moonlight), the game's window taking the screen ends it.
+  const launchStage = gameLaunch?.stage;
+  useEffect(() => {
+    if (!launchStage) return;
+    if (launchStage === "running") {
+      sfx.success();
+      const t = window.setTimeout(() => setGameLaunch(null), 1100);
+      return () => window.clearTimeout(t);
+    }
+    if (launchStage !== "unwatched" && launchStage !== "streaming") return;
+    const close = () => setGameLaunch(null);
+    // Already in the background (the game came up first): close now.
+    if (!document.hasFocus()) {
+      const t = window.setTimeout(close, 400);
+      return () => window.clearTimeout(t);
+    }
+    window.addEventListener("blur", close);
+    const t = window.setTimeout(close, launchStage === "unwatched" ? 8000 : 25_000);
+    return () => {
+      window.removeEventListener("blur", close);
+      window.clearTimeout(t);
+    };
+  }, [launchStage]);
 
   const openMedia = useCallback(
     async (path: string) => {
@@ -413,7 +476,7 @@ function Shell() {
     power.start();
   }, []);
   const { screensaver } = usePower();
-  useAutoScreensaver(!booting && !picking && !tvOn && !gaming && !overlay);
+  useAutoScreensaver(!booting && !picking && !tvOn && !gaming && !overlay && !gameLaunch);
 
   const pickerDone = () => {
     const boot = picking === "boot";
@@ -517,6 +580,7 @@ function Shell() {
       </div>
 
       <AnimatePresence>{overlay && <LaunchOverlay key="overlay" state={overlay} />}</AnimatePresence>
+      <AnimatePresence>{gameLaunch && <GameLaunch key={gameLaunch.item.id} state={gameLaunch} onHide={() => setGameLaunch(null)} preview={import.meta.env.DEV ? PREVIEW_LAUNCH.meta : undefined} />}</AnimatePresence>
       {tvOn && <TvMode />}
       <AnimatePresence>
         {booting && (

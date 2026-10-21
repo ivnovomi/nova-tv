@@ -24,6 +24,22 @@ const GONE_POLLS: u32 = 3;
 
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
+/// How a launch is going, for NOVA's loading screen (`game-launch` event).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchStage {
+    pub id: String,
+    /// "running" (its process appeared), "unwatched" (NOVA can't tell when it
+    /// starts), or for a PC's games "connecting" | "waking" | "starting" | "streaming".
+    pub stage: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+pub fn stage(app: &AppHandle, id: &str, stage: &'static str, detail: Option<String>) {
+    let _ = app.emit("game-launch", LaunchStage { id: id.to_string(), stage, detail });
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct GameEnded {
@@ -86,10 +102,12 @@ fn game_running(sys: &mut System, prefixes: &[String], me: u32) -> bool {
 }
 
 /// Starts watching `game` after NOVA launched it. A newer launch replaces it.
+/// Tells the loading screen when the game is up (or that NOVA can't tell).
 pub fn watch(app: &AppHandle, game: &Shortcut) {
     let prefixes = prefixes(game);
     let generation = GENERATION.fetch_add(1, Ordering::AcqRel) + 1;
     if prefixes.is_empty() {
+        stage(app, &game.id, "unwatched", None);
         return;
     }
     let (app, id, name) = (app.clone(), game.id.clone(), game.name.clone());
@@ -115,8 +133,12 @@ pub fn watch(app: &AppHandle, game: &Shortcut) {
                 (None, true) => {
                     started = Some(Instant::now());
                     playtime::record(&app, &id, 0, true);
+                    stage(&app, &id, "running", None);
                 }
-                (None, false) if launched.elapsed() > START_TIMEOUT => return,
+                (None, false) if launched.elapsed() > START_TIMEOUT => {
+                    stage(&app, &id, "unwatched", None);
+                    return;
+                }
                 (Some(at), true) => {
                     gone = 0;
                     let played = at.elapsed().as_secs();

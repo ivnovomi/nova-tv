@@ -382,7 +382,7 @@ pub async fn launch_shortcut(id: String, app: AppHandle, state: State<'_, AppSta
         Target::Packaged { aumid } if shortcut.kind == ShortcutKind::Game => super::store::activate(aumid)?,
         Target::Uri { uri } => super::games::launch_uri(uri)?,
         // Played on the PC, seen here through Moonlight (NOVA watches Moonlight, not the game).
-        Target::Pc { pc, game } => crate::gamestream::play(&app, pc, game, &shortcut.name).await?,
+        Target::Pc { pc, game } => crate::gamestream::play(&app, &shortcut.id, pc, game, &shortcut.name).await?,
         Target::Packaged { aumid } => {
             crate::session::end_blocking(&app).await;
             super::store::launch(aumid)?;

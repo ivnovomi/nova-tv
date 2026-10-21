@@ -109,7 +109,8 @@ fn wake(macs: &[String]) {
 }
 
 /// Where the PC answers now: its last address, or wherever discovery finds it.
-fn reach(pc: &PairedPc, wait: Duration) -> Option<(Info, String)> {
+/// `on_wake` runs once, when the PC doesn't answer and NOVA starts waking it.
+fn reach(pc: &PairedPc, wait: Duration, on_wake: impl Fn()) -> Option<(Info, String)> {
     let deadline = Instant::now() + wait;
     let mut woke = false;
     loop {
@@ -125,6 +126,7 @@ fn reach(pc: &PairedPc, wait: Duration) -> Option<(Info, String)> {
         if !woke {
             log(&format!("{} no contesta: lo despierto", pc.name));
             woke = true;
+            on_wake();
         }
         wake(&pc.macs);
         thread::sleep(Duration::from_secs(2));
@@ -324,7 +326,9 @@ fn force_refresh(app: &AppHandle) {
 }
 
 /// Plays `game` from the PC `pc_id`: wakes it, starts the game there and opens Moonlight.
-pub async fn play(app: &AppHandle, pc_id: &str, game: &str, name: &str) -> Result<(), String> {
+/// Each step goes to the loading screen as a `game-launch` stage of `shortcut`.
+pub async fn play(app: &AppHandle, shortcut: &str, pc_id: &str, game: &str, name: &str) -> Result<(), String> {
+    use crate::gamewatch::stage;
     let pc = app
         .state::<AppState>()
         .config
@@ -337,8 +341,11 @@ pub async fn play(app: &AppHandle, pc_id: &str, game: &str, name: &str) -> Resul
     if !pc.moonlight {
         return Err(format!("Moonlight aún no está emparejado con {}: hazlo en Ajustes → Juegos desde tu PC.", pc.name));
     }
-    let wait_pc = pc.clone();
-    let (info, host) = tauri::async_runtime::spawn_blocking(move || reach(&wait_pc, WAKE))
+    stage(app, shortcut, "connecting", Some(pc.name.clone()));
+    let (wait_pc, wake_app, wake_id) = (pc.clone(), app.clone(), shortcut.to_string());
+    let (info, host) = tauri::async_runtime::spawn_blocking(move || {
+        reach(&wait_pc, WAKE, || stage(&wake_app, &wake_id, "waking", Some(wait_pc.name.clone())))
+    })
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("{} no contesta. ¿Está encendido y con NovaBridge abierto?", pc.name))?;
@@ -354,6 +361,7 @@ pub async fn play(app: &AppHandle, pc_id: &str, game: &str, name: &str) -> Resul
             Ok(())
         });
     }
+    stage(app, shortcut, "starting", Some(pc.name.clone()));
     let (launch_host, token, id) = (host.clone(), pc.token.clone(), game.to_string());
     tauri::async_runtime::spawn_blocking(move || {
         post::<serde_json::Value>(&launch_host, "/launch", Some(&token), &LaunchRequest { id }, Duration::from_secs(15))
@@ -368,6 +376,8 @@ pub async fn play(app: &AppHandle, pc_id: &str, game: &str, name: &str) -> Resul
         .spawn()
         .map_err(|e| format!("No se pudo abrir Moonlight: {e}"))?;
     crate::session::start(app, name, crate::session::Kind::Game(child));
+    // Moonlight's window taking the screen is what ends the loading screen.
+    stage(app, shortcut, "streaming", Some(pc.name.clone()));
     Ok(())
 }
 
