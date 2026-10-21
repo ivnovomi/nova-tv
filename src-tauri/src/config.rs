@@ -82,6 +82,11 @@ pub struct Shortcut {
     pub target: Target,
     #[serde(default)]
     pub source: ShortcutSource,
+    /// Several ways to open the same game (Minecraft's launcher and its
+    /// modpacks): NOVA shows one tile and asks which one. Games without it are
+    /// grouped by their id (the same Steam game here and on a PC).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

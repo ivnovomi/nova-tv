@@ -33,6 +33,8 @@ import { runHomeOverride, useBackHandler } from "./hooks/backStack";
 import { GamingMode } from "./features/gaming/GamingMode";
 import { GameLaunch, PREVIEW_LAUNCH, type GameLaunchState, type LaunchStage } from "./features/gaming/GameLaunch";
 import { sfx } from "./features/gaming/sfx";
+import { GameVariantsDialog } from "./features/gaming/GameVariants";
+import { isGroupTile, variantsOf } from "./features/gaming/groups";
 import { useRemoteInput } from "./hooks/useRemoteInput";
 import { api, inTauri, pickMediaFile } from "./lib/api";
 import { focusElement, focusFirst } from "./lib/spatialNav";
@@ -221,6 +223,14 @@ function Shell() {
   const launch = useCallback(
     async (item: Shortcut) => {
       if (launching) return;
+      // A game with several ways to open it (instances, here or on a PC): ask which first.
+      if (isGroupTile(item) && library) {
+        const variants = variantsOf(library.games, item);
+        if (variants.length > 1) {
+          setDialog({ type: "game-variants", title: item.name, variants });
+          return;
+        }
+      }
       setLaunching(item.id);
       if (item.kind !== "app") liveTv.close(); // a game or a service takes over the screen and sound
       const started = performance.now();
@@ -274,7 +284,7 @@ function Shell() {
         window.setTimeout(() => setLaunching(null), wait);
       }
     },
-    [launching, toast, reload, hideOverlayIn],
+    [launching, toast, reload, hideOverlayIn, library],
   );
 
   // The game's loading screen follows the real launch (gamewatch / gamestream).
@@ -639,6 +649,18 @@ function Shell() {
         {dialog?.type === "add-steam" && <AddSteamDialog key="add-steam" onClose={closeDialog} onSaved={onSaved} />}
         {dialog?.type === "add-web" && <AddWebDialog key="add-web" onClose={closeDialog} onSaved={onSaved} />}
         {dialog?.type === "pc-games" && <PcGamesDialog key="pc-games" onClose={closeDialog} />}
+        {dialog?.type === "game-variants" && (
+          <GameVariantsDialog
+            key="game-variants"
+            title={dialog.title}
+            variants={dialog.variants}
+            onClose={closeDialog}
+            onPick={(g) => {
+              setDialog(null);
+              void launch(g);
+            }}
+          />
+        )}
         {dialog?.type === "confirm-clear-history" && (
           <ConfirmDialog
             key="clear-history"

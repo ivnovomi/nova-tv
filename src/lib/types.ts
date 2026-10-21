@@ -264,6 +264,8 @@ export interface Shortcut {
   kind: ShortcutKind;
   target: Target;
   source: ShortcutSource;
+  /** Several ways to open one game (Minecraft and its modpacks). */
+  group?: string | null;
 }
 
 export interface Library {
@@ -545,6 +547,8 @@ export interface FoundPc {
   host: string;
   sunshine: boolean;
   paired: boolean;
+  /** It is this computer: its games already open here, without Moonlight. */
+  thisPc: boolean;
 }
 
 /** A paired PC, and whether it answers right now. */
@@ -562,6 +566,8 @@ export interface PcInfo {
   bridgeVersion: string | null;
   /** A newer NOVA Host it can install. */
   bridgeUpdate: string | null;
+  /** It is this computer: its games open here directly. */
+  thisPc: boolean;
 }
 
 export interface PcsInfo {

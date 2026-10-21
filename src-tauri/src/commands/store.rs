@@ -62,6 +62,7 @@ mod imp {
                     kind: ShortcutKind::Stream,
                     target: Target::Packaged { aumid },
                     source: ShortcutSource::Store,
+                    group: None,
                 });
                 break; // one tile per app
             }

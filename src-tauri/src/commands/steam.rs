@@ -79,6 +79,7 @@ pub fn installed_games() -> Vec<Shortcut> {
                         kind: ShortcutKind::Game,
                         target: Target::Steam { app_id },
                         source: ShortcutSource::Steam,
+                        group: None,
                     });
                 }
             }

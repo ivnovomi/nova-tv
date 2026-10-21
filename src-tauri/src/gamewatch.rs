@@ -187,6 +187,7 @@ mod tests {
             kind: ShortcutKind::Game,
             target: Target::Executable { path: path.into(), args: vec![] },
             source: ShortcutSource::User,
+            group: None,
         }
     }
 

@@ -49,6 +49,7 @@ pub fn install_dir(id: &str) -> Option<PathBuf> {
 }
 
 fn game(id: String, name: String, description: &str, target: Target, source: ShortcutSource) -> Shortcut {
+    let group = group_for(&id);
     Shortcut {
         id,
         name,
@@ -56,7 +57,16 @@ fn game(id: String, name: String, description: &str, target: Target, source: Sho
         kind: ShortcutKind::Game,
         target,
         source,
+        group,
     }
+}
+
+/// Minecraft's launcher (classic or Store) and every modpack are one game.
+pub fn group_for(game_id: &str) -> Option<String> {
+    let minecraft = is_modpack(game_id)
+        || game_id == "launcher:minecraft"
+        || game_id.strip_prefix("xbox:").and_then(known_by_aumid).is_some_and(|k| k.id == "launcher:minecraft");
+    minecraft.then(|| "minecraft".to_string())
 }
 
 fn epic() -> Vec<Shortcut> {
@@ -417,7 +427,55 @@ pub fn launch_uri(uri: &str) -> Result<(), String> {
     if !valid_uri(uri) {
         return Err("Enlace de lanzador no permitido.".into());
     }
+    // Modrinth App and CurseForge only act on a link once their window is up:
+    // a link that starts them gets lost. Start them first, then send it.
+    #[cfg(windows)]
+    if let Some(app) = cold_handler(uri) {
+        let uri = uri.to_string();
+        std::process::Command::new(&app).spawn().map_err(|e| format!("No se pudo abrir el lanzador: {e}"))?;
+        std::thread::spawn(move || {
+            wait_until_ready(&app);
+            let _ = tauri_plugin_opener::open_url(&uri, None::<&str>);
+        });
+        return Ok(());
+    }
     tauri_plugin_opener::open_url(uri, None::<&str>).map_err(|e| format!("No se pudo abrir el lanzador: {e}"))
+}
+
+/// Seconds a launcher app needs after its process appears before it handles links.
+#[cfg(windows)]
+const LAUNCHER_WARMUP: Duration = Duration::from_secs(10);
+
+/// The app behind a `modrinth://` / `curseforge://` link, when it isn't running yet.
+#[cfg(windows)]
+fn cold_handler(uri: &str) -> Option<PathBuf> {
+    use winreg::{enums::HKEY_CLASSES_ROOT, RegKey};
+    let scheme = ["modrinth", "curseforge"].into_iter().find(|s| uri.starts_with(&format!("{s}://")))?;
+    // `"C:\...\Modrinth App.exe" "%1"`
+    let command: String = RegKey::predef(HKEY_CLASSES_ROOT).open_subkey(format!(r"{scheme}\shell\open\command")).ok()?.get_value("").ok()?;
+    let exe = PathBuf::from(command.trim_start().strip_prefix('"')?.split('"').next()?);
+    if !exe.is_file() || process_running(&exe) {
+        return None;
+    }
+    Some(exe)
+}
+
+#[cfg(windows)]
+fn process_running(exe: &Path) -> bool {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet));
+    sys.processes().values().any(|p| p.exe().is_some_and(|e| e.as_os_str().eq_ignore_ascii_case(exe.as_os_str())))
+}
+
+/// Waits for the launcher's process (up to 30 s), then for its window to load.
+#[cfg(windows)]
+fn wait_until_ready(exe: &Path) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !process_running(exe) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    std::thread::sleep(LAUNCHER_WARMUP);
 }
 
 #[cfg(test)]
@@ -434,6 +492,15 @@ mod tests {
         assert!(valid_uri("curseforge://launch-game?instanceId=931baf2e-3302-413a-ade4-3f2bb3dae8ca&gameId=432"));
         assert!(!valid_uri("modrinth://install/x"));
         assert!(!valid_uri("curseforge://install?addonId=1"));
+    }
+
+    #[test]
+    fn minecraft_and_its_modpacks_are_one_game() {
+        assert_eq!(group_for("launcher:minecraft").as_deref(), Some("minecraft"));
+        assert_eq!(group_for("modrinth:Fallout%20Craft").as_deref(), Some("minecraft"));
+        assert_eq!(group_for("curseforge:931baf2e").as_deref(), Some("minecraft"));
+        assert_eq!(group_for("xbox:Microsoft.4297127D64EC6_8wekyb3d8bbwe!Minecraft").as_deref(), Some("minecraft"));
+        assert_eq!(group_for("steam:730"), None);
     }
 
     #[test]

@@ -142,6 +142,7 @@ pub(crate) fn detected_apps() -> Vec<Shortcut> {
                     args: args.into_iter().map(String::from).collect(),
                 },
                 source: ShortcutSource::Detected,
+                group: None,
             })
         })
         .collect()
@@ -285,6 +286,7 @@ pub async fn add_executable(input: NewExecutable, state: State<'_, AppState>) ->
         kind: input.kind,
         target: Target::Executable { path: exe.to_string_lossy().into_owned(), args },
         source: ShortcutSource::User,
+        group: None,
     };
     let saved = shortcut.clone();
     state.config.update(move |c| {
@@ -308,6 +310,7 @@ pub async fn add_steam_game(name: String, app_id: u32, state: State<'_, AppState
         kind: ShortcutKind::Game,
         target: Target::Steam { app_id },
         source: ShortcutSource::User,
+        group: None,
     };
     let saved = shortcut.clone();
     state.config.update(move |c| {
@@ -333,6 +336,7 @@ pub async fn add_web_app(name: String, url: String, state: State<'_, AppState>) 
         kind: ShortcutKind::Stream,
         target: Target::Web { url, tv: false },
         source: ShortcutSource::User,
+        group: None,
     };
     let saved = shortcut.clone();
     state.config.update(move |c| {

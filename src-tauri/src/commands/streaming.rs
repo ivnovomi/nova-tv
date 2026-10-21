@@ -46,6 +46,7 @@ pub fn catalog() -> Vec<Shortcut> {
             kind: ShortcutKind::Stream,
             target: Target::Web { url: s.url.into(), tv: s.tv },
             source: ShortcutSource::Builtin,
+            group: None,
         })
         .collect()
 }

@@ -124,6 +124,22 @@ fn valid_host(host: &str) -> bool {
         && host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
 }
 
+/// NovaBridge of this very computer (NOVA and NovaBridge on the same PC).
+fn local_bridge_id() -> Option<String> {
+    let path = env::var_os("APPDATA").map(PathBuf::from)?.join(r"NovaBridge\bridge.json");
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    json.get("id")?.as_str().map(String::from)
+}
+
+/// A "PC" that is this computer: its games open here directly, never through
+/// Sunshine and Moonlight to itself.
+fn is_this_pc(id: &str, host: &str) -> bool {
+    if local_bridge_id().is_some_and(|local| local == id) {
+        return true;
+    }
+    host.parse::<Ipv4Addr>().is_ok_and(|ip| ip.is_loopback() || lan_addresses().contains(&ip))
+}
+
 /// How likely an address is the home network: routers use 192.168.x.x; VPNs
 /// tend to 10.x and virtual switches (Hyper-V, WSL) to 172.16-31.x.
 fn home_rank(host: &str) -> u8 {
@@ -335,12 +351,19 @@ fn shortcut(pc: &PairedPc, game: &PcGame) -> Shortcut {
         kind: ShortcutKind::Game,
         target: Target::Pc { pc: pc.id.clone(), game: game.id.clone() },
         source: ShortcutSource::Pc,
+        group: crate::commands::games::group_for(&game.id),
     }
 }
 
-/// Every game of every PC ready to play (also while they sleep).
+/// Every game of every PC ready to play (also while they sleep). This
+/// computer's own games are already in NOVA as local games.
 pub fn shortcuts(config: &Config) -> Vec<Shortcut> {
-    config.pcs.iter().filter(|pc| pc.moonlight).flat_map(|pc| pc.games.iter().map(|g| shortcut(pc, g))).collect()
+    config
+        .pcs
+        .iter()
+        .filter(|pc| pc.moonlight && !is_this_pc(&pc.id, &pc.host))
+        .flat_map(|pc| pc.games.iter().map(|g| shortcut(pc, g)))
+        .collect()
 }
 
 /// `shortcuts`, and a background check of the PCs' games.
@@ -467,6 +490,8 @@ pub struct FoundPc {
     host: String,
     sunshine: bool,
     paired: bool,
+    /// It is this computer: its games already open here.
+    this_pc: bool,
 }
 
 #[derive(Serialize)]
@@ -484,6 +509,8 @@ pub struct PcView {
     bridge_version: Option<String>,
     /// A newer NOVA Host it can install (`pc_update_bridge`).
     bridge_update: Option<String>,
+    /// It is this computer: its games open here directly.
+    this_pc: bool,
 }
 
 #[derive(Serialize)]
@@ -508,6 +535,7 @@ pub async fn pc_list(app: AppHandle, state: State<'_, AppState>) -> Result<PcsVi
             .into_iter()
             .filter_map(|h| h.join().ok())
             .map(|(info, pc)| PcView {
+                this_pc: is_this_pc(&pc.id, &pc.host),
                 id: pc.id,
                 name: pc.name,
                 host: pc.host,
@@ -532,7 +560,7 @@ pub async fn pc_discover(state: State<'_, AppState>) -> Result<Vec<FoundPc>, Str
     let found = tauri::async_runtime::spawn_blocking(|| discover(Duration::from_secs(2))).await.map_err(|e| e.to_string())?;
     Ok(found
         .into_iter()
-        .map(|(info, host)| FoundPc { paired: paired.contains(&info.id), id: info.id, name: info.name, host, sunshine: info.sunshine })
+        .map(|(info, host)| FoundPc { paired: paired.contains(&info.id), this_pc: is_this_pc(&info.id, &host), id: info.id, name: info.name, host, sunshine: info.sunshine })
         .collect())
 }
 
@@ -545,6 +573,9 @@ pub async fn pc_pair(host: String, app: AppHandle, state: State<'_, AppState>) -
     if !valid_host(&host) {
         return Err("Escribe la IP del PC (por ejemplo 192.168.1.20) o su nombre.".into());
     }
+    if is_this_pc("", &host) {
+        return Err("Es este mismo equipo: NOVA ya abre sus juegos directamente, sin Moonlight.".into());
+    }
     let ask_host = host.clone();
     let (info, PairReply { token }) = tauri::async_runtime::spawn_blocking(move || {
         let info = get::<Info>(&ask_host, "/info", None, QUICK)?;
@@ -553,6 +584,9 @@ pub async fn pc_pair(host: String, app: AppHandle, state: State<'_, AppState>) -
     })
     .await
     .map_err(|e| e.to_string())??;
+    if is_this_pc(&info.id, "") {
+        return Err("Es este mismo equipo: NOVA ya abre sus juegos directamente, sin Moonlight.".into());
+    }
     let pc = PairedPc { id: info.id.clone(), name: info.name, host, macs: info.macs, token, ..Default::default() };
     state.config.update(move |c| {
         // Paired again: keeps Moonlight's pairing and the per-game choices.

@@ -9,6 +9,8 @@ export type Dialog =
   | { type: "confirm-clear-history" }
   /** Juegos desde tu PC (from NOVA PLAY). */
   | { type: "pc-games" }
+  /** A game with several ways to open it: which one. */
+  | { type: "game-variants"; title: string; variants: Shortcut[] }
   | null;
 
 export interface Nova {

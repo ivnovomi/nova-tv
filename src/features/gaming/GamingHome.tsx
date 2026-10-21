@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "motion/react";
 import { Bluetooth, Dices, Gamepad2, Info, Joystick, Keyboard, Menu, MonitorPlay, Play, Plus, RefreshCw, Star, Trash2, type LucideProps } from "lucide-react";
 import { byRecent, useNova } from "../../app/context";
+import { gameKey } from "./groups";
 import { useActiveProfile } from "../../app/profiles";
 import { initials, posterBackground } from "../../components/art";
 import { Modal } from "../../components/Modal";
@@ -337,7 +338,7 @@ export function GamingHome({ pads, ready, onExit }: Props) {
   const toast = useToast();
   const now = useClock();
   const meta = useGameMeta();
-  const playtime = usePlaytime();
+  const rawPlaytime = usePlaytime();
   const profile = useActiveProfile();
   const favIds = useFavoriteGames();
   const [view, setView] = useState<View>("home");
@@ -354,12 +355,37 @@ export function GamingHome({ pads, ready, onExit }: Props) {
   const byId = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
   const title = (g: Shortcut) => meta[g.id]?.title ?? g.name;
 
+  // A game's tile, from any of its ways to open it (a modpack → the Minecraft tile).
+  const tileOf = useMemo(() => {
+    const byKey = new Map(games.map((g) => [gameKey(g), g]));
+    const all = new Map((nova.library?.games ?? []).map((g) => [g.id, g]));
+    return (id: string) => {
+      const g = all.get(id);
+      return g ? byKey.get(gameKey(g)) : byId.get(id);
+    };
+  }, [games, nova.library, byId]);
+
+  // Play time per tile: all the ways to open a game add up (every modpack → Minecraft).
+  const playtime = useMemo(() => {
+    const out: Record<string, PlayStats> = { ...rawPlaytime };
+    for (const [id, s] of Object.entries(rawPlaytime)) {
+      const tile = tileOf(id);
+      if (!tile || tile.id === id) continue;
+      const t = out[tile.id] ?? { totalSeconds: 0, lastPlayed: 0, sessions: 0 };
+      out[tile.id] = { totalSeconds: t.totalSeconds + s.totalSeconds, sessions: t.sessions + s.sessions, lastPlayed: Math.max(t.lastPlayed, s.lastPlayed) };
+    }
+    return out;
+  }, [rawPlaytime, tileOf]);
+
   // "Seguir jugando": what NOVA saw you play, latest first (then recent launches).
   const continueList = useMemo(() => {
-    const played = games.filter((g) => playtime[g.id]?.lastPlayed).sort((a, b) => (playtime[b.id]?.lastPlayed ?? 0) - (playtime[a.id]?.lastPlayed ?? 0));
-    const recent = (nova.library?.recent ?? []).map((id) => byId.get(id)).filter((g): g is Shortcut => !!g);
-    return [...new Set([...played, ...recent])].slice(0, 6);
-  }, [games, playtime, nova.library, byId]);
+    const played = Object.entries(rawPlaytime)
+      .filter(([, s]) => s.lastPlayed)
+      .sort(([, a], [, b]) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))
+      .map(([id]) => tileOf(id));
+    const recent = (nova.library?.recent ?? []).map(tileOf);
+    return [...new Set([...played, ...recent].filter((g): g is Shortcut => !!g))].slice(0, 6);
+  }, [rawPlaytime, nova.library, tileOf]);
   const favGames = useMemo(() => favIds.map((id) => byId.get(id)).filter((g): g is Shortcut => !!g), [favIds, byId]);
 
   const activity = useMemo(() => {

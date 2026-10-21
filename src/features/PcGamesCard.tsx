@@ -161,7 +161,8 @@ export function PcGamesCard() {
       (e: Error) => toast.show("error", "No se pudo olvidar", e.message),
     );
 
-  const fresh = found?.filter((f) => !f.paired) ?? [];
+  const fresh = found?.filter((f) => !f.paired && !f.thisPc) ?? [];
+  const self = found?.find((f) => f.thisPc);
 
   return (
     <div className="space-y-3">
@@ -196,11 +197,12 @@ export function PcGamesCard() {
           <div className="min-w-[14rem] flex-1">
             <p className="flex flex-wrap items-center gap-2 text-[1.25rem] font-semibold">
               {pc.name}
+              {pc.thisPc && <span className="badge bg-cyan/15 text-cyan">Este equipo</span>}
               {pc.online ? <span className="badge bg-ok/15 text-ok">Encendido</span> : <span className="badge bg-white/10 text-ink-3"><Moon className="size-3.5" /> Dormido o apagado</span>}
               {pc.online && !pc.sunshineRunning && <span className="badge bg-warn/15 text-warn">{pc.sunshine ? "Sunshine parado" : "Sin Sunshine"}</span>}
             </p>
             <p className="mt-1 text-[1rem] text-ink-3">
-              {pc.host} · {pc.moonlight ? `${pc.games} ${pc.games === 1 ? "juego" : "juegos"} en NOVA PLAY` : "Falta emparejar Moonlight"}
+              {pc.host} · {pc.thisPc ? "Sus juegos se abren aquí directamente, sin Moonlight" : pc.moonlight ? `${pc.games} ${pc.games === 1 ? "juego" : "juegos"} en NOVA PLAY` : "Falta emparejar Moonlight"}
               {pc.bridgeVersion && ` · NovaBridge ${pc.bridgeVersion}`}
               {!pc.online && " · NOVA lo despierta al jugar, si su tarjeta de red lo permite"}
             </p>
@@ -242,7 +244,7 @@ export function PcGamesCard() {
           onSubmit={(e) => {
             e.preventDefault();
             const host = manual.trim();
-            if (host) void pair({ id: "", name: host, host, sunshine: true, paired: false });
+            if (host) void pair({ id: "", name: host, host, sunshine: true, paired: false, thisPc: false });
           }}
         >
           <span className="text-[1rem] text-ink-3">¿No aparece? Escribe su IP:</span>
@@ -255,7 +257,8 @@ export function PcGamesCard() {
         </form>
         {found && (
           <div className="mt-4 flex flex-wrap gap-2">
-            {fresh.length === 0 && <p className="text-[1rem] text-ink-3">{found.length ? "Los PCs encontrados ya están emparejados." : "No aparece ninguno. Mira que NovaBridge esté abierto, que la red del PC sea «Privada» en Windows y que no haya una VPN conectada; o escribe su IP arriba."}</p>}
+            {self && <p className="w-full text-[1rem] text-ink-3">{self.name} es este mismo equipo: sus juegos ya están en NOVA PLAY y se abren aquí directamente.</p>}
+            {fresh.length === 0 && !self && <p className="text-[1rem] text-ink-3">{found.length ? "Los PCs encontrados ya están emparejados." : "No aparece ninguno. Mira que NovaBridge esté abierto, que la red del PC sea «Privada» en Windows y que no haya una VPN conectada; o escribe su IP arriba."}</p>}
             {fresh.map((pc) => (
               <button key={pc.id} data-nav disabled={!!pairing} onClick={() => void pair(pc)} className="focus-lift btn btn-ghost">
                 <MonitorPlay className="size-5" /> {pc.name} <span className="text-ink-3">{pc.host}{pc.sunshine ? "" : " · sin Sunshine"}</span>

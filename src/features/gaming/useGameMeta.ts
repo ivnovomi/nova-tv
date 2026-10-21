@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, inTauri } from "../../lib/api";
 import type { GameMeta, Shortcut } from "../../lib/types";
+import { groupGames } from "./groups";
 
 /** Steam-store artwork/details per game id, refreshed as the backend fetches them. */
 export function useGameMeta() {
@@ -33,9 +34,9 @@ export function isGame(meta?: GameMeta) {
   return !meta?.kind || meta.kind === "game";
 }
 
-/** Recent first; Steam tools filtered out. */
+/** Recent first; Steam tools filtered out; one tile per game (see groups.ts). */
 export function playable(games: Shortcut[], meta: Record<string, GameMeta>) {
-  return games.filter((g) => isGame(meta[g.id]));
+  return groupGames(games.filter((g) => isGame(meta[g.id])));
 }
 
 export const PLATFORM: Record<string, string> = {
