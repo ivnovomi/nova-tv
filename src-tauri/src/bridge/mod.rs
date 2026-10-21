@@ -9,6 +9,8 @@
 //! `%APPDATA%\NovaBridge` (id, accepted boxes, log).
 
 #[cfg(windows)]
+mod input;
+#[cfg(windows)]
 mod page;
 pub mod proto;
 #[cfg(windows)]
@@ -18,7 +20,7 @@ mod tray;
 
 use crate::commands::{games, steam};
 use crate::config::{PcGame, Shortcut, ShortcutSource, Target};
-use proto::{Info, LaunchRequest, PairReply, PairRequest, PinRequest};
+use proto::{Info, InputRequest, LaunchRequest, PairReply, PairRequest, PinRequest};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::UdpSocket;
@@ -354,7 +356,7 @@ fn handle(mut request: Request) {
             log(&format!("«{name}» emparejado"));
             json(request, 200, &PairReply { token });
         }
-        (_, "/games" | "/launch" | "/moonlight-pin") => {
+        (_, "/games" | "/launch" | "/moonlight-pin" | "/input") => {
             let Some(client) = client(&request) else { return error(request, 401, "Esta caja no está emparejada") };
             match (request.method(), path.as_str()) {
                 (Method::Get, "/games") => json(request, 200, &game_list()),
@@ -382,6 +384,13 @@ fn handle(mut request: Request) {
                     log(&format!("«{}» ({from}) empareja Moonlight", client.name));
                     json(request, 200, &serde_json::json!({ "ok": true }));
                     pin_to_sunshine(pin, client.name, from);
+                }
+                (Method::Post, "/input") => {
+                    let Some(InputRequest { keyboard }) = body(&mut request) else { return error(request, 400, "Petición no válida") };
+                    #[cfg(windows)]
+                    input::set(keyboard);
+                    log(&format!("«{}» pide el mando como teclado y ratón: {}", client.name, if keyboard { "sí" } else { "no" }));
+                    json(request, 200, &serde_json::json!({ "ok": true, "keyboard": keyboard }));
                 }
                 _ => error(request, 405, "Método no permitido"),
             }

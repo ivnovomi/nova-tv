@@ -156,6 +156,9 @@ export const api = {
   pcForget: (id: string) => call<void>("pc_forget", { id }),
   /** Portable Moonlight in NOVA's folder; progress in "moonlight-install" events. */
   pcInstallMoonlight: () => call<void>("pc_install_moonlight"),
+  /** NOVA ids of the PC games played with the controller as keyboard and mouse. */
+  pcKeyboardGames: () => call<string[]>("pc_keyboard_games"),
+  pcGameKeyboard: (id: string, on: boolean) => call<void>("pc_game_keyboard", { id, on }),
   /** A plugin channel's stream, right before playing (`retry` asks for a fresh one). */
   pluginsStream: (stream: string, retry: boolean) => call<{ stream: string; proxy: boolean; plugin: string }>("plugins_stream", { stream, retry }),
   /** A proxied playlist of a plugin stream (only its domains, with its headers). */

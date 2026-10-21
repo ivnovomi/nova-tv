@@ -178,6 +178,9 @@ pub struct PairedPc {
     /// Its games, kept so they show (and wake the PC) while it sleeps.
     #[serde(default)]
     pub games: Vec<PcGame>,
+    /// Games (ids on the PC) played with the controller as keyboard and mouse.
+    #[serde(default)]
+    pub keyboard: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default, PartialEq)]

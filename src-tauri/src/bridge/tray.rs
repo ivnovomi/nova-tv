@@ -89,6 +89,7 @@ pub fn run() {
     let log = MenuItem::new("Ver registro", true, None);
     let forget = MenuItem::new("Olvidar las teles emparejadas", true, None);
     let start = CheckMenuItem::new("Arrancar con Windows", true, autostart(), None);
+    let keyboard = CheckMenuItem::new("Mando como teclado y ratón", true, super::input::active(), None);
     let quit = MenuItem::new("Salir", true, None);
     let _ = menu.append_items(&[
         &title,
@@ -97,6 +98,7 @@ pub fn run() {
         &PredefinedMenuItem::separator(),
         &open,
         &password,
+        &keyboard,
         &log,
         &forget,
         &start,
@@ -137,6 +139,8 @@ pub fn run() {
                     refreshed = Instant::now() - Duration::from_secs(60);
                 } else if event.id == *start.id() {
                     set_autostart(start.is_checked());
+                } else if event.id == *keyboard.id() {
+                    super::input::set(keyboard.is_checked());
                 }
             }
             if refreshed.elapsed() > Duration::from_secs(5) {
@@ -146,6 +150,10 @@ pub fn run() {
                 boxes.set_text(&b);
                 password.set_text(password_label());
                 let _ = tray.set_tooltip(Some(format!("NovaBridge\n{s}\n{b}")));
+            }
+            // NOVA turns it on and off, and it stops by itself after a game.
+            if keyboard.is_checked() != super::input::active() {
+                keyboard.set_checked(super::input::active());
             }
         }
     }

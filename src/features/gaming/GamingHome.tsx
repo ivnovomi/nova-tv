@@ -272,9 +272,40 @@ function GameInfo({ game, meta, stats, favorite, onPlay, onFavorite, onRemove, o
             )}
           </div>
           {onRemove && <p className="mt-3 text-[0.85rem] text-ink-3">Solo quita el acceso de NOVA; el juego sigue instalado.</p>}
+          {game.source === "pc" && <KeyboardMode game={game} />}
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** A PC's game without controller support: NovaBridge turns the controller into keyboard and mouse. */
+function KeyboardMode({ game }: { game: Shortcut }) {
+  const toast = useToast();
+  const [on, setOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    api.pcKeyboardGames().then((ids) => setOn(ids.includes(game.id)), () => setOn(false));
+  }, [game.id]);
+  const toggle = () => {
+    const next = !on;
+    setOn(next);
+    api.pcGameKeyboard(game.id, next).catch((e: Error) => {
+      setOn(!next);
+      toast.show("error", "No se pudo cambiar", e.message);
+    });
+  };
+  if (on === null) return null;
+  return (
+    <div className="mt-5 flex items-center gap-4 rounded-xl bg-white/6 px-4 py-3">
+      <Keyboard className="size-6 shrink-0 text-ink-2" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[1.05rem] font-semibold">Mando como teclado y ratón</span>
+        <span className="block text-[0.9rem] text-ink-3">Para juegos que no admiten mando: joystick izquierdo WASD, derecho el ratón, gatillos los clics.</span>
+      </span>
+      <button data-nav role="switch" aria-checked={on} onClick={toggle} className={`focus-lift btn shrink-0 ${on ? "btn-primary" : "btn-ghost"}`}>
+        {on ? "Activado" : "Desactivado"}
+      </button>
+    </div>
   );
 }
 

@@ -108,14 +108,21 @@ Section "NOVA Host"
     InitPluginsDir
     SetOutPath "$PLUGINSDIR"
     File "/oname=vigembus-setup.exe" "${VIGEM}"
-    ExecWait '"$PLUGINSDIR\vigembus-setup.exe" /exenoui /qn /norestart' $0
+    ExecWait '"$PLUGINSDIR\vigembus-setup.exe" /exenoui /exelog "$INSTDIR\vigembus-install.log" /qn /norestart' $0
     SetOutPath "$INSTDIR"
+    ; Its exit code has said "fine" without a driver: what counts is the service.
+    nsExec::Exec 'sc query ViGEmBus'
+    Pop $1
+    ${If} $1 != 0
+    ${AndIf} $0 != 3010
+      StrCpy $0 "$0, sin driver"
+    ${EndIf}
     ${If} $0 == 3010
       DetailPrint "Driver de mandos instalado (Windows pide reiniciar para terminar)"
       SetRebootFlag true
     ${ElseIf} $0 != 0
       DetailPrint "El driver de mandos no se pudo instalar (código $0)"
-      MessageBox MB_ICONEXCLAMATION "El driver de mandos (ViGEmBus) no se pudo instalar (código $0). Podrás jugar, pero el mando de la tele no llegará a los juegos."
+      MessageBox MB_ICONEXCLAMATION "El driver de mandos (ViGEmBus) no se pudo instalar (código $0). Podrás jugar, pero el mando de la tele no llegará a los juegos.$\r$\n$\r$\nEl motivo está en $INSTDIR\vigembus-install.log."
     ${Else}
       DetailPrint "Driver de mandos instalado"
       ; A Sunshine already running looks for the driver only when it starts.
@@ -164,6 +171,7 @@ Section "Uninstall"
   ExecWait '"$INSTDIR\NovaBridge.exe" --uninstall'
   Delete "$INSTDIR\NovaBridge.exe"
   Delete "$INSTDIR\LICENCIAS.txt"
+  Delete "$INSTDIR\vigembus-install.log"
   Delete "$INSTDIR\Desinstalar.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\NovaBridge.lnk"

@@ -8,7 +8,7 @@
 //!    one wakes the PC if it sleeps, has NovaBridge start the game and opens
 //!    Moonlight on Sunshine's desktop; closing Moonlight comes back to NOVA.
 
-use crate::bridge::proto::{self, Info, LaunchRequest, PairReply, PairRequest, PinRequest};
+use crate::bridge::proto::{self, Info, InputRequest, LaunchRequest, PairReply, PairRequest, PinRequest};
 use crate::config::{Config, PairedPc, PcGame, Shortcut, ShortcutKind, ShortcutSource, Target};
 use crate::AppState;
 use serde::{de::DeserializeOwned, Serialize};
@@ -436,6 +436,15 @@ pub async fn play(app: &AppHandle, shortcut: &str, pc_id: &str, game: &str, name
     .await
     .map_err(|e| e.to_string())??;
     log(&format!("{name} arrancado en {}; abro Moonlight", pc.name));
+    // Games without controller support: NovaBridge types for the controller
+    // (and stops by itself when the stream ends). Not essential: never blocks playing.
+    let keyboard = pc.keyboard.iter().any(|g| g == game);
+    let (input_host, token) = (host.clone(), pc.token.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = post::<serde_json::Value>(&input_host, "/input", Some(&token), &InputRequest { keyboard }, QUICK) {
+            log(&format!("NovaBridge no pudo cambiar el mando: {e}"));
+        }
+    });
 
     crate::session::end_blocking(app).await;
     let child = Command::new(&exe)
@@ -538,11 +547,12 @@ pub async fn pc_pair(host: String, app: AppHandle, state: State<'_, AppState>) -
     })
     .await
     .map_err(|e| e.to_string())??;
-    let pc = PairedPc { id: info.id.clone(), name: info.name, host, macs: info.macs, token, moonlight: false, games: vec![] };
+    let pc = PairedPc { id: info.id.clone(), name: info.name, host, macs: info.macs, token, ..Default::default() };
     state.config.update(move |c| {
-        let moonlight = c.pcs.iter().find(|p| p.id == pc.id).is_some_and(|p| p.moonlight);
+        // Paired again: keeps Moonlight's pairing and the per-game choices.
+        let (moonlight, keyboard) = c.pcs.iter().find(|p| p.id == pc.id).map(|p| (p.moonlight, p.keyboard.clone())).unwrap_or_default();
         c.pcs.retain(|p| p.id != pc.id);
-        c.pcs.push(PairedPc { moonlight, ..pc });
+        c.pcs.push(PairedPc { moonlight, keyboard, ..pc });
         Ok(())
     })?;
     log(&format!("emparejado con {}", info.id));
@@ -594,6 +604,36 @@ pub async fn pc_link_moonlight(id: String, pin: String, app: AppHandle, state: S
     force_refresh(&app);
     let _ = app.emit("pcs-changed", ());
     Ok(())
+}
+
+/// NOVA's ids (`pc:<pc>:<game>`) of the PC games played with the controller as keyboard and mouse.
+#[tauri::command]
+pub async fn pc_keyboard_games(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    Ok(state
+        .config
+        .snapshot()
+        .pcs
+        .iter()
+        .flat_map(|pc| pc.keyboard.iter().map(move |g| format!("{ID_PREFIX}{}:{g}", pc.id)))
+        .collect())
+}
+
+/// Turns "controller as keyboard and mouse" on or off for one of a PC's games.
+#[tauri::command]
+pub async fn pc_game_keyboard(id: String, on: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let (pc_id, game) = id
+        .strip_prefix(ID_PREFIX)
+        .and_then(|rest| rest.split_once(':'))
+        .map(|(pc, game)| (pc.to_string(), game.to_string()))
+        .ok_or("Ese juego no es de un PC.")?;
+    state.config.update(move |c| {
+        let pc = c.pcs.iter_mut().find(|p| p.id == pc_id).ok_or("Ese PC ya no está emparejado.")?;
+        pc.keyboard.retain(|g| g != &game);
+        if on {
+            pc.keyboard.push(game);
+        }
+        Ok(())
+    })
 }
 
 #[tauri::command]

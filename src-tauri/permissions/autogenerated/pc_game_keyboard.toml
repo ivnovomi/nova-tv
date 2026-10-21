@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pc-game-keyboard"
+description = "Enables the pc_game_keyboard command without any pre-configured scope."
+commands.allow = ["pc_game_keyboard"]
+
+[[permission]]
+identifier = "deny-pc-game-keyboard"
+description = "Denies the pc_game_keyboard command without any pre-configured scope."
+commands.deny = ["pc_game_keyboard"]

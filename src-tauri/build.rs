@@ -43,6 +43,8 @@ fn main() {
             "pc_link_moonlight",
             "pc_forget",
             "pc_install_moonlight",
+            "pc_keyboard_games",
+            "pc_game_keyboard",
             "plugins_stream",
             "plugins_playlist",
             "splash_step",

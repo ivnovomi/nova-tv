@@ -4,7 +4,7 @@
 //!   with its `Info` as JSON.
 //! - HTTP `HTTP_PORT`: `GET /info`, `POST /pair` (the user accepts on the PC),
 //!   then with `Authorization: Bearer <token>`: `GET /games`, `POST /launch`,
-//!   `POST /moonlight-pin`.
+//!   `POST /moonlight-pin`, `POST /input`.
 
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +48,13 @@ pub struct LaunchRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PinRequest {
     pub pin: String,
+}
+
+/// `POST /input`: the controller as keyboard and mouse, for games without
+/// controller support (it turns itself off when the stream ends).
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InputRequest {
+    pub keyboard: bool,
 }
 
 /// A Moonlight pairing PIN: exactly four digits.
